@@ -1,0 +1,105 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\DocumentVerification;
+use App\Services\DocumentService;
+use Illuminate\Http\Request;
+
+class VerifikasiController extends Controller
+{
+    protected DocumentService $documentService;
+
+    public function __construct(DocumentService $documentService)
+    {
+        $this->documentService = $documentService;
+    }
+
+    public function index()
+    {
+        $user = auth()->user();
+
+        // Ambil antrian untuk user ini atau pejabat yang di-delegasikan (Plt/Plh)
+        $pejabatIds = [$user->id];
+        if ($user->activeDelegation()) {
+            $pejabatIds[] = $user->activeDelegation()->pejabat_id;
+        }
+
+        $antrianQuery = DocumentVerification::whereIn('verifikator_id', $pejabatIds)
+            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+            ->with(['document.documentType', 'document.pengusul', 'document.unit']);
+
+        // Jika super_admin atau pengelola, bisa lihat semua antrian
+        if ($user->hasRole('super_admin')) {
+            $antrianQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
+                ->with(['document.documentType', 'document.pengusul', 'document.unit']);
+        }
+
+        $antrian = $antrianQuery->latest()->paginate(10);
+
+        $riwayat = DocumentVerification::whereIn('verifikator_id', $pejabatIds)
+            ->where('status', '!=', DocumentVerification::STATUS_MENUNGGU)
+            ->with(['document.documentType', 'document.pengusul'])
+            ->latest()
+            ->paginate(10, ['*'], 'riwayat_page');
+
+        return view('verifikasi.index', compact('antrian', 'riwayat'));
+    }
+
+    public function show(DocumentVerification $verification)
+    {
+        $this->checkAccess($verification);
+
+        $verification->load([
+            'document.documentType', 'document.unit', 'document.pengusul',
+            'document.versions.uploader', 'document.verifications.verifikator'
+        ]);
+
+        return view('verifikasi.show', compact('verification'));
+    }
+
+    public function setujui(Request $request, DocumentVerification $verification)
+    {
+        $this->checkAccess($verification);
+
+        $request->validate([
+            'catatan' => 'nullable|string|max:1000',
+        ]);
+
+        $this->documentService->setujui($verification, $request->catatan);
+
+        return redirect()->route('verifikasi.index')->with('success', 'Dokumen berhasil disetujui.');
+    }
+
+    public function mintaRevisi(Request $request, DocumentVerification $verification)
+    {
+        $this->checkAccess($verification);
+
+        $request->validate([
+            'catatan' => 'required|string|max:1000',
+        ]);
+
+        $this->documentService->mintaRevisi($verification, $request->catatan);
+
+        return redirect()->route('verifikasi.index')->with('success', 'Catatan revisi berhasil dikirim ke pengusul.');
+    }
+
+    /**
+     * Cek hak akses verifikasi (pemilik antrian, Plt/Plh, super_admin, atau role verifikator)
+     */
+    private function checkAccess(DocumentVerification $verification): void
+    {
+        $user = auth()->user();
+
+        $isDirectVerifikator = $verification->verifikator_id === $user->id;
+        $isSuperAdmin        = $user->hasRole('super_admin');
+        $hasPermission       = $user->hasPermissionTo('dokumen.verifikasi');
+        $isDelegate          = $user->activeDelegation() && $user->activeDelegation()->pejabat_id === $verification->verifikator_id;
+
+        abort_unless(
+            $isDirectVerifikator || $isSuperAdmin || $hasPermission || $isDelegate,
+            403,
+            'Anda tidak memiliki wewenang untuk memverifikasi dokumen ini.'
+        );
+    }
+}
