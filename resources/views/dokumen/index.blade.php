@@ -82,7 +82,7 @@
                                 {{ $doc->judul }}
                             </a>
                             @if($doc->nomor_surat)
-                                <div style="font-size:0.75rem; color:var(--brand-400); font-family:monospace; margin-top:2px">
+                                <div style="font-size:0.75rem; color:var(--brand-700); font-family:monospace; margin-top:2px">
                                     {{ $doc->nomor_surat }}
                                 </div>
                             @endif
@@ -100,9 +100,9 @@
                                 <a href="{{ route('dokumen.show', $doc) }}" class="btn btn-secondary btn-sm">
                                     Detail
                                 </a>
-                                @if($doc->currentVersion)
-                                    <a href="{{ route('dokumen.download', [$doc, $doc->currentVersion->id]) }}" class="btn btn-secondary btn-sm btn-icon" title="Unduh File">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                @if($doc->currentVersion && in_array($doc->status, [\App\Models\Document::STATUS_DITANDATANGANI, \App\Models\Document::STATUS_DIPUBLIKASIKAN, \App\Models\Document::STATUS_DIARSIPKAN]))
+                                    <a href="{{ route('dokumen.download-pdf', $doc) }}" class="btn btn-secondary btn-sm btn-icon" title="Unduh PDF Resmi">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
                                     </a>
                                 @endif
                             </div>

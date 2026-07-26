@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+use App\Models\Traits\FixesSqlServerDates;
+
 class DocumentSignature extends Model
 {
-    use HasFactory;
+    use HasFactory, FixesSqlServerDates;
 
     protected $fillable = [
         'document_id', 'document_version_id', 'penandatangan_id',

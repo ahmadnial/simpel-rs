@@ -105,9 +105,9 @@
         <div style="display:flex; flex-direction:column; gap: var(--space-3)">
             @foreach($antrianVerifikasi as $verif)
             <a href="{{ route('verifikasi.show', $verif) }}" style="display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3); background: var(--bg-elevated); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); transition: all var(--transition-fast); text-decoration:none"
-               onmouseover="this.style.borderColor='var(--border-default)'; this.style.background='var(--bg-glass-hover)'"
+               onmouseover="this.style.borderColor='var(--border-default)'; this.style.background='var(--bg-hover)'"
                onmouseout="this.style.borderColor='var(--border-subtle)'; this.style.background='var(--bg-elevated)'">
-                <div style="width:40px;height:40px;background:rgba(99,102,241,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--brand-400);font-weight:700;font-size:0.75rem">
+                <div style="width:40px;height:40px;background:rgba(99,102,241,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--brand-600);font-weight:700;font-size:0.75rem">
                     {{ $verif->document->documentType->singkatan }}
                 </div>
                 <div style="flex:1;min-width:0">
@@ -158,9 +158,9 @@
         <div style="display:flex; flex-direction:column; gap: var(--space-3)">
             @foreach($dokumenSaya as $doc)
             <a href="{{ route('dokumen.show', $doc) }}" style="display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3); background: var(--bg-elevated); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); transition: all var(--transition-fast); text-decoration:none"
-               onmouseover="this.style.borderColor='var(--border-default)'; this.style.background='var(--bg-glass-hover)'"
+               onmouseover="this.style.borderColor='var(--border-default)'; this.style.background='var(--bg-hover)'"
                onmouseout="this.style.borderColor='var(--border-subtle)'; this.style.background='var(--bg-elevated)'">
-                <div style="width:40px;height:40px;background:rgba(99,102,241,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--brand-400);font-weight:700;font-size:0.75rem">
+                <div style="width:40px;height:40px;background:rgba(99,102,241,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--brand-600);font-weight:700;font-size:0.75rem">
                     {{ $doc->documentType->singkatan }}
                 </div>
                 <div style="flex:1;min-width:0">

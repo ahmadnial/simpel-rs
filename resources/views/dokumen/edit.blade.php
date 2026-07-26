@@ -19,9 +19,10 @@
         <h1 class="page-title">Penyunting Naskah Dinas (Web Editor)</h1>
         <p class="page-subtitle">Sunting teks naskah dinas langsung di browser tanpa perlu unduh-unggah ulang file</p>
     </div>
-    <div style="display:flex; gap:10px">
+    <div style="display:flex; gap:10px; align-items:center">
+        <span id="editor-status" style="font-size:0.78rem; color:var(--text-muted)"></span>
         <a href="{{ route('dokumen.show', $document) }}" class="btn btn-secondary">Batal</a>
-        <button type="button" class="btn btn-primary" onclick="simpanEditorContent()">
+        <button type="button" class="btn btn-primary" id="btn-simpan" onclick="simpanEditorContent()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Simpan & Buat Versi Baru
         </button>
@@ -55,14 +56,15 @@
         @csrf
         <input type="hidden" name="content" id="editor-content-input">
         
-        <div style="padding: 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-default)">
+        <div style="padding: 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle)">
             <input type="text" name="catatan" class="form-control" placeholder="Catatan perubahan (mis: Memperbaiki penulisan pasal 2)" value="Sunting naskah via Editor Web SIMPEL-RS">
         </div>
 
         {{-- Paper Editor Canvas --}}
         <div class="docx-paper-wrapper" style="min-height:700px; padding:30px">
             <div id="web-editor-canvas" class="editor-paper" contenteditable="true" spellcheck="false">
-                <div style="text-align:center; padding:3rem; color:#888">
+                <div style="text-align:center; padding:3rem; color:var(--text-muted)">
+                    <div style="font-size:1.5rem; margin-bottom:0.5rem; animation: pulse-soft 1.5s infinite">📄</div>
                     Memuat naskah dinas ke dalam editor...
                 </div>
             </div>
@@ -72,12 +74,29 @@
 </div>
 
 <script>
+    let editorReady = false;
+
     function execCmd(command, value = null) {
         document.execCommand(command, false, value);
     }
 
     function simpanEditorContent() {
-        const html = document.getElementById('web-editor-canvas').innerHTML;
+        const editor = document.getElementById('web-editor-canvas');
+        const html = editor.innerHTML;
+        const btn = document.getElementById('btn-simpan');
+        const status = document.getElementById('editor-status');
+
+        // Validasi konten tidak kosong
+        if (!html || html.trim() === '' || editor.textContent.trim() === '') {
+            alert('Konten naskah tidak boleh kosong. Silakan tulis isi naskah terlebih dahulu.');
+            return;
+        }
+
+        // Disable tombol untuk mencegah double submit
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> Menyimpan...';
+        if (status) status.textContent = 'Sedang menyimpan versi baru...';
+
         document.getElementById('editor-content-input').value = html;
         document.getElementById('form-update-editor').submit();
     }
@@ -85,11 +104,17 @@
     document.addEventListener("DOMContentLoaded", function () {
         const previewUrl = "{{ route('dokumen.preview', [$document, $document->currentVersion?->id]) }}";
         const editor = document.getElementById("web-editor-canvas");
+        const status = document.getElementById("editor-status");
+
+        if (status) status.textContent = 'Memuat dokumen...';
 
         fetch(previewUrl)
-            .then(res => res.blob())
+            .then(res => {
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return res.blob();
+            })
             .then(blob => {
-                if (typeof docx !== 'undefined') {
+                if (typeof docx !== 'undefined' && blob.size > 0) {
                     // Render docx into editable HTML
                     const temp = document.createElement("div");
                     docx.renderAsync(blob, temp, null, {
@@ -98,20 +123,42 @@
                         breakPages: false
                     }).then(() => {
                         editor.innerHTML = temp.innerHTML;
+                        editorReady = true;
+                        if (status) status.textContent = 'Dokumen berhasil dimuat ✓';
+                        setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+                    }).catch(err => {
+                        console.warn("docx.js render error, using fallback:", err);
+                        loadFallbackContent();
                     });
+                } else {
+                    loadFallbackContent();
                 }
             })
             .catch(err => {
-                editor.innerHTML = `
-                    <div style="text-align:center; font-family:serif">
-                        <h2 style="text-align:center">{{ mb_strtoupper($document->judul) }}</h2>
-                        <p style="text-align:center">Nomor: {{ $document->nomor_surat ?? '[Nomor Surat Auto]' }}</p>
-                        <hr style="margin:20px 0">
-                        <p>Ketikkan isi naskah dinas di sini...</p>
-                    </div>
-                `;
+                console.warn("Fetch error, using fallback:", err);
+                loadFallbackContent();
             });
+
+        function loadFallbackContent() {
+            editor.innerHTML = `
+                <div style="text-align:center; font-family:serif">
+                    <h2 style="text-align:center; margin-bottom:10px">{{ mb_strtoupper($document->judul) }}</h2>
+                    <p style="text-align:center; color:var(--text-muted)">Nomor: {{ $document->nomor_surat ?? '[Nomor Surat Auto-Generate]' }}</p>
+                    <hr style="margin:20px 0; border:none; border-top:1px solid var(--border-default)">
+                    <p style="color:var(--text-muted); font-style:italic">Dokumen tidak dapat dimuat dari server. Silakan ketik isi naskah dinas di sini, atau unggah ulang file .docx melalui halaman detail dokumen.</p>
+                </div>
+            `;
+            editorReady = true;
+            if (status) status.textContent = 'Mode penulisan manual';
+        }
     });
 </script>
+
+<style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
 
 @endsection

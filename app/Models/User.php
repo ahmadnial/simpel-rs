@@ -7,9 +7,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
+use App\Models\Traits\FixesSqlServerDates;
+
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, FixesSqlServerDates;
 
     protected $fillable = [
         'name', 'nip', 'email', 'phone', 'jabatan',

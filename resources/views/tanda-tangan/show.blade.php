@@ -87,9 +87,6 @@
                 <div style="padding: 1rem; background: var(--bg-elevated); border-radius: var(--radius-md); font-size:0.875rem">
                     <div style="font-weight:600">{{ $document->currentVersion->file_name }}</div>
                     <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px">Ukuran: {{ $document->currentVersion->file_size_human }}</div>
-                    <a href="{{ route('dokumen.download', [$document, $document->currentVersion->id]) }}" class="btn btn-secondary btn-sm" style="margin-top:8px; width:100%">
-                        Download untuk Pratinjau
-                    </a>
                 </div>
             @endif
         </div>
@@ -120,30 +117,6 @@
             btn.disabled = false;
         });
     }
-
-    document.addEventListener("DOMContentLoaded", function () {
-        const previewUrl = "{{ route('dokumen.preview', [$document, $document->currentVersion?->id]) }}";
-        const container  = document.getElementById("docx-preview-container");
-
-        fetch(previewUrl)
-            .then(res => {
-                if (!res.ok) throw new Error("Gagal mengambil berkas.");
-                return res.blob();
-            })
-            .then(blob => {
-                if (typeof docx !== 'undefined') {
-                    container.innerHTML = "";
-                    docx.renderAsync(blob, container, null, {
-                        inWrapper: false,
-                        ignoreWidth: true,
-                        breakPages: true
-                    });
-                }
-            })
-            .catch(err => {
-                container.innerHTML = '<div style="color:#ef4444; padding:2rem; text-align:center">Gagal memuat pratinjau dokumen.</div>';
-            });
-    });
 </script>
 
 @endsection

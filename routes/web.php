@@ -46,9 +46,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{document}/edit', [DocumentController::class, 'edit'])->name('edit');
         Route::post('/{document}/edit', [DocumentController::class, 'updateEditor'])->name('update-editor');
         Route::get('/{document}/preview/{version?}', [DocumentController::class, 'preview'])->name('preview');
+        Route::get('/{document}/preview-pdf/{version?}', [DocumentController::class, 'previewPdf'])->name('preview-pdf');
         Route::post('/{document}/upload-versi', [DocumentController::class, 'uploadVersi'])->name('upload-versi');
         Route::post('/{document}/ajukan', [DocumentController::class, 'ajukan'])->name('ajukan');
         Route::get('/{document}/download/{version}', [DocumentController::class, 'download'])->name('download');
+        Route::get('/{document}/download-pdf/{version?}', [DocumentController::class, 'downloadPdf'])->name('download-pdf');
     });
 
     // Verifikasi

@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+use App\Models\Traits\FixesSqlServerDates;
+
 class DocumentVerification extends Model
 {
-    use HasFactory;
+    use HasFactory, FixesSqlServerDates;
 
     const STATUS_MENUNGGU  = 'menunggu';
     const STATUS_DISETUJUI = 'disetujui';

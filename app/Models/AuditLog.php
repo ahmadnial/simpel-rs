@@ -4,8 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Models\Traits\FixesSqlServerDates;
+
 class AuditLog extends Model
 {
+    use FixesSqlServerDates;
+
     const UPDATED_AT = null; // Immutable — hanya created_at
 
     protected $fillable = [

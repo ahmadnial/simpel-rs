@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+use App\Models\Traits\FixesSqlServerDates;
+
 class Delegation extends Model
 {
-    use HasFactory;
+    use HasFactory, FixesSqlServerDates;
 
     protected $fillable = [
         'pejabat_id', 'delegasi_id', 'tipe', 'alasan',

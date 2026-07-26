@@ -28,18 +28,22 @@
     </div>
 
     <div style="display:flex; gap: var(--space-2)">
-        @if($document->currentVersion)
-            <a href="{{ route('dokumen.download', [$document, $document->currentVersion->id]) }}" class="btn btn-secondary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Unduh {{ $document->currentVersion->file_name }}
+        @if($document->currentVersion && in_array($document->status, [\App\Models\Document::STATUS_DITANDATANGANI, \App\Models\Document::STATUS_DIPUBLIKASIKAN, \App\Models\Document::STATUS_DIARSIPKAN]))
+            <a href="{{ route('dokumen.download-pdf', $document) }}" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+                Unduh PDF Resmi (TTE)
             </a>
         @endif
 
-        @if($document->isDraft() || $document->isRevisi())
-            <a href="{{ route('onlyoffice.editor', $document) }}" class="btn btn-warning" style="background: linear-gradient(135deg, #f59e0b, #d97706); color:white">
+        @if($document->isDraft() || $document->isRevisi() || $document->status === 'dikembalikan')
+            <a href="{{ route('onlyoffice.editor', $document) }}" class="btn btn-warning" title="Buka Editor OnlyOffice">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit Naskah (ONLYOFFICE Docs)
+                Edit Web (OnlyOffice)
             </a>
+            <button class="btn btn-secondary" onclick="document.getElementById('modal-upload-versi').style.display='flex'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Unggah Berkas Perbaikan
+            </button>
             <button class="btn btn-primary" onclick="document.getElementById('modal-ajukan').style.display='flex'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Ajukan ke Verifikator
@@ -86,7 +90,7 @@
                 </div>
                 <div>
                     <div style="color:var(--text-muted); font-size:0.78rem">FORMAT NOMOR TEMPLATE</div>
-                    <div style="font-family:monospace; color:var(--brand-300)">{{ $document->documentType->format_nomor }}</div>
+                    <div style="font-family:monospace; color:var(--brand-700)">{{ $document->documentType->format_nomor }}</div>
                 </div>
                 <div style="grid-column: span 2">
                     <div style="color:var(--text-muted); font-size:0.78rem">KETERANGAN / CATATAN</div>
@@ -146,7 +150,9 @@
                             <td style="font-size:0.8rem; color:var(--text-muted)">{{ $v->catatan ?? '-' }}</td>
                             <td>{{ $v->created_at->format('d/m/Y H:i') }}</td>
                             <td>
-                                <a href="{{ route('dokumen.download', [$document, $v->id]) }}" class="btn btn-secondary btn-sm">Download</a>
+                                @if(in_array($document->status, [\App\Models\Document::STATUS_DITANDATANGANI, \App\Models\Document::STATUS_DIPUBLIKASIKAN, \App\Models\Document::STATUS_DIARSIPKAN]))
+                                    <a href="{{ route('dokumen.download-pdf', [$document, $v->id]) }}" class="btn btn-secondary btn-sm">Download PDF</a>
+                                @endif
                             </td>
                         </tr>
                         @endforeach
@@ -213,7 +219,7 @@
                     <div class="timeline-content">
                         <div class="timeline-title">Ditandatangani Elektronik</div>
                         <div class="timeline-meta">oleh {{ $document->signature->penandatangan->name }}</div>
-                        <div class="timeline-meta" style="font-family:monospace; font-size:0.75rem; color:var(--brand-300); margin-top:2px">
+                        <div class="timeline-meta" style="font-family:monospace; font-size:0.75rem; color:var(--brand-700); margin-top:2px">
                             Hash: {{ Str::limit($document->signature->hash_dokumen, 20) }}
                         </div>
                     </div>
@@ -275,32 +281,34 @@
     </div>
 </div>
 
+{{-- Modal Upload Versi Perbaikan --}}
+<div class="modal-overlay" id="modal-upload-versi" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Unggah Berkas Naskah Perbaikan</div>
+            <button type="button" class="btn btn-secondary btn-icon" onclick="document.getElementById('modal-upload-versi').style.display='none'">&times;</button>
+        </div>
+        <form method="POST" action="{{ route('dokumen.upload-versi', $document) }}" enctype="multipart/form-data">
+            @csrf
+            <div class="modal-body">
+                <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:1rem">
+                    Unggah file perbaikan naskah dinas dalam format <code>.docx</code> yang telah disunting.
+                </p>
+                <div class="form-group" style="margin-bottom:1rem">
+                    <label for="file_dokumen" class="form-label">Berkas Naskah Baru (.docx)</label>
+                    <input type="file" name="file_dokumen" id="file_dokumen" class="form-control" accept=".docx,.doc" required>
+                </div>
+                <div class="form-group">
+                    <label for="catatan_revisi" class="form-label">Catatan Perbaikan</label>
+                    <textarea name="catatan" id="catatan_revisi" class="form-control" rows="3" placeholder="Contoh: Perbaikan tata bahasa dan perbaikan tabel perihal..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-upload-versi').style.display='none'">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Versi Baru</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
-@push('scripts')
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const previewUrl = "{{ route('dokumen.preview', [$document, $document->currentVersion?->id]) }}";
-        const container  = document.getElementById("docx-preview-container");
-
-        fetch(previewUrl)
-            .then(res => {
-                if (!res.ok) throw new Error("Gagal mengambil berkas.");
-                return res.blob();
-            })
-            .then(blob => {
-                if (typeof docx !== 'undefined') {
-                    container.innerHTML = "";
-                    docx.renderAsync(blob, container, null, {
-                        inWrapper: false,
-                        ignoreWidth: true,
-                        breakPages: true
-                    });
-                }
-            })
-            .catch(err => {
-                container.innerHTML = '<div style="color:#ef4444; padding:2rem; text-align:center">Gagal memuat pratinjau dokumen.</div>';
-            });
-    });
-</script>
-@endpush
