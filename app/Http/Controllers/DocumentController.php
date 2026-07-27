@@ -449,9 +449,11 @@ class DocumentController extends Controller
 
         if ($sofficeBin) {
             $tempDir = storage_path('app/private/temp_pdf_' . uniqid());
-            @mkdir($tempDir, 0755, true);
+            $profileDir = storage_path('app/private/soffice_prof_' . uniqid());
+            @mkdir($tempDir, 0777, true);
+            @mkdir($profileDir, 0777, true);
 
-            $cmd = escapeshellcmd($sofficeBin) . ' --headless --convert-to pdf --outdir ' . escapeshellarg($tempDir) . ' ' . escapeshellarg($docxPath) . ' 2>&1';
+            $cmd = escapeshellcmd($sofficeBin) . ' "-env:UserInstallation=file://' . $profileDir . '" --headless --convert-to pdf --outdir ' . escapeshellarg($tempDir) . ' ' . escapeshellarg($docxPath) . ' 2>&1';
             exec($cmd);
 
             $generatedPdf = $tempDir . '/' . pathinfo($docxPath, PATHINFO_FILENAME) . '.pdf';
@@ -459,9 +461,11 @@ class DocumentController extends Controller
                 @copy($generatedPdf, $pdfPath);
                 @unlink($generatedPdf);
                 @rmdir($tempDir);
+                @rmdir($profileDir);
                 return $pdfPath;
             }
             @rmdir($tempDir);
+            @rmdir($profileDir);
         }
 
         // Fallback: Menggunakan DomPDF via DocxParserService
