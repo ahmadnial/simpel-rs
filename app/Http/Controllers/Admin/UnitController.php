@@ -5,61 +5,79 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+use App\Models\Unit;
+
 class UnitController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $query = Unit::with('parent');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('kode', 'like', "%{$search}%")
+                  ->orWhere('singkatan', 'like', "%{$search}%");
+            });
+        }
+
+        $units = $query->orderBy('urutan')->orderBy('nama')->paginate(15)->withQueryString();
+        $parentUnits = Unit::whereNull('parent_id')->orderBy('nama')->get();
+
+        return view('admin.units.index', compact('units', 'parentUnits'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'kode' => 'required|string|max:20|unique:units,kode',
+            'nama' => 'required|string|max:255',
+            'singkatan' => 'nullable|string|max:50',
+            'parent_id' => 'nullable|exists:units,id',
+            'urutan' => 'nullable|integer',
+            'is_active' => 'boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active');
+        $validated['urutan'] = $request->urutan ?? 0;
+
+        Unit::create($validated);
+
+        return redirect()->route('admin.units.index')->with('success', 'Unit Kerja / Instalasi berhasil ditambahkan.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function update(Request $request, Unit $unit)
     {
-        //
+        $validated = $request->validate([
+            'kode' => 'required|string|max:20|unique:units,kode,' . $unit->id,
+            'nama' => 'required|string|max:255',
+            'singkatan' => 'nullable|string|max:50',
+            'parent_id' => 'nullable|exists:units,id',
+            'urutan' => 'nullable|integer',
+            'is_active' => 'boolean',
+        ]);
+
+        $validated['is_active'] = $request->has('is_active');
+        $validated['urutan'] = $request->urutan ?? 0;
+
+        $unit->update($validated);
+
+        return redirect()->route('admin.units.index')->with('success', 'Unit Kerja / Instalasi berhasil diperbarui.');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function destroy(Unit $unit)
     {
-        //
-    }
+        if ($unit->children()->count() > 0) {
+            return back()->with('error', 'Unit Kerja tidak dapat dihapus karena memiliki sub-unit.');
+        }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+        if ($unit->users()->count() > 0) {
+            return back()->with('error', 'Unit Kerja tidak dapat dihapus karena masih memiliki pengguna terdaftar.');
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $unit->delete();
+
+        return redirect()->route('admin.units.index')->with('success', 'Unit Kerja berhasil dihapus.');
     }
 }

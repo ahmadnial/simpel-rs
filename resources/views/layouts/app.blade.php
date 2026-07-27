@@ -137,12 +137,24 @@
 
             @role('super_admin|admin_unit')
             <div class="nav-section-label">Administrasi</div>
-            <a href="{{ route('admin.index') }}" class="nav-item {{ request()->routeIs('admin.*') ? 'active' : '' }}">
+            <a href="{{ route('admin.index') }}" class="nav-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
                 </svg>
-                Panel Admin
+                Dashboard Admin
+            </a>
+            <a href="{{ route('admin.units.index') }}" class="nav-item {{ request()->routeIs('admin.units.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
+                🏢 Master Unit Kerja
+            </a>
+            <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
+                👤 Master Pengguna
+            </a>
+            <a href="{{ route('admin.jenis-naskah.index') }}" class="nav-item {{ request()->routeIs('admin.jenis-naskah.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
+                📋 Klasifikasi Naskah
+            </a>
+            <a href="{{ route('admin.workflows.index') }}" class="nav-item {{ request()->routeIs('admin.workflows.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
+                ⚙️ Template Workflow
             </a>
             @endrole
 

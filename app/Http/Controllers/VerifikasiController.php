@@ -15,7 +15,7 @@ class VerifikasiController extends Controller
         $this->documentService = $documentService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
@@ -25,25 +25,52 @@ class VerifikasiController extends Controller
             $pejabatIds[] = $user->activeDelegation()->pejabat_id;
         }
 
-        $antrianQuery = DocumentVerification::whereIn('verifikator_id', $pejabatIds)
-            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+        $antrianQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
             ->with(['document.documentType', 'document.pengusul', 'document.unit']);
 
-        // Jika super_admin atau pengelola, bisa lihat semua antrian
-        if ($user->hasRole('super_admin')) {
-            $antrianQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->with(['document.documentType', 'document.pengusul', 'document.unit']);
+        if (!$user->hasRole('super_admin')) {
+            $antrianQuery->whereIn('verifikator_id', $pejabatIds);
         }
 
-        $antrian = $antrianQuery->latest()->paginate(10);
+        // Filter Jenis Naskah / Klasifikasi Dokumen
+        if ($request->filled('document_type_id')) {
+            $antrianQuery->whereHas('document', function ($q) use ($request) {
+                $q->where('document_type_id', $request->document_type_id);
+            });
+        }
 
-        $riwayat = DocumentVerification::whereIn('verifikator_id', $pejabatIds)
+        // Filter Unit Kerja / Instalasi
+        if ($request->filled('unit_id')) {
+            $antrianQuery->whereHas('document', function ($q) use ($request) {
+                $q->where('unit_id', $request->unit_id);
+            });
+        }
+
+        // Filter Search Keyword
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $antrianQuery->whereHas('document', function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('nomor_surat', 'like', "%{$search}%")
+                  ->orWhereHas('pengusul', function ($pu) use ($search) {
+                      $pu->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $antrian = $antrianQuery->latest()->paginate(10)->withQueryString();
+
+        // Data Master untuk Filter Dropdown
+        $documentTypes = \App\Models\DocumentType::orderBy('nama')->get();
+        $units = \App\Models\Unit::orderBy('nama')->get();
+
+        $riwayatQuery = DocumentVerification::whereIn('verifikator_id', $pejabatIds)
             ->where('status', '!=', DocumentVerification::STATUS_MENUNGGU)
-            ->with(['document.documentType', 'document.pengusul'])
-            ->latest()
-            ->paginate(10, ['*'], 'riwayat_page');
+            ->with(['document.documentType', 'document.pengusul', 'document.unit']);
 
-        return view('verifikasi.index', compact('antrian', 'riwayat'));
+        $riwayat = $riwayatQuery->latest()->paginate(10, ['*'], 'riwayat_page')->withQueryString();
+
+        return view('verifikasi.index', compact('antrian', 'riwayat', 'documentTypes', 'units'));
     }
 
     public function show(DocumentVerification $verification)

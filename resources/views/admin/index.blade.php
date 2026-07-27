@@ -15,34 +15,34 @@
 </div>
 
 <div class="stats-grid">
-    <div class="stat-card stat-card-blue">
+    <a href="{{ route('admin.users.index') }}" class="stat-card stat-card-blue" style="text-decoration:none;">
         <div class="stat-icon">👤</div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['total_users'] }}</div>
-            <div class="stat-label">Total Pengguna</div>
+            <div class="stat-label">Kelola Pengguna & Akun &rarr;</div>
         </div>
-    </div>
-    <div class="stat-card stat-card-purple">
+    </a>
+    <a href="{{ route('admin.units.index') }}" class="stat-card stat-card-purple" style="text-decoration:none;">
         <div class="stat-icon">🏢</div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['total_units'] }}</div>
-            <div class="stat-label">Unit Kerja / Bagian</div>
+            <div class="stat-label">Kelola Unit Kerja &rarr;</div>
         </div>
-    </div>
-    <div class="stat-card stat-card-green">
+    </a>
+    <a href="{{ route('admin.jenis-naskah.index') }}" class="stat-card stat-card-green" style="text-decoration:none;">
         <div class="stat-icon">📋</div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['total_types'] }}</div>
-            <div class="stat-label">Jenis Naskah Dinas</div>
+            <div class="stat-label">Kelola Jenis Naskah &rarr;</div>
         </div>
-    </div>
-    <div class="stat-card stat-card-orange">
+    </a>
+    <a href="{{ route('admin.workflows.index') }}" class="stat-card stat-card-orange" style="text-decoration:none;">
         <div class="stat-icon">⚙️</div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['total_workflows'] }}</div>
-            <div class="stat-label">Workflow Templates</div>
+            <div class="stat-label">Kelola Workflow &rarr;</div>
         </div>
-    </div>
+    </a>
 </div>
 
 <div style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">

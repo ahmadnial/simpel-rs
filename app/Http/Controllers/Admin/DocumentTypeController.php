@@ -5,61 +5,84 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+use App\Models\DocumentType;
+
 class DocumentTypeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $query = DocumentType::query();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('kode', 'like', "%{$search}%")
+                  ->orWhere('singkatan', 'like', "%{$search}%");
+            });
+        }
+
+        $documentTypes = $query->orderBy('urutan')->orderBy('nama')->paginate(15)->withQueryString();
+
+        return view('admin.jenis-naskah.index', compact('documentTypes'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'kode' => 'required|string|max:20|unique:document_types,kode',
+            'nama' => 'required|string|max:255',
+            'singkatan' => 'required|string|max:50',
+            'deskripsi' => 'nullable|string',
+            'format_nomor' => 'required|string|max:255',
+            'level_verifikasi' => 'required|integer|min:1|max:5',
+            'penandatangan_default' => 'nullable|string|max:100',
+            'perlu_tte_tersertifikasi' => 'boolean',
+            'is_active' => 'boolean',
+            'urutan' => 'nullable|integer',
+        ]);
+
+        $validated['perlu_tte_tersertifikasi'] = $request->has('perlu_tte_tersertifikasi');
+        $validated['is_active'] = $request->has('is_active');
+        $validated['urutan'] = $request->urutan ?? 0;
+
+        DocumentType::create($validated);
+
+        return redirect()->route('admin.jenis-naskah.index')->with('success', 'Jenis Naskah / Klasifikasi berhasil ditambahkan.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function update(Request $request, DocumentType $jenisNaskah)
     {
-        //
+        $validated = $request->validate([
+            'kode' => 'required|string|max:20|unique:document_types,kode,' . $jenisNaskah->id,
+            'nama' => 'required|string|max:255',
+            'singkatan' => 'required|string|max:50',
+            'deskripsi' => 'nullable|string',
+            'format_nomor' => 'required|string|max:255',
+            'level_verifikasi' => 'required|integer|min:1|max:5',
+            'penandatangan_default' => 'nullable|string|max:100',
+            'perlu_tte_tersertifikasi' => 'boolean',
+            'is_active' => 'boolean',
+            'urutan' => 'nullable|integer',
+        ]);
+
+        $validated['perlu_tte_tersertifikasi'] = $request->has('perlu_tte_tersertifikasi');
+        $validated['is_active'] = $request->has('is_active');
+        $validated['urutan'] = $request->urutan ?? 0;
+
+        $jenisNaskah->update($validated);
+
+        return redirect()->route('admin.jenis-naskah.index')->with('success', 'Jenis Naskah / Klasifikasi berhasil diperbarui.');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function destroy(DocumentType $jenisNaskah)
     {
-        //
-    }
+        if ($jenisNaskah->documents()->count() > 0) {
+            return back()->with('error', 'Jenis Naskah tidak dapat dihapus karena sudah memiliki dokumen terdaftar.');
+        }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+        $jenisNaskah->delete();
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return redirect()->route('admin.jenis-naskah.index')->with('success', 'Jenis Naskah berhasil dihapus.');
     }
 }

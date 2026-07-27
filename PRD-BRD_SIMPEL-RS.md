@@ -7,7 +7,7 @@
 | **Versi** | 0.1 — Draft awal (modal prompting) |
 | **Tanggal** | 25 Juli 2026 |
 | **Jenis Dokumen** | Product Requirements Document (PRD) + Business Requirements Document (BRD) |
-| **Referensi Konsep** | Terinspirasi dari SRIKANDI (SIKD Kearsipan Nasional ANRI) |
+| **Referensi Konsep** | Tata Kelola Persuratan Elektronik Rumah Sakit |
 | **Status** | Draft — untuk dikembangkan lebih lanjut / dipakai sebagai prompt awal pengembangan |
 
 ---
@@ -42,7 +42,7 @@
 
 ## 1. Ringkasan Eksekutif
 
-SIMPEL-RS adalah aplikasi berbasis web (Laravel + SQL Server) untuk digitalisasi proses **persuratan dan pengesahan dokumen** di lingkungan rumah sakit — meniru pola kerja **SRIKANDI** milik pemerintah, tetapi disesuaikan dengan konteks tata kelola rumah sakit (termasuk kebutuhan akreditasi, kerahasiaan, dan struktur jabatan medis-non medis).
+SIMPEL-RS adalah aplikasi berbasis web (Laravel + SQL Server) untuk digitalisasi proses **persuratan dan pengesahan dokumen** di lingkungan rumah sakit yang disesuaikan dengan konteks tata kelola rumah sakit (termasuk kebutuhan akreditasi, kerahasiaan, dan struktur jabatan medis-non medis).
 
 Alur inti: **Upload (.docx) → Pilih Verifikator → Verifikasi/Revisi (edit langsung via web) → Naik ke Penandatangan → Tanda Tangan Elektronik → Publikasi & Arsip.**
 

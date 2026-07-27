@@ -15,16 +15,42 @@ class TandaTanganController extends Controller
         $this->documentService = $documentService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
-        $antrian = Document::where('status', Document::STATUS_MENUNGGU_TTD)
-            ->with(['documentType', 'unit', 'pengusul', 'currentVersion'])
-            ->latest()
-            ->paginate(10);
+        $antrianQuery = Document::where('status', Document::STATUS_MENUNGGU_TTD)
+            ->with(['documentType', 'unit', 'pengusul', 'currentVersion']);
 
-        return view('tanda-tangan.index', compact('antrian'));
+        // Filter Jenis Naskah / Klasifikasi Dokumen
+        if ($request->filled('document_type_id')) {
+            $antrianQuery->where('document_type_id', $request->document_type_id);
+        }
+
+        // Filter Unit Kerja / Instalasi
+        if ($request->filled('unit_id')) {
+            $antrianQuery->where('unit_id', $request->unit_id);
+        }
+
+        // Filter Search Keyword
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $antrianQuery->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('nomor_surat', 'like', "%{$search}%")
+                  ->orWhereHas('pengusul', function ($pu) use ($search) {
+                      $pu->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $antrian = $antrianQuery->latest()->paginate(10)->withQueryString();
+
+        // Data Master untuk Filter Dropdown
+        $documentTypes = \App\Models\DocumentType::orderBy('nama')->get();
+        $units = \App\Models\Unit::orderBy('nama')->get();
+
+        return view('tanda-tangan.index', compact('antrian', 'documentTypes', 'units'));
     }
 
     public function show(Document $document)

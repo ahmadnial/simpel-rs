@@ -60,6 +60,14 @@
         <span style="font-family:monospace; font-size:1.05rem; font-weight:700; margin-left:8px">{{ $document->nomor_surat }}</span>
     </div>
 </div>
+@else
+<div class="alert alert-warning fade-in" style="margin-bottom: var(--space-6); background: #fffbeb; border: 1px solid #fde68a; color: #b45309; display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div>
+        <strong>Status Dokumen: DRAFT (Belum Ditandatangani TTE)</strong>
+        <div style="font-size: 0.85rem; margin-top: 2px;">Nomor surat resmi akan diterbitkan secara otomatis setelah disetujui & ditandatangani TTE oleh Direktur Utama.</div>
+    </div>
+</div>
 @endif
 
 <div style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">

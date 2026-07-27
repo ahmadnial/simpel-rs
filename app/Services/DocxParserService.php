@@ -153,7 +153,7 @@ class DocxParserService
             ?? \App\Models\User::role('penandatangan')->first()
             ?? $document->pengusul;
 
-        $nomorDraft = ($document->unit?->kode ?? 'RS') . "/" . ($document->documentType?->kode ?? 'DOC') . "/" . ($document->created_at ? $document->created_at->format('Y') : now()->format('Y')) . "/" . str_pad($document->id, 4, '0', STR_PAD_LEFT);
+        $nomorDraft = "[DRAFT - Belum Ditandatangani TTE]";
         
         $nomorSurat = $document->nomor_surat ?? $nomorDraft;
         $tanggalDraft = $document->created_at ? $document->created_at->translatedFormat('d F Y') : now()->translatedFormat('d F Y');
@@ -162,6 +162,36 @@ class DocxParserService
         $waktuTtd = $signature ? $signature->ditandatangani_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : ($document->created_at ? $document->created_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : now()->translatedFormat('d F Y \j\a\m H:i') . ' WIB');
         
         $qrText = $signature ? "[ TTE SAH: " . substr($signature->qr_token, 0, 8) . " ]" : "[ DRAFT ]";
+
+        // Inject Watermark DRAFT diagonal dari pojok ke pojok jika dokumen belum di-TTE Direktur
+        $isDraft = !in_array($document->status, [Document::STATUS_DITANDATANGANI, Document::STATUS_DIPUBLIKASIKAN]);
+        if ($isDraft && !str_contains($xml, 'DraftWatermark')) {
+            $watermarkXml = '<w:p>' .
+                '<w:pPr><w:pStyle w:val="Header"/></w:pPr>' .
+                '<w:r>' .
+                '<w:rPr><w:noProof/></w:rPr>' .
+                '<w:pict>' .
+                '<v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" path="m0@7l@8@4@5@4@6@7@0@15@1@15@2@7@8@11@5@11@6@7@0@14@1@14@2@7e">' .
+                '<v:formulas>' .
+                '<v:f eqn="sum #0 0 10800"/><v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 #0"/><v:f eqn="sum 0 0 #0"/><v:f eqn="sum 21600 0 #1"/><v:f eqn="prod #1 1 2"/><v:f eqn="sum 10800 0 @5"/><v:f eqn="sum 10800 0 #0"/>' .
+                '</v:formulas>' .
+                '<v:path textpathok="t" o:connecttype="custom" o:connectlocs="@0,0;@1,10800;@2,21600;@1,21600" o:connectangles="270,180,90,0"/>' .
+                '<v:textpath on="t" fitshape="t"/>' .
+                '</v:shapetype>' .
+                '<v:shape id="DraftWatermark" type="#_x0000_t136" style="position:absolute;margin-left:0;margin-top:0;width:520pt;height:220pt;z-index:-251658240;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin;rotation:315" fillcolor="#dc2626" stroked="f">' .
+                '<v:fill opacity="26214f"/>' .
+                '<v:textpath style="font-family:&quot;Arial&quot;;font-size:72pt;font-weight:bold" string="DRAFT - BELUM TTE"/>' .
+                '</v:shape>' .
+                '</w:pict>' .
+                '</w:r>' .
+                '</w:p>';
+
+            if (str_contains($xml, '<w:body>')) {
+                $xml = str_replace('<w:body>', '<w:body>' . $watermarkXml, $xml);
+            } elseif (str_contains($xml, '<w:hdr')) {
+                $xml = preg_replace('/(<w:hdr[^>]*>)/i', '$1' . $watermarkXml, $xml);
+            }
+        }
         
         $qrXml = $qrText;
         if ($hasQrImage) {
@@ -228,7 +258,7 @@ class DocxParserService
             ?? \App\Models\User::role('penandatangan')->first()
             ?? $document->pengusul;
 
-        $nomorDraft = "DRAFT/" . ($document->unit?->kode ?? 'RS') . "/" . ($document->documentType?->kode ?? 'DOC') . "/" . ($document->created_at ? $document->created_at->format('Y') : now()->format('Y')) . "/" . str_pad($document->id, 4, '0', STR_PAD_LEFT);
+        $nomorDraft = "[DRAFT - Belum Ditandatangani TTE]";
         
         $nomorSurat = $document->nomor_surat ?? $nomorDraft;
         $tanggalDraft = $document->created_at ? $document->created_at->translatedFormat('d F Y') : now()->translatedFormat('d F Y');

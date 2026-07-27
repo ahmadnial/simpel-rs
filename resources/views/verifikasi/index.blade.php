@@ -14,6 +14,43 @@
     <p class="page-subtitle">Daftar naskah dinas yang membutuhkan peninjauan dan persetujuan Anda</p>
 </div>
 
+{{-- Filter Panel --}}
+<div class="card" style="margin-bottom: var(--space-6); padding: var(--space-4); background: #f8fafc; border: 1px solid #e2e8f0;">
+    <form method="GET" action="{{ route('verifikasi.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 180px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Klasifikasi / Jenis Naskah</label>
+            <select name="document_type_id" class="form-control" style="font-size: 0.85rem; padding: 6px 10px;">
+                <option value="">-- Semua Jenis Naskah --</option>
+                @foreach($documentTypes as $dt)
+                    <option value="{{ $dt->id }}" {{ request('document_type_id') == $dt->id ? 'selected' : '' }}>{{ $dt->nama }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 180px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Unit Kerja / Instalasi</label>
+            <select name="unit_id" class="form-control" style="font-size: 0.85rem; padding: 6px 10px;">
+                <option value="">-- Semua Unit Kerja --</option>
+                @foreach($units as $u)
+                    <option value="{{ $u->id }}" {{ request('unit_id') == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div style="flex: 1.5; min-width: 200px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Pencarian Kata Kunci</label>
+            <input type="text" name="search" class="form-control" placeholder="Cari judul, nomor surat, atau pengusul..." value="{{ request('search') }}" style="font-size: 0.85rem; padding: 6px 10px;">
+        </div>
+
+        <div style="display: flex; gap: 6px;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 7px 14px;">Filter</button>
+            @if(request()->hasAny(['document_type_id', 'unit_id', 'search']))
+                <a href="{{ route('verifikasi.index') }}" class="btn btn-secondary" style="font-size: 0.85rem; padding: 7px 14px;">Reset</a>
+            @endif
+        </div>
+    </form>
+</div>
+
 <div class="card" style="margin-bottom: var(--space-8)">
     <div class="card-header">
         <span class="card-title">Menunggu Verifikasi ({{ $antrian->total() }})</span>
@@ -43,6 +80,7 @@
                         <td>
                             <div style="font-weight:600; color:var(--text-primary)">{{ $v->document->judul }}</div>
                             <div style="font-size:0.75rem; color:var(--brand-400)">{{ $v->document->documentType->nama }}</div>
+                            <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">[DRAFT - Belum TTE]</div>
                         </td>
                         <td>
                             <div>{{ $v->document->pengusul->name }}</div>

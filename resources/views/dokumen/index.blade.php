@@ -85,6 +85,10 @@
                                 <div style="font-size:0.75rem; color:var(--brand-700); font-family:monospace; margin-top:2px">
                                     {{ $doc->nomor_surat }}
                                 </div>
+                            @else
+                                <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">
+                                    [DRAFT - Belum TTE]
+                                </div>
                             @endif
                         </td>
                         <td>

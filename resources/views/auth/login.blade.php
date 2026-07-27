@@ -7,303 +7,385 @@
     <meta name="description" content="Login ke Sistem Informasi Manajemen Persuratan Elektronik Rumah Sakit">
     @vite(['resources/css/app.css'])
     <style>
-        body { display: flex; min-height: 100vh; overflow: hidden; }
-
-        .login-left {
-            flex: 1;
-            position: relative;
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            background: #f0f4f8;
+            position: relative;
             overflow: hidden;
+            color: #1e293b;
         }
 
-        .login-bg {
+        /* Vibrant Pastel Vector Background */
+        .vector-bg-layer {
             position: absolute;
             inset: 0;
-            background: linear-gradient(135deg, #0a0b14 0%, #0f1020 40%, #141528 100%);
+            background: 
+                radial-gradient(circle at 10% 15%, rgba(56, 189, 248, 0.25) 0%, transparent 40%),
+                radial-gradient(circle at 90% 85%, rgba(129, 140, 248, 0.25) 0%, transparent 40%),
+                linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 40%, #e0e7ff 100%);
         }
 
-        /* Animated gradient orbs */
-        .orb {
+        /* Floating Vector Illustration Accent */
+        .vector-art-side {
+            position: absolute;
+            right: 4%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 480px;
+            height: 480px;
+            background-image: url('{{ asset("images/login-bg-vector.png") }}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 20px 30px rgba(14, 165, 233, 0.15));
+            pointer-events: none;
+            animation: floatVector 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes floatVector {
+            0% { transform: translateY(-50%) translateY(0px) scale(1); }
+            100% { transform: translateY(-50%) translateY(-15px) scale(1.02); }
+        }
+
+        /* Soft Animated Gradient Orbs */
+        .orb-bubble {
             position: absolute;
             border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.25;
-            animation: float 8s ease-in-out infinite;
+            filter: blur(60px);
+            pointer-events: none;
+            opacity: 0.6;
+            animation: bubblePulse 10s ease-in-out infinite alternate;
+        }
+        .orb-1 { width: 380px; height: 380px; background: #a5b4fc; top: -100px; left: -80px; }
+        .orb-2 { width: 420px; height: 420px; background: #7dd3fc; bottom: -120px; left: 35%; animation-delay: -5s; }
+
+        @keyframes bubblePulse {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.12) translate(20px, -20px); }
         }
 
-        .orb-1 {
-            width: 500px; height: 500px;
-            background: var(--brand-700);
-            top: -100px; left: -100px;
-            animation-delay: 0s;
-        }
-
-        .orb-2 {
-            width: 400px; height: 400px;
-            background: #7c3aed;
-            bottom: -80px; right: -80px;
-            animation-delay: -3s;
-        }
-
-        .orb-3 {
-            width: 300px; height: 300px;
-            background: #1e40af;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            animation-delay: -5s;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-30px) scale(1.05); }
-        }
-
-        .login-left-content {
+        /* Main macOS Glass Sheet Modal */
+        .macos-modal {
             position: relative;
-            z-index: 1;
-            text-align: center;
-            color: white;
+            z-index: 10;
+            width: 100%;
+            max-width: 940px;
+            min-height: 540px;
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(30px) saturate(190%);
+            -webkit-backdrop-filter: blur(30px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            border-radius: 28px;
+            box-shadow: 
+                0 25px 60px rgba(15, 23, 42, 0.12),
+                0 4px 16px rgba(15, 23, 42, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            display: flex;
+            overflow: hidden;
+            animation: macosApperance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        .login-logo {
-            width: 80px; height: 80px;
-            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
-            border-radius: 20px;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 2rem;
-            box-shadow: 0 0 60px rgba(99, 102, 241, 0.5);
+        @keyframes macosApperance {
+            0% { opacity: 0; transform: scale(0.95) translateY(16px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        .login-brand-name {
-            font-family: var(--font-display);
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #fff, #a5b4fc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        /* macOS Window Controls (Traffic Lights) */
+        .window-controls {
+            position: absolute;
+            top: 20px;
+            left: 24px;
+            display: flex;
+            gap: 8px;
+            z-index: 20;
         }
-
-        .login-brand-desc {
-            font-size: 1rem;
-            color: rgba(255,255,255,0.6);
-            max-width: 340px;
-            margin: 0 auto 3rem;
-            line-height: 1.7;
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: inset 0 1px 1px rgba(0,0,0,0.15);
         }
+        .dot-close { background: #ff5f56; border: 0.5px solid #e0443e; }
+        .dot-minimize { background: #ffbd2e; border: 0.5px solid #dea123; }
+        .dot-expand { background: #27c93f; border: 0.5px solid #1aab29; }
 
-        .login-features {
+        /* Left Hero Section with Vector Illustration */
+        .macos-hero {
+            flex: 1.15;
+            padding: 4.5rem 3rem 2.5rem;
             display: flex;
             flex-direction: column;
-            gap: 0.875rem;
-            max-width: 320px;
-            margin: 0 auto;
+            justify-content: space-between;
+            background: linear-gradient(135deg, rgba(240, 249, 255, 0.6) 0%, rgba(224, 231, 255, 0.4) 100%);
+            border-right: 1px solid rgba(226, 232, 240, 0.8);
+            position: relative;
         }
 
-        .login-feature {
-            display: flex;
-            align-items: center;
-            gap: 0.875rem;
-            text-align: left;
-            color: rgba(255,255,255,0.75);
-            font-size: 0.9rem;
+        .hero-top {
+            animation: fadeInChild 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
         }
 
-        .login-feature-icon {
-            width: 36px; height: 36px;
-            background: rgba(99, 102, 241, 0.2);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            color: var(--brand-300);
-        }
-
-        /* Right panel */
-        .login-right {
-            width: 480px;
-            background: var(--bg-surface);
-            border-left: 1px solid var(--border-subtle);
+        .app-icon-badge {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 3rem;
+            box-shadow: 
+                0 10px 22px rgba(2, 132, 199, 0.3),
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            margin-bottom: 1.25rem;
         }
 
-        .login-form-container {
+        .hero-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #0f172a;
+            margin: 0 0 0.4rem;
+        }
+
+        .hero-subtitle {
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: #475569;
+            margin: 0 0 1.75rem;
+            max-width: 330px;
+        }
+
+        /* Vector Illustration Card inside Left Hero */
+        .hero-vector-box {
             width: 100%;
-            max-width: 380px;
+            height: 210px;
+            background-image: url('{{ asset("images/login-bg-vector.png") }}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 18px;
+            transition: transform 0.4s ease;
         }
 
-        .login-form-title {
-            font-family: var(--font-display);
-            font-size: 1.75rem;
+        .hero-vector-box:hover {
+            transform: scale(1.03);
+        }
+
+        .hero-footer {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-top: 1.5rem;
+            animation: fadeInChild 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+        }
+
+        /* Right Form Section */
+        .macos-form-section {
+            flex: 1;
+            padding: 4.5rem 3rem 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.65);
+            animation: fadeInChild 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+        }
+
+        .form-header-title {
+            font-size: 1.7rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+            margin: 0 0 0.3rem;
         }
 
-        .login-form-sub {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
+        .form-header-sub {
+            font-size: 0.88rem;
+            color: #64748b;
+            margin: 0 0 2rem;
         }
 
-        .password-wrapper {
+        /* Material Flat Inputs */
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-wrapper {
             position: relative;
         }
 
-        .password-toggle {
+        .macos-input {
+            width: 100%;
+            padding: 0.82rem 1rem 0.82rem 2.6rem;
+            font-size: 0.92rem;
+            font-family: inherit;
+            color: #0f172a;
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 14px;
+            outline: none;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+            transition: all 0.2s ease;
+        }
+
+        .macos-input:focus {
+            border-color: #2563eb;
+            box-shadow: 
+                0 0 0 3.5px rgba(37, 99, 235, 0.18),
+                0 1px 3px rgba(15, 23, 42, 0.05);
+        }
+
+        .input-icon {
             position: absolute;
-            right: 12px; top: 50%;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+            transition: color 0.2s ease;
+        }
+
+        .macos-input:focus + .input-icon {
+            color: #2563eb;
+        }
+
+        .pw-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--text-muted);
+            color: #94a3b8;
             cursor: pointer;
             padding: 4px;
-            display: flex; align-items: center;
-        }
-
-        .password-toggle:hover { color: var(--text-secondary); }
-
-        .remember-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.5rem;
         }
 
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
+        .pw-toggle:hover { color: #475569; }
 
-        input[type="checkbox"] {
-            width: 16px; height: 16px;
-            accent-color: var(--brand-500);
-            cursor: pointer;
-        }
-
-        .login-btn {
+        /* macOS Material Button */
+        .btn-macos-login {
             width: 100%;
-            padding: 0.875rem;
-            background: linear-gradient(135deg, var(--brand-600), var(--brand-700));
-            color: white;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 1rem;
+            padding: 0.88rem;
+            margin-top: 1.5rem;
+            font-size: 0.95rem;
             font-weight: 600;
+            font-family: inherit;
+            color: #ffffff;
+            background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+            border: 1px solid #1e40af;
+            border-radius: 14px;
             cursor: pointer;
-            transition: all var(--transition-fast);
-            box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+            box-shadow: 
+                0 4px 14px rgba(37, 99, 235, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .login-btn:hover {
-            background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
-            box-shadow: 0 0 50px rgba(99, 102, 241, 0.5);
+        .btn-macos-login:hover {
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
             transform: translateY(-1px);
+            box-shadow: 
+                0 6px 20px rgba(37, 99, 235, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
         }
 
-        .login-footer {
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-subtle);
-            text-align: center;
-            font-size: 0.78rem;
-            color: var(--text-muted);
+        .btn-macos-login:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes fadeInChild {
+            0% { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
 
         /* Responsive */
-        @media (max-width: 900px) {
-            .login-left { display: none; }
-            .login-right { width: 100%; border-left: none; }
+        @media (max-width: 860px) {
+            .macos-hero { display: none; }
+            .macos-modal { max-width: 440px; min-height: auto; }
+            .macos-form-section { padding: 3.5rem 2rem 2.5rem; }
         }
     </style>
 </head>
 <body>
 
-    {{-- Left Panel --}}
-    <div class="login-left">
-        <div class="login-bg">
-            <div class="orb orb-1"></div>
-            <div class="orb orb-2"></div>
-            <div class="orb orb-3"></div>
+    {{-- Pastel Vector Background Layer --}}
+    <div class="vector-bg-layer"></div>
+    <div class="orb-bubble orb-1"></div>
+    <div class="orb-bubble orb-2"></div>
+
+    {{-- macOS Glass Window Modal --}}
+    <div class="macos-modal">
+        
+        {{-- macOS Traffic Lights --}}
+        <div class="window-controls">
+            <div class="dot dot-close"></div>
+            <div class="dot dot-minimize"></div>
+            <div class="dot dot-expand"></div>
         </div>
-        <div class="login-left-content">
-            <div class="login-logo">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10 9 9 9 8 9"/>
+
+        {{-- Left Hero Section with Vector Illustration --}}
+        <div class="macos-hero">
+            <div class="hero-top">
+                <div class="app-icon-badge">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                </div>
+                <h1 class="hero-title">SIMPEL-RS</h1>
+                <p class="hero-subtitle">Sistem Informasi Manajemen Persuratan Elektronik & Tanda Tangan Digital Rumah Sakit Nur Rohmah</p>
+            </div>
+
+            <div class="hero-footer">
+                SIMPEL-RS v1.0 &bull; Unit Teknologi Informasi (IT) Rumah Sakit Nur Rohmah
+            </div>
+        </div>
+
+        {{-- Right Login Form --}}
+        <div class="macos-form-section">
+            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #2563eb, #3b82f6); display:flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(37,99,235,0.25);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
                 </svg>
             </div>
-            <div class="login-brand-name">SIMPEL-RS</div>
-            <div class="login-brand-desc">
-                Sistem Informasi Manajemen Persuratan Elektronik Rumah Sakit yang aman, tertelusur, dan sesuai standar akreditasi KARS.
-            </div>
+            <div class="form-header-title">Selamat Datang!</div>
+            <div class="form-header-sub">Masuk dengan akun pengguna resmi Anda</div>
 
-            <div class="login-features">
-                <div class="login-feature">
-                    <div class="login-feature-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    </div>
-                    Verifikasi dokumen berjenjang & tertelusur
-                </div>
-                <div class="login-feature">
-                    <div class="login-feature-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-                    </div>
-                    Tanda tangan elektronik (TTE) aman
-                </div>
-                <div class="login-feature">
-                    <div class="login-feature-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                    </div>
-                    Arsip digital searchable selamanya
-                </div>
-                <div class="login-feature">
-                    <div class="login-feature-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    </div>
-                    Audit trail lengkap untuk akreditasi
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Right Panel — Form --}}
-    <div class="login-right">
-        <div class="login-form-container">
-            <div class="login-form-title">Selamat Datang 👋</div>
-            <div class="login-form-sub">Masuk dengan akun SIMPEL-RS Anda</div>
-
-            {{-- Error Messages --}}
-            @if($errors->any())
-            <div class="alert alert-error" style="margin-bottom: 1.5rem">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <div>
-                    @foreach($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
-                </div>
+            @if(isset($errors) && $errors->any())
+            <div style="padding: 12px 16px; background: rgba(254, 242, 242, 0.9); border: 1px solid #fca5a5; color: #991b1b; border-radius: 14px; font-size: 0.85rem; margin-bottom: 1.5rem;">
+                @foreach($errors->all() as $error)
+                    <div>&bull; {{ $error }}</div>
+                @endforeach
             </div>
             @endif
 
             @if(session('success'))
-            <div class="alert alert-success" style="margin-bottom: 1.5rem">
+            <div style="padding: 12px 16px; background: rgba(240, 253, 244, 0.9); border: 1px solid #86efac; color: #166534; border-radius: 14px; font-size: 0.85rem; margin-bottom: 1.5rem;">
                 {{ session('success') }}
             </div>
             @endif
@@ -311,68 +393,60 @@
             <form method="POST" action="{{ route('login') }}" id="login-form">
                 @csrf
 
-                <div class="form-group">
-                    <label for="email" class="form-label">Email / NIP</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        class="form-control {{ $errors->has('email') ? 'is-invalid' : '' }}"
-                        value="{{ old('email') }}"
-                        placeholder="nama@rumahsakit.com"
-                        required
-                        autofocus
-                    >
+                <div class="input-group">
+                    <label for="email" class="input-label">Alamat Email</label>
+                    <div class="input-wrapper">
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="macos-input"
+                            value="{{ old('email') }}"
+                            placeholder="nama@rumahsakit.com"
+                            required
+                            autofocus
+                        >
+                        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="password" class="form-label">Password</label>
-                    <div class="password-wrapper">
+                <div class="input-group">
+                    <label for="password" class="input-label">Kata Sandi</label>
+                    <div class="input-wrapper">
                         <input
                             type="password"
                             id="password"
                             name="password"
-                            class="form-control"
+                            class="macos-input"
                             placeholder="••••••••"
                             required
-                            style="padding-right: 44px"
+                            style="padding-right: 44px;"
                         >
-                        <button type="button" class="password-toggle" onclick="togglePassword()" id="pw-toggle">
-                            <svg id="pw-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                <circle cx="12" cy="12" r="3"/>
-                            </svg>
-                            <svg id="pw-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
-                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                <line x1="1" y1="1" x2="23" y2="23"/>
-                            </svg>
+                        <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        
+                        <button type="button" class="pw-toggle" onclick="togglePassword()" id="pw-toggle" title="Tampilkan/Sembunyikan Kata Sandi">
+                            <svg id="pw-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg id="pw-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="remember-row">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="remember" id="remember">
-                        Ingat saya
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 0.5rem;">
+                    <label style="display:flex; align-items:center; gap:8px; color:#475569; font-size:0.85rem; cursor:pointer;">
+                        <input type="checkbox" name="remember" style="accent-color:#2563eb; width:15px; height:15px;"> Ingat Saya
                     </label>
                 </div>
 
-                <button type="submit" class="login-btn" id="login-submit">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                        <polyline points="10 17 15 12 10 7"/>
-                        <line x1="15" y1="12" x2="3" y2="12"/>
-                    </svg>
-                    Masuk ke Sistem
+                <button type="submit" class="btn-macos-login" id="login-submit">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Masuk ke Akun
                 </button>
             </form>
 
-            <div class="login-footer">
-                <div>SIMPEL-RS v1.0 &mdash; Hak akses dikelola oleh administrator.</div>
-                <div style="margin-top: 6px">Lupa password? Hubungi Admin IT.</div>
-            </div>
         </div>
     </div>
+
+</div>
 
 <script>
     function togglePassword() {
@@ -390,17 +464,15 @@
         }
     }
 
-    // Disable submit on loading
     document.getElementById('login-form').addEventListener('submit', function() {
         const btn = document.getElementById('login-submit');
-        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Memproses...';
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Memproses...';
         btn.disabled = true;
     });
 </script>
 
 <style>
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.is-invalid { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important; }
 </style>
 
 </body>

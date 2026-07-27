@@ -48,11 +48,14 @@ class DocumentType extends Model
     public function generateNomor(Unit $unit, int $nomorUrut, \DateTime $tanggal): string
     {
         $bulanRomawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+        $indukKode = $unit->parent ? ($unit->parent->singkatan ?? $unit->parent->kode) : ($unit->singkatan ?? $unit->kode);
         $replacements = [
             '{urut}'         => str_pad($nomorUrut, 3, '0', STR_PAD_LEFT),
             '{kode}'         => $this->singkatan,
             '{unit}'         => $unit->singkatan ?? $unit->kode,
-            '{rs}'           => config('app.kode_rs', 'RS'),
+            '{induk}'        => $indukKode,
+            '{kode_induk}'   => $indukKode,
+            '{rs}'           => config('app.kode_rs', 'RSNR'),
             '{bulan_romawi}' => $bulanRomawi[(int)$tanggal->format('n') - 1],
             '{bulan}'        => $tanggal->format('m'),
             '{tahun}'        => $tanggal->format('Y'),

@@ -44,7 +44,7 @@ class DatabaseSeeder extends Seeder
         // 2. ROLES
         // ==========================================
         $roles = [
-            'super_admin' => $permissions, // semua permission
+            'super_admin' => $permissions,
             'admin_unit'  => [
                 'dokumen.buat', 'dokumen.lihat', 'dokumen.edit',
                 'dokumen.ajukan', 'admin.user', 'admin.workflow',
@@ -73,91 +73,122 @@ class DatabaseSeeder extends Seeder
         }
 
         // ==========================================
-        // 3. UNITS
+        // 3. UNITS (PARENT & SUB-UNITS RSNR)
         // ==========================================
-        $direktorat = Unit::firstOrCreate(
+        $direktorat = Unit::updateOrCreate(
             ['kode' => 'DIR'],
-            ['nama' => 'Direktorat', 'singkatan' => 'DIR', 'urutan' => 1]
+            ['nama' => 'Direktorat Utama', 'singkatan' => 'DIR', 'urutan' => 1]
         );
 
-        $units = [
-            ['kode' => 'KABAG_UMUM',  'nama' => 'Bagian Umum & SDM',      'singkatan' => 'UMUM', 'urutan' => 2, 'parent_id' => $direktorat->id],
-            ['kode' => 'KABAG_KEU',   'nama' => 'Bagian Keuangan',         'singkatan' => 'KEU',  'urutan' => 3, 'parent_id' => $direktorat->id],
-            ['kode' => 'KABID_YAN',   'nama' => 'Bidang Pelayanan',        'singkatan' => 'YAN',  'urutan' => 4, 'parent_id' => $direktorat->id],
-            ['kode' => 'KABID_MUTU',  'nama' => 'Bidang Mutu & Akreditasi','singkatan' => 'MUTU', 'urutan' => 5, 'parent_id' => $direktorat->id],
-            ['kode' => 'IT',          'nama' => 'Instalasi IT',             'singkatan' => 'IT',   'urutan' => 6, 'parent_id' => $direktorat->id],
+        $parentUnits = [
+            'YANMED'  => Unit::updateOrCreate(['kode' => 'YANMED'],  ['nama' => 'Pelayanan Medis', 'singkatan' => 'YANMED', 'parent_id' => $direktorat->id, 'urutan' => 2]),
+            'JANGMED' => Unit::updateOrCreate(['kode' => 'JANGMED'], ['nama' => 'Penunjang Medis', 'singkatan' => 'JANGMED', 'parent_id' => $direktorat->id, 'urutan' => 3]),
+            'UMSDM'   => Unit::updateOrCreate(['kode' => 'UMSDM'],   ['nama' => 'Umum dan SDM', 'singkatan' => 'UMSDM', 'parent_id' => $direktorat->id, 'urutan' => 4]),
+            'KEU'     => Unit::updateOrCreate(['kode' => 'KEU'],     ['nama' => 'Keuangan', 'singkatan' => 'KEU', 'parent_id' => $direktorat->id, 'urutan' => 5]),
+            'KMT'     => Unit::updateOrCreate(['kode' => 'KMT'],     ['nama' => 'Komite RS', 'singkatan' => 'KMT', 'parent_id' => $direktorat->id, 'urutan' => 6]),
+            'TIM'     => Unit::updateOrCreate(['kode' => 'TIM'],     ['nama' => 'Tim Kerja RS', 'singkatan' => 'TIM', 'parent_id' => $direktorat->id, 'urutan' => 7]),
         ];
 
-        foreach ($units as $unitData) {
-            Unit::firstOrCreate(['kode' => $unitData['kode']], $unitData);
+        $subUnits = [
+            // Pelayanan Medis
+            ['kode' => 'RAJ',  'nama' => 'Instalasi Rawat Jalan', 'singkatan' => 'RAJ', 'parent' => 'YANMED'],
+            ['kode' => 'RI',   'nama' => 'Instalasi Rawat Inap', 'singkatan' => 'RI', 'parent' => 'YANMED'],
+            ['kode' => 'HD',   'nama' => 'Instalasi Hemodialisa', 'singkatan' => 'HD', 'parent' => 'YANMED'],
+            ['kode' => 'IGD',  'nama' => 'Instalasi Gawat Darurat', 'singkatan' => 'IGD', 'parent' => 'YANMED'],
+            ['kode' => 'BID',  'nama' => 'Instalasi Kandungan dan Kebidanan', 'singkatan' => 'BID', 'parent' => 'YANMED'],
+            ['kode' => 'KEP',  'nama' => 'Unit Keperawatan', 'singkatan' => 'KEP', 'parent' => 'YANMED'],
+            ['kode' => 'IRI',  'nama' => 'Instalasi Rawat Intensif', 'singkatan' => 'IRI', 'parent' => 'YANMED'],
+            ['kode' => 'IBS',  'nama' => 'Instalasi Bedah Sentral', 'singkatan' => 'IBS', 'parent' => 'YANMED'],
+            ['kode' => 'NCPR', 'nama' => 'NICU Perinatologi', 'singkatan' => 'NCPR', 'parent' => 'YANMED'],
+            ['kode' => 'PKRS', 'nama' => 'PKRS', 'singkatan' => 'PKRS', 'parent' => 'YANMED'],
+
+            // Penunjang Medis
+            ['kode' => 'RAD',  'nama' => 'Instalasi Radiologi', 'singkatan' => 'RAD', 'parent' => 'JANGMED'],
+            ['kode' => 'LAB',  'nama' => 'Instalasi Laboratorium', 'singkatan' => 'LAB', 'parent' => 'JANGMED'],
+            ['kode' => 'RM',   'nama' => 'Instalasi Rekam Medis', 'singkatan' => 'RM', 'parent' => 'JANGMED'],
+            ['kode' => 'SAN',  'nama' => 'Instalasi Sanitasi', 'singkatan' => 'SAN', 'parent' => 'JANGMED'],
+            ['kode' => 'IF',   'nama' => 'Instalasi Farmasi', 'singkatan' => 'IF', 'parent' => 'JANGMED'],
+            ['kode' => 'GZ',   'nama' => 'Instalasi Gizi', 'singkatan' => 'GZ', 'parent' => 'JANGMED'],
+            ['kode' => 'LS',   'nama' => 'Instalasi Linen dan Sterilisasi', 'singkatan' => 'LS', 'parent' => 'JANGMED'],
+            ['kode' => 'FIS',  'nama' => 'Instalasi Rehabmedik', 'singkatan' => 'FIS', 'parent' => 'JANGMED'],
+
+            // Umum dan SDM
+            ['kode' => 'URT',  'nama' => 'Umum, Rumah Tangga, PSRS', 'singkatan' => 'URT', 'parent' => 'UMSDM'],
+            ['kode' => 'SDM',  'nama' => 'Bagian SDM', 'singkatan' => 'SDM', 'parent' => 'UMSDM'],
+            ['kode' => 'IT',   'nama' => 'Instalasi IT', 'singkatan' => 'IT', 'parent' => 'UMSDM'],
+            ['kode' => 'KJZ',  'nama' => 'Kamar Jenazah', 'singkatan' => 'KJZ', 'parent' => 'UMSDM'],
+            ['kode' => 'MKT',  'nama' => 'Pemasaran & Humas', 'singkatan' => 'MKT', 'parent' => 'UMSDM'],
+
+            // Keuangan
+            ['kode' => 'KEU_SUB', 'nama' => 'Sub Bagian Keuangan', 'singkatan' => 'KEU', 'parent' => 'KEU'],
+            ['kode' => 'PBY',     'nama' => 'Sub Bagian Pembiayaan', 'singkatan' => 'PBY', 'parent' => 'KEU'],
+
+            // Komite
+            ['kode' => 'PMKP', 'nama' => 'Komite PMKP', 'singkatan' => 'PMKP', 'parent' => 'KMT'],
+            ['kode' => 'PPI',  'nama' => 'Komite PPI', 'singkatan' => 'PPI', 'parent' => 'KMT'],
+            ['kode' => 'EHK',  'nama' => 'Komite Etik dan Hukum', 'singkatan' => 'EHK', 'parent' => 'KMT'],
+            ['kode' => 'PRWT', 'nama' => 'Komite Keperawatan', 'singkatan' => 'PRWT', 'parent' => 'KMT'],
+            ['kode' => 'NKSL', 'nama' => 'Komite Nakes Lain', 'singkatan' => 'NKSL', 'parent' => 'KMT'],
+            ['kode' => 'MED',  'nama' => 'Komite Medik', 'singkatan' => 'MED', 'parent' => 'KMT'],
+        ];
+
+        $order = 10;
+        foreach ($subUnits as $su) {
+            Unit::updateOrCreate(
+                ['kode' => $su['kode']],
+                [
+                    'nama'      => $su['nama'],
+                    'singkatan' => $su['singkatan'],
+                    'parent_id' => $parentUnits[$su['parent']]->id,
+                    'urutan'    => $order++,
+                ]
+            );
         }
 
         // ==========================================
         // 4. USERS
         // ==========================================
-        $userIT = Unit::where('kode', 'IT')->first();
+        $unitIT = Unit::where('kode', 'IT')->first();
 
-        $superAdmin = User::firstOrCreate(
+        $superAdmin = User::updateOrCreate(
             ['email' => 'superadmin@simpel-rs.test'],
             [
-                'name'     => 'Super Administrator',
-                'jabatan'  => 'Administrator Sistem',
-                'unit_id'  => $userIT?->id,
-                'password' => Hash::make('password'),
+                'name'      => 'Super Administrator',
+                'jabatan'   => 'Administrator Sistem',
+                'unit_id'   => $unitIT?->id,
+                'password'  => Hash::make('password'),
                 'is_active' => true,
             ]
         );
         $superAdmin->syncRoles(['super_admin']);
 
-        // Sample users per role
         $sampleUsers = [
             [
-                'email'   => 'direktur@simpel-rs.test',
-                'name'    => 'dr. Ahmad Direktur, Sp.PD',
-                'jabatan' => 'Direktur Rumah Sakit',
-                'role'    => 'penandatangan',
-                'unit'    => 'DIR',
+                'email'    => 'direktur@simpel-rs.test',
+                'name'     => 'dr. Ahmad Direktur, Sp.PD',
+                'jabatan'  => 'Direktur Utama RSNR',
+                'role'     => 'penandatangan',
+                'unit'     => 'DIR',
             ],
             [
-                'email'   => 'kabag.umum@simpel-rs.test',
-                'name'    => 'Budi Kabag, S.KM',
-                'jabatan' => 'Kepala Bagian Umum & SDM',
-                'role'    => 'verifikator',
-                'unit'    => 'KABAG_UMUM',
+                'email'    => 'yanmed@simpel-rs.test',
+                'name'     => 'dr. Budi Yanmed, Sp.B',
+                'jabatan'  => 'Kabid Pelayanan Medis',
+                'role'     => 'verifikator',
+                'unit'     => 'YANMED',
             ],
             [
-                'email'   => 'kabid.mutu@simpel-rs.test',
-                'name'    => 'Siti Mutu, S.Kep, M.Kes',
-                'jabatan' => 'Kepala Bidang Mutu & Akreditasi',
-                'role'    => 'verifikator',
-                'unit'    => 'KABID_MUTU',
-            ],
-            [
-                'email'   => 'staf.umum@simpel-rs.test',
-                'name'    => 'Andi Staf',
-                'jabatan' => 'Staf Administrasi',
-                'role'    => 'pengusul',
-                'unit'    => 'KABAG_UMUM',
-            ],
-            [
-                'email'   => 'admin.unit@simpel-rs.test',
-                'name'    => 'Rini Admin Unit',
-                'jabatan' => 'Admin Unit IT',
-                'role'    => 'admin_unit',
-                'unit'    => 'IT',
-            ],
-            [
-                'email'   => 'humas@simpel-rs.test',
-                'name'    => 'Dewi Publikasi',
-                'jabatan' => 'Staf Humas',
-                'role'    => 'publikator',
-                'unit'    => 'KABAG_UMUM',
+                'email'    => 'staf.raj@simpel-rs.test',
+                'name'     => 'Siti Staf Rawat Jalan',
+                'jabatan'  => 'Staf Admin Rawat Jalan',
+                'role'     => 'pengusul',
+                'unit'     => 'RAJ',
             ],
         ];
 
         foreach ($sampleUsers as $data) {
             $unit = Unit::where('kode', $data['unit'])->first();
-            $user = User::firstOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'name'      => $data['name'],
@@ -171,93 +202,87 @@ class DatabaseSeeder extends Seeder
         }
 
         // ==========================================
-        // 5. JENIS NASKAH (DocumentTypes)
+        // 5. JENIS NASKAH (REAL RSNR CLASSIFICATION)
         // ==========================================
         $docTypes = [
             [
-                'kode'             => 'SK',
-                'nama'             => 'Surat Keputusan',
-                'singkatan'        => 'SK',
-                'deskripsi'        => 'Dokumen kebijakan resmi yang ditetapkan Direktur',
-                'format_nomor'     => '{urut}/SK/{unit}/RS/{bulan_romawi}/{tahun}',
+                'kode'             => 'KBJ',
+                'nama'             => 'Kebijakan',
+                'singkatan'        => 'SK-Dir',
+                'deskripsi'        => 'Kebijakan Direktur RSNR',
+                'format_nomor'     => '{urut}/SK-Dir/RSNR/{bulan_romawi}/{tahun}',
                 'level_verifikasi' => 2,
                 'urutan'           => 1,
             ],
             [
-                'kode'             => 'SPO',
-                'nama'             => 'Standar Prosedur Operasional',
-                'singkatan'        => 'SPO',
-                'deskripsi'        => 'Prosedur pelayanan standar',
-                'format_nomor'     => '{urut}/SPO/{unit}/RS/{bulan_romawi}/{tahun}',
+                'kode'             => 'PED',
+                'nama'             => 'Pedoman (Pengorganisasian, Pelayanan)',
+                'singkatan'        => 'Ped',
+                'deskripsi'        => 'Pedoman Pengorganisasian / Pelayanan RSNR',
+                'format_nomor'     => '{urut}/SK-Dir/Ped/RSNR/{bulan_romawi}/{tahun}',
                 'level_verifikasi' => 2,
                 'urutan'           => 2,
             ],
             [
-                'kode'             => 'SE',
-                'nama'             => 'Surat Edaran',
-                'singkatan'        => 'SE',
-                'deskripsi'        => 'Pemberitahuan resmi internal RS',
-                'format_nomor'     => '{urut}/SE/{unit}/RS/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 1,
+                'kode'             => 'PAD',
+                'nama'             => 'Panduan',
+                'singkatan'        => 'Pad',
+                'deskripsi'        => 'Panduan Pelayanan RSNR',
+                'format_nomor'     => '{urut}/SK-Dir/Pad/RSNR/{bulan_romawi}/{tahun}',
+                'level_verifikasi' => 2,
                 'urutan'           => 3,
             ],
             [
-                'kode'             => 'ND',
-                'nama'             => 'Nota Dinas',
-                'singkatan'        => 'ND',
-                'deskripsi'        => 'Komunikasi resmi antar unit internal',
-                'format_nomor'     => '{urut}/ND/{unit}/RS/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 1,
+                'kode'             => 'PROG',
+                'nama'             => 'Program',
+                'singkatan'        => 'Prog',
+                'deskripsi'        => 'Program Kerja RSNR',
+                'format_nomor'     => '{urut}/SK-Dir/RSNR/{bulan_romawi}/{tahun}',
+                'level_verifikasi' => 2,
                 'urutan'           => 4,
             ],
             [
-                'kode'             => 'ST',
-                'nama'             => 'Surat Tugas',
-                'singkatan'        => 'ST',
-                'deskripsi'        => 'Penugasan dinas luar/dalam',
-                'format_nomor'     => '{urut}/ST/{unit}/RS/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 1,
+                'kode'             => 'SPO',
+                'nama'             => 'Standar Prosedur Operasional (SPO)',
+                'singkatan'        => 'SPO',
+                'deskripsi'        => 'Standar Prosedur Operasional RSNR',
+                'format_nomor'     => '{urut}/{induk}-{unit}/RSNR/{bulan_romawi}/{tahun}',
+                'level_verifikasi' => 2,
                 'urutan'           => 5,
+            ],
+            [
+                'kode'             => 'LAP',
+                'nama'             => 'Laporan',
+                'singkatan'        => 'Lap',
+                'deskripsi'        => 'Laporan Kinerja / Pelayanan RSNR',
+                'format_nomor'     => '{urut}/Lap-{unit}/RSNR/{bulan_romawi}/{tahun}',
+                'level_verifikasi' => 1,
+                'urutan'           => 6,
             ],
         ];
 
         $createdTypes = [];
         foreach ($docTypes as $dt) {
-            $createdTypes[$dt['kode']] = DocumentType::firstOrCreate(['kode' => $dt['kode']], $dt);
+            $createdTypes[$dt['kode']] = DocumentType::updateOrCreate(['kode' => $dt['kode']], $dt);
         }
 
         // ==========================================
         // 6. WORKFLOW TEMPLATES
         // ==========================================
-        // Workflow SK: 2 level (Kabag → Direktur)
-        $wfSK = WorkflowTemplate::firstOrCreate(
-            ['nama' => 'Workflow SK Standard (2 Level)', 'document_type_id' => $createdTypes['SK']->id],
-            ['is_default' => true, 'is_active' => true, 'deskripsi' => 'Verifikasi Kabag kemudian tanda tangan Direktur']
+        // Workflow SPO
+        $wfSPO = WorkflowTemplate::updateOrCreate(
+            ['nama' => 'Workflow Standard SPO (2 Level)', 'document_type_id' => $createdTypes['SPO']->id],
+            ['is_default' => true, 'is_active' => true, 'deskripsi' => 'Verifikasi Kepala Bidang/Induk kemudian TTD Direktur']
         );
-        WorkflowStep::firstOrCreate(
-            ['workflow_template_id' => $wfSK->id, 'urutan' => 1],
-            ['nama_tahap' => 'Verifikasi Kepala Bagian', 'tipe' => 'verifikasi', 'role_nama' => 'verifikator', 'sla_hari_kerja' => 2]
+        WorkflowStep::updateOrCreate(
+            ['workflow_template_id' => $wfSPO->id, 'urutan' => 1],
+            ['nama_tahap' => 'Verifikasi Kepala Induk / Bidang', 'tipe' => 'verifikasi', 'role_nama' => 'verifikator', 'sla_hari_kerja' => 2]
         );
-        WorkflowStep::firstOrCreate(
-            ['workflow_template_id' => $wfSK->id, 'urutan' => 2],
-            ['nama_tahap' => 'Tanda Tangan Direktur', 'tipe' => 'penandatangan', 'role_nama' => 'penandatangan', 'sla_hari_kerja' => 2]
-        );
-
-        // Workflow Nota Dinas: 1 level
-        $wfND = WorkflowTemplate::firstOrCreate(
-            ['nama' => 'Workflow Nota Dinas (1 Level)', 'document_type_id' => $createdTypes['ND']->id],
-            ['is_default' => true, 'is_active' => true, 'deskripsi' => 'Langsung tanda tangan Kepala Bagian']
-        );
-        WorkflowStep::firstOrCreate(
-            ['workflow_template_id' => $wfND->id, 'urutan' => 1],
-            ['nama_tahap' => 'Tanda Tangan Kepala Bagian', 'tipe' => 'penandatangan', 'role_nama' => 'penandatangan', 'sla_hari_kerja' => 1]
+        WorkflowStep::updateOrCreate(
+            ['workflow_template_id' => $wfSPO->id, 'urutan' => 2],
+            ['nama_tahap' => 'Tanda Tangan Direktur Utama', 'tipe' => 'penandatangan', 'role_nama' => 'penandatangan', 'sla_hari_kerja' => 2]
         );
 
-        $this->command->info('✅ SIMPEL-RS seeder berhasil dijalankan!');
-        $this->command->table(
-            ['Email', 'Role', 'Password'],
-            collect($sampleUsers)->merge([['email' => 'superadmin@simpel-rs.test', 'role' => 'super_admin', 'unit' => '-']])
-                ->map(fn($u) => [$u['email'], $u['role'], 'password'])->toArray()
-        );
+        $this->command->info('✅ Master data SIMPEL-RS RSNR berhasil diperbarui!');
     }
 }

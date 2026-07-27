@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Database\Events\DatabaseConnected;
 use Illuminate\Database\Events\StatementPrepared;
 
+use Illuminate\Pagination\Paginator;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Paginator::defaultView('vendor.pagination.custom');
+
         Event::listen(DatabaseConnected::class, function (DatabaseConnected $event) {
             if ($event->connection->getDriverName() === 'sqlsrv') {
                 $this->setSqlSrvAnsiOptions($event->connection->getPdo());
