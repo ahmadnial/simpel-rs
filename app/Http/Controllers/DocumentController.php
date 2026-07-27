@@ -431,13 +431,19 @@ class DocumentController extends Controller
         } catch (\Throwable $e) {}
 
         // Cek 2: Jika soffice (LibreOffice CLI) tersedia di server
-        $sofficeBin = null;
-        if (file_exists('/Applications/LibreOffice.app/Contents/MacOS/soffice')) {
-            $sofficeBin = '/Applications/LibreOffice.app/Contents/MacOS/soffice';
-        } else {
-            $which = exec('which soffice libreoffice 2>/dev/null');
-            if ($which && file_exists($which)) {
-                $sofficeBin = $which;
+        $sofficeBin = env('LIBREOFFICE_PATH');
+        if (!$sofficeBin || !file_exists($sofficeBin)) {
+            if (file_exists('/Applications/LibreOffice.app/Contents/MacOS/soffice')) {
+                $sofficeBin = '/Applications/LibreOffice.app/Contents/MacOS/soffice';
+            } elseif (file_exists('/usr/bin/soffice')) {
+                $sofficeBin = '/usr/bin/soffice';
+            } elseif (file_exists('/usr/bin/libreoffice')) {
+                $sofficeBin = '/usr/bin/libreoffice';
+            } else {
+                $which = trim(exec('which soffice 2>/dev/null'));
+                if ($which && file_exists($which)) {
+                    $sofficeBin = $which;
+                }
             }
         }
 
