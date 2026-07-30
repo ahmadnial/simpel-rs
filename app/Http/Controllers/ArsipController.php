@@ -11,8 +11,9 @@ class ArsipController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Document::whereIn('status', [Document::STATUS_DITANDATANGANI, Document::STATUS_DIPUBLIKASIKAN, Document::STATUS_DIARSIPKAN])
-            ->with(['documentType', 'unit', 'pengusul', 'signature']);
+        $query = Document::whereIn('status', [Document::STATUS_DIPUBLIKASIKAN, Document::STATUS_DIARSIPKAN])
+            ->accessibleBy(auth()->user())
+            ->with(['documentType', 'unit', 'pengusul', 'signature', 'distributions.unit']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -35,7 +36,7 @@ class ArsipController extends Controller
             $query->whereYear('tanggal_surat', $request->tahun);
         }
 
-        $documents = $query->latest('tanggal_surat')->paginate(15);
+        $documents = $query->latest('tanggal_surat')->paginate(15)->withQueryString();
         $documentTypes = DocumentType::active()->get();
         $units = Unit::active()->get();
 
@@ -44,10 +45,16 @@ class ArsipController extends Controller
 
     public function show(Document $document)
     {
+        abort_unless(
+            $document->isAccessibleBy(auth()->user()),
+            403,
+            'Anda tidak memiliki hak akses untuk melihat dokumen arsip ini.'
+        );
+
         $document->load([
             'documentType', 'unit', 'pengusul',
             'versions.uploader', 'verifications.verifikator',
-            'signature.penandatangan', 'auditLogs'
+            'signature.penandatangan', 'distributions.unit', 'auditLogs'
         ]);
 
         return view('arsip.show', compact('document'));

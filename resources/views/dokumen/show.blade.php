@@ -25,6 +25,22 @@
         <p class="page-subtitle">
             Pengusul: <strong>{{ $document->pengusul->name }}</strong> ({{ $document->unit->nama }}) &bull; Dibuat {{ $document->created_at->format('d/m/Y H:i') }}
         </p>
+
+        @if($document->status === \App\Models\Document::STATUS_DITARIK)
+            <div style="padding:12px 16px; background:#fef3c7; border:1px solid #fbbf24; border-radius:8px; margin-top:12px;">
+                <strong style="color:#92400e;">⚠️ Dokumen ini telah ditarik dari publikasi</strong>
+                <p style="margin:6px 0 0; font-size:0.85rem; color:#78350f;">
+                    <strong>Alasan:</strong> {{ $document->alasan_penarikan }}<br>
+                    <strong>Ditarik pada:</strong> {{ $document->ditarik_at?->format('d/m/Y H:i') }}
+                    @if($document->penggantiDocument)
+                        <br><strong>Digantikan oleh:</strong>
+                        <a href="{{ route('dokumen.show', $document->penggantiDocument) }}" style="color:#b45309; font-weight:600;">
+                            {{ $document->penggantiDocument->nomor_surat }}
+                        </a>
+                    @endif
+                </p>
+            </div>
+        @endif
     </div>
 
     <div style="display:flex; gap: var(--space-2)">

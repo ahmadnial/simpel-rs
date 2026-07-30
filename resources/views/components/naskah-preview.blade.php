@@ -1,22 +1,24 @@
-@props(['document'])
+@props(['document', 'hideToolbar' => false])
 
 @php
     $currentVersion = $document->currentVersion;
     $previewUrl = $currentVersion ? route('dokumen.preview-pdf', [$document, $currentVersion->id]) : null;
+    if ($previewUrl && $hideToolbar) {
+        $previewUrl .= '#toolbar=0&navpanes=0';
+    }
     $signature = $document->signature;
     $uniqueId = 'doc_' . $document->id . '_' . uniqid();
 @endphp
 
-<div class="naskah-preview-wrapper" style="width:100%; max-width:920px; margin:0 auto;">
+<div class="naskah-preview-wrapper" style="width:100%; max-width:920px; margin:0 auto;" @if($hideToolbar) oncontextmenu="return false;" @endif>
 
     @if($previewUrl)
         <div style="background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.08); padding:0; border:1px solid var(--border-color); position:relative; overflow:hidden;">
             
             {{-- Loading Indicator --}}
             <div id="loading-{{ $uniqueId }}" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; padding:20px 0; color:var(--text-muted, #64748b); z-index:10; background:rgba(255,255,255,0.9); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                <div style="width:2.2rem; height:2.2rem; border:3px solid #cbd5e1; border-top-color:#3b82f6; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px;"></div>
-                <div style="font-size:0.85rem; font-weight:600;">Mengonversi Format Dokumen Asli...</div>
-                <div style="font-size:0.75rem; margin-top:5px; color:#94a3b8;">Menggunakan LibreOffice 100% Presisi</div>
+                <div style="width:2rem; height:2rem; border:3px solid #e2e8f0; border-top-color:var(--brand-500, #3b82f6); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px;"></div>
+                <div style="font-size:0.875rem; font-weight:500; color:#64748b;">Memuat dokumen, harap tunggu...</div>
             </div>
 
             {{-- PDF Iframe --}}

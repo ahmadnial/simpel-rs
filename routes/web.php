@@ -73,6 +73,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('publikasi')->name('publikasi.')->group(function () {
         Route::get('/', [PublikasiController::class, 'index'])->name('index');
         Route::post('/{document}/publikasi', [PublikasiController::class, 'publikasi'])->name('publikasi');
+        Route::post('/{document}/unpublish', [PublikasiController::class, 'unpublish'])->name('unpublish');
+        Route::post('/{document}/republish', [PublikasiController::class, 'republish'])->name('republish');
     });
 
     // Arsip
@@ -108,6 +110,13 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('users', \App\Http\Controllers\Admin\UserController::class);
         Route::resource('jenis-naskah', \App\Http\Controllers\Admin\DocumentTypeController::class);
         Route::resource('workflows', \App\Http\Controllers\Admin\WorkflowController::class);
+    });
+
+    // Notifikasi API
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+        Route::post('/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('read-all');
+        Route::post('/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('read');
     });
 
 });

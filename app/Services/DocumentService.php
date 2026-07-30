@@ -26,6 +26,7 @@ class DocumentService
         return DB::transaction(function () use ($data, $file) {
             $user = auth()->user();
 
+            $isRahasia = $data['is_rahasia'] ?? false;
             $document = Document::create([
                 'judul'               => $data['judul'],
                 'document_type_id'    => $data['document_type_id'],
@@ -34,7 +35,8 @@ class DocumentService
                 'workflow_template_id'=> $data['workflow_template_id'] ?? null,
                 'perihal'             => $data['perihal'] ?? null,
                 'keterangan'          => $data['keterangan'] ?? null,
-                'is_rahasia'          => $data['is_rahasia'] ?? false,
+                'is_rahasia'          => $isRahasia,
+                'visibility_scope'    => $isRahasia ? 'terbatas' : 'internal',
                 'status'              => Document::STATUS_DRAFT,
             ]);
 
@@ -117,7 +119,13 @@ class DocumentService
 
             // Kirim notifikasi ke verifikator
             $verifikator = \App\Models\User::find($verifikatorId);
-            $verifikator?->notify(new \App\Notifications\DokumenMenungguVerifikasi($document));
+            $verifikator?->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'diajukan',
+                'Permohonan Verifikasi Dokumen',
+                "Dokumen '{$document->judul}' membutuhkan verifikasi dari Anda.",
+                route('verifikasi.index')
+            ));
 
             return $document->fresh();
         });
@@ -163,6 +171,18 @@ class DocumentService
                     'status'       => Document::STATUS_VERIFIKASI,
                     'current_step' => $nextVerificationStep->urutan,
                 ]);
+
+                // Notifikasi verifikator selanjutnya
+                $nextVerifiers = \App\Models\User::permission('dokumen.verifikasi')->get();
+                foreach ($nextVerifiers as $v) {
+                    $v->notify(new \App\Notifications\DokumenNotification(
+                        $document,
+                        'diajukan',
+                        'Antrian Verifikasi Dokumen',
+                        "Dokumen '{$document->judul}' memerlukan verifikasi tahap berikutnya.",
+                        route('verifikasi.index')
+                    ));
+                }
             } else {
                 // Semua verifikasi selesai → Menunggu TTD Direktur / Penandatangan
                 $penandatanganStep = $template?->steps()->where('tipe', 'penandatangan')->first();
@@ -171,7 +191,27 @@ class DocumentService
                     'current_step' => $penandatanganStep?->urutan ?? ($verification->level + 1),
                 ]);
                 AuditLog::catat('lolos_verifikasi', "Dokumen lolos semua verifikasi, menunggu TTE Direktur", $document);
-                $document->pengusul?->notify(new \App\Notifications\DokumenLolosVerifikasi($document));
+
+                // Notifikasi Penandatangan (Direktur)
+                $penandatangans = \App\Models\User::permission('dokumen.tanda_tangan')->get();
+                foreach ($penandatangans as $p) {
+                    $p->notify(new \App\Notifications\DokumenNotification(
+                        $document,
+                        'menunggu_ttd',
+                        'Dokumen Menunggu TTE Sah',
+                        "Dokumen '{$document->judul}' telah disetujui penuh & siap ditandatangani.",
+                        route('ttd.index')
+                    ));
+                }
+
+                // Notifikasi Pengusul
+                $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                    $document,
+                    'menunggu_ttd',
+                    'Verifikasi Dokumen Selesai',
+                    "Dokumen '{$document->judul}' telah lolos verifikasi dan sedang dalam antrian TTE Direktur.",
+                    route('dokumen.show', $document)
+                ));
             }
 
             return $document->fresh();
@@ -195,7 +235,13 @@ class DocumentService
             $document->update(['status' => Document::STATUS_REVISI]);
 
             AuditLog::catat('minta_revisi', "Revisi diminta: {$catatan}", $document);
-            $document->pengusul?->notify(new \App\Notifications\DokumenPerluRevisi($document, $catatan));
+            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'revisi',
+                'Dokumen Perlu Revisi',
+                "Dokumen '{$document->judul}' memerlukan perbaikan. Catatan: {$catatan}",
+                route('dokumen.show', $document)
+            ));
 
             return $document->fresh();
         });
@@ -252,7 +298,13 @@ class DocumentService
 
             AuditLog::catat('tanda_tangan', "Dokumen ditandatangani, nomor: {$nomor}", $document, [], ['nomor_surat' => $nomor]);
 
-            $document->pengusul?->notify(new \App\Notifications\DokumenDitandatangani($document));
+            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'ditandatangani',
+                'Dokumen Berhasil Di-TTE Sah',
+                "Dokumen '{$document->judul}' telah resmi ditandatangani secara elektronik dengan Nomor: {$nomor}",
+                route('dokumen.show', $document)
+            ));
 
             return $document->fresh();
         });
@@ -261,18 +313,117 @@ class DocumentService
     /**
      * Publikasikan dokumen.
      */
-    public function publikasi(Document $document): Document
+    public function publikasi(Document $document, array $data = []): Document
     {
         abort_unless($document->status === Document::STATUS_DITANDATANGANI, 403, 'Hanya dokumen yang sudah ditandatangani yang dapat dipublikasikan.');
 
-        $document->update([
-            'status'            => Document::STATUS_DIPUBLIKASIKAN,
-            'dipublikasikan_at' => now(),
-        ]);
+        return DB::transaction(function () use ($document, $data) {
+            $scope = $data['visibility_scope'] ?? ($document->is_rahasia ? 'terbatas' : 'internal');
 
-        AuditLog::catat('publikasi', "Dokumen dipublikasikan: {$document->nomor_surat}", $document);
+            $document->update([
+                'status'            => Document::STATUS_DIPUBLIKASIKAN,
+                'dipublikasikan_at' => now(),
+                'visibility_scope'  => $scope,
+            ]);
 
-        return $document->fresh();
+            // Hapus distribusi lama jika ada
+            $document->distributions()->delete();
+
+            // Simpan unit sebar jika scope adalah 'unit'
+            if ($scope === 'unit' && !empty($data['unit_ids']) && is_array($data['unit_ids'])) {
+                foreach ($data['unit_ids'] as $unitId) {
+                    \App\Models\DocumentDistribution::create([
+                        'document_id' => $document->id,
+                        'unit_id'     => $unitId,
+                    ]);
+                }
+            }
+
+            AuditLog::catat('publikasi', "Dokumen dipublikasikan [{$scope}]: {$document->nomor_surat}", $document);
+
+            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'dipublikasikan',
+                'Dokumen Resmi Dipublikasikan',
+                "Dokumen Nomor '{$document->nomor_surat}' telah dipublikasikan ke Portal internal RS.",
+                route('arsip.show', $document)
+            ));
+
+            return $document->fresh();
+        });
+    }
+
+    /**
+     * Tarik dokumen dari publikasi (unpublish).
+     * Dokumen kembali ke status 'ditarik' dan tidak lagi dapat diakses publik.
+     */
+    public function unpublish(Document $document, string $alasan, ?int $penggantiDocumentId = null): Document
+    {
+        abort_unless(
+            $document->status === Document::STATUS_DIPUBLIKASIKAN,
+            403,
+            'Hanya dokumen yang sedang dipublikasikan yang dapat ditarik.'
+        );
+
+        return DB::transaction(function () use ($document, $alasan, $penggantiDocumentId) {
+            $document->update([
+                'status'                => Document::STATUS_DITARIK,
+                'ditarik_at'            => now(),
+                'alasan_penarikan'      => $alasan,
+                'pengganti_document_id' => $penggantiDocumentId,
+            ]);
+
+            $keterangan = "Dokumen ditarik dari publikasi: {$document->nomor_surat}. Alasan: {$alasan}";
+            if ($penggantiDocumentId) {
+                $pengganti = Document::find($penggantiDocumentId);
+                $keterangan .= ". Digantikan oleh: {$pengganti?->nomor_surat}";
+            }
+
+            AuditLog::catat('unpublish', $keterangan, $document);
+
+            return $document->fresh();
+        });
+    }
+
+    /**
+     * Publikasikan ulang dokumen yang sebelumnya ditarik.
+     * Mengembalikan status ke 'dipublikasikan' dan menghapus catatan penarikan.
+     */
+    public function republish(Document $document, array $data = []): Document
+    {
+        abort_unless(
+            $document->status === Document::STATUS_DITARIK,
+            403,
+            'Hanya dokumen yang berstatus ditarik yang dapat dipublikasikan ulang.'
+        );
+
+        return DB::transaction(function () use ($document, $data) {
+            $scope = $data['visibility_scope'] ?? $document->visibility_scope ?? 'internal';
+
+            $document->update([
+                'status'                => Document::STATUS_DIPUBLIKASIKAN,
+                'dipublikasikan_at'     => now(),
+                'visibility_scope'      => $scope,
+                'ditarik_at'            => null,
+                'alasan_penarikan'      => null,
+                'pengganti_document_id' => null,
+            ]);
+
+            // Hapus distribusi lama dan simpan baru jika scope = 'unit'
+            $document->distributions()->delete();
+            if ($scope === 'unit' && !empty($data['unit_ids']) && is_array($data['unit_ids'])) {
+                foreach ($data['unit_ids'] as $unitId) {
+                    \App\Models\DocumentDistribution::create([
+                        'document_id' => $document->id,
+                        'unit_id'     => $unitId,
+                    ]);
+                }
+            }
+
+            AuditLog::catat('republish', "Dokumen dipublikasikan ulang [{$scope}]: {$document->nomor_surat}", $document);
+
+            return $document->fresh();
+        });
     }
 
     /**

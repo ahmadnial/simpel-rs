@@ -199,16 +199,34 @@
             </div>
             <div class="topbar-right">
                 {{-- Notifikasi --}}
-                <button class="notif-btn" id="notif-btn" aria-label="Notifikasi">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                    </svg>
-                    @php $notifCount = auth()->user()->unreadNotifications()->count(); @endphp
-                    @if($notifCount > 0)
-                        <span class="notif-count">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>
-                    @endif
-                </button>
+                <div class="dropdown" style="position:relative">
+                    <button class="notif-btn" id="notif-btn" aria-label="Notifikasi">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="notif-count" id="notif-badge" style="display:none">0</span>
+                    </button>
+
+                    <div class="dropdown-menu" id="notif-menu" style="display:none; width:360px; right:0; left:auto; top:calc(100% + 8px); padding:0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15); border:1px solid #e2e8f0; overflow:hidden; z-index:1100;">
+                        <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+                            <div style="font-weight:700; font-size:0.875rem; color:var(--text-primary);">Pemberitahuan</div>
+                            <button type="button" id="btn-mark-all-read" style="background:none; border:none; color:var(--brand-600); font-size:0.75rem; font-weight:600; cursor:pointer;">
+                                Tandai semua dibaca
+                            </button>
+                        </div>
+
+                        {{-- Chrome Notification Permission Banner --}}
+                        <div id="chrome-notif-banner" style="padding:8px 12px; background:#eff6ff; border-bottom:1px solid #dbeafe; display:none; align-items:center; justify-content:space-between; font-size:0.75rem; color:#1e40af;">
+                            <span>🔔 Aktifkan notifikasi desktop Chrome</span>
+                            <button type="button" id="btn-enable-chrome-notif" style="background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:600; cursor:pointer;">Aktifkan</button>
+                        </div>
+
+                        <div id="notif-list-container" style="max-height:350px; overflow-y:auto;">
+                            <div style="padding:20px; text-align:center; color:#94a3b8; font-size:0.8rem">Memuat notifikasi...</div>
+                        </div>
+                    </div>
+                </div>
 
                 {{-- User Dropdown --}}
                 <div class="dropdown">
@@ -275,6 +293,7 @@
     if (menuBtn && menu) {
         menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (notifMenu) notifMenu.style.display = 'none';
             menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
         });
         document.addEventListener('click', () => { menu.style.display = 'none'; });
@@ -291,6 +310,173 @@
             }
         });
     }
+
+    // ================= NOTIFICATION CENTER & WEBPUSH =================
+    const notifBtn = document.getElementById('notif-btn');
+    const notifMenu = document.getElementById('notif-menu');
+    const notifBadge = document.getElementById('notif-badge');
+    const notifContainer = document.getElementById('notif-list-container');
+    const btnMarkAllRead = document.getElementById('btn-mark-all-read');
+    const chromeNotifBanner = document.getElementById('chrome-notif-banner');
+    const btnEnableChromeNotif = document.getElementById('btn-enable-chrome-notif');
+
+    let knownUnreadIds = new Set();
+    let initialLoadDone = false;
+
+    // Toggle Notif Dropdown
+    if (notifBtn && notifMenu) {
+        notifBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (menu) menu.style.display = 'none';
+            notifMenu.style.display = notifMenu.style.display === 'none' ? 'block' : 'none';
+            fetchNotifications();
+        });
+        document.addEventListener('click', (e) => {
+            if (notifMenu && !notifMenu.contains(e.target) && !notifBtn.contains(e.target)) {
+                notifMenu.style.display = 'none';
+            }
+        });
+    }
+
+    // Chrome Notification Permission Check
+    if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+            if (chromeNotifBanner) chromeNotifBanner.style.display = 'flex';
+        }
+        if (btnEnableChromeNotif) {
+            btnEnableChromeNotif.addEventListener('click', () => {
+                Notification.requestPermission().then((perm) => {
+                    if (perm === 'granted' || perm === 'denied') {
+                        if (chromeNotifBanner) chromeNotifBanner.style.display = 'none';
+                    }
+                });
+            });
+        }
+    }
+
+    // Fetch Notifications function
+    function fetchNotifications() {
+        fetch('/notifications', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            updateBadge(data.unread_count);
+            renderNotificationList(data.notifications);
+            checkAndTriggerDesktopNotif(data.notifications);
+        })
+        .catch(err => console.error('Error fetching notifications:', err));
+    }
+
+    function updateBadge(count) {
+        if (!notifBadge) return;
+        if (count > 0) {
+            notifBadge.innerText = count > 9 ? '9+' : count;
+            notifBadge.style.display = 'inline-flex';
+        } else {
+            notifBadge.style.display = 'none';
+        }
+    }
+
+    function renderNotificationList(items) {
+        if (!notifContainer) return;
+        if (!items || items.length === 0) {
+            notifContainer.innerHTML = '<div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.8rem">Tidak ada pemberitahuan baru.</div>';
+            return;
+        }
+
+        const iconMap = {
+            'diajukan': '📋',
+            'revisi': '⚠️',
+            'menunggu_ttd': '✍️',
+            'ditandatangani': '🔏',
+            'dipublikasikan': '🌐',
+            'info': '🔔'
+        };
+
+        let html = '';
+        items.forEach(item => {
+            const isUnread = !item.read_at;
+            const bg = isUnread ? '#f0f9ff' : '#ffffff';
+            const icon = iconMap[item.type] || '🔔';
+
+            html += `
+                <div onclick="handleNotifClick('${item.id}', '${item.url}')" style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${bg}; cursor:pointer; display:flex; gap:12px; align-items:flex-start; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${bg}'">
+                    <span style="font-size:1.2rem; line-height:1">${icon}</span>
+                    <div style="flex:1;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                            <strong style="font-size:0.8rem; color:${isUnread ? '#0369a1' : '#334155'}; font-weight:${isUnread ? '700' : '600'}">${item.title}</strong>
+                            <span style="font-size:0.7rem; color:#94a3b8">${item.created_at}</span>
+                        </div>
+                        <div style="font-size:0.78rem; color:#475569; line-height:1.4">${item.message}</div>
+                    </div>
+                </div>
+            `;
+        });
+        notifContainer.innerHTML = html;
+    }
+
+    function handleNotifClick(id, url) {
+        fetch(`/notifications/${id}/read`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            }
+        })
+        .then(() => {
+            window.location.href = url;
+        })
+        .catch(() => {
+            window.location.href = url;
+        });
+    }
+
+    if (btnMarkAllRead) {
+        btnMarkAllRead.addEventListener('click', () => {
+            fetch('/notifications/read-all', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
+                }
+            })
+            .then(() => {
+                fetchNotifications();
+            });
+        });
+    }
+
+    // Trigger Chrome Desktop Notification for new unread items
+    function checkAndTriggerDesktopNotif(items) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+        items.forEach(item => {
+            if (!item.read_at && !knownUnreadIds.has(item.id)) {
+                knownUnreadIds.add(item.id);
+
+                if (initialLoadDone) {
+                    const notif = new Notification(item.title, {
+                        body: item.message,
+                        icon: '/favicon.ico',
+                    });
+                    notif.onclick = function() {
+                        window.focus();
+                        handleNotifClick(item.id, item.url);
+                    };
+                }
+            }
+        });
+        initialLoadDone = true;
+    }
+
+    // Initial fetch + Poll every 15 seconds
+    fetchNotifications();
+    setInterval(fetchNotifications, 15000);
 </script>
 </body>
 </html>
+

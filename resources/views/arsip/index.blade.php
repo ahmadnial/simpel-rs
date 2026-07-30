@@ -45,7 +45,7 @@
         <div class="empty-state">
             <div class="empty-state-icon">📁</div>
             <div class="empty-state-title">Arsip Tidak Ditemukan</div>
-            <div class="empty-state-text">Tidak ada dokumen resmi yang cocok dengan kriteria pencarian Anda.</div>
+            <div class="empty-state-text">Tidak ada dokumen resmi yang cocok dengan kriteria pencarian atau hak akses Anda.</div>
         </div>
     @else
         <div class="table-wrapper">
@@ -55,8 +55,8 @@
                         <th>Nomor Surat</th>
                         <th>Judul Naskah</th>
                         <th>Jenis</th>
-                        <th>Unit Kerja</th>
-                        <th>Tanggal Surat</th>
+                        <th>Unit Pengusul</th>
+                        <th>Akses / Visibilitas</th>
                         <th>Keabsahan</th>
                         <th>Aksi</th>
                     </tr>
@@ -68,11 +68,19 @@
                             {{ $doc->nomor_surat ?? '-' }}
                         </td>
                         <td style="font-weight:600; color:var(--text-primary)">
-                            <a href="{{ route('dokumen.show', $doc) }}" style="color:inherit; text-decoration:none">{{ $doc->judul }}</a>
+                            <a href="{{ route('arsip.show', $doc) }}" style="color:inherit; text-decoration:none">{{ $doc->judul }}</a>
                         </td>
                         <td><span class="badge badge-indigo">{{ $doc->documentType->singkatan }}</span></td>
                         <td>{{ $doc->unit->nama }}</td>
-                        <td>{{ $doc->tanggal_surat?->format('d/m/Y') ?? '-' }}</td>
+                        <td>
+                            @if($doc->visibility_scope === 'terbatas' || $doc->is_rahasia)
+                                <span class="badge badge-red">🔒 Rahasia / Terbatas</span>
+                            @elseif($doc->visibility_scope === 'unit')
+                                <span class="badge badge-yellow" title="{{ $doc->distributions->pluck('unit.nama')->implode(', ') }}">🏢 {{ $doc->distributions->count() }} Unit Terkait</span>
+                            @else
+                                <span class="badge badge-green">🌐 Publik Internal RS</span>
+                            @endif
+                        </td>
                         <td>
                             @if($doc->signature)
                                 <span class="badge badge-green">TTE Sah (SHA-256)</span>
@@ -81,7 +89,7 @@
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('dokumen.show', $doc) }}" class="btn btn-secondary btn-sm">Lihat Detail</a>
+                            <a href="{{ route('arsip.show', $doc) }}" class="btn btn-secondary btn-sm">Lihat Detail</a>
                         </td>
                     </tr>
                     @endforeach

@@ -19,6 +19,7 @@ class Document extends Model
     const STATUS_MENUNGGU_TTD   = 'menunggu_ttd';
     const STATUS_DITANDATANGANI = 'ditandatangani';
     const STATUS_DIPUBLIKASIKAN = 'dipublikasikan';
+    const STATUS_DITARIK        = 'ditarik';
     const STATUS_DIARSIPKAN     = 'diarsipkan';
     const STATUS_BATAL          = 'ditolak_batal';
 
@@ -26,8 +27,9 @@ class Document extends Model
         'judul', 'document_type_id', 'unit_id', 'pengusul_id',
         'workflow_template_id', 'status', 'current_step',
         'nomor_surat', 'tanggal_surat', 'perihal', 'keterangan',
-        'is_rahasia', 'diajukan_at', 'ditandatangani_at',
-        'dipublikasikan_at', 'diarsipkan_at', 'hash_final',
+        'is_rahasia', 'visibility_scope', 'diajukan_at', 'ditandatangani_at',
+        'dipublikasikan_at', 'ditarik_at', 'alasan_penarikan',
+        'pengganti_document_id', 'diarsipkan_at', 'hash_final',
     ];
 
     protected function casts(): array
@@ -37,6 +39,7 @@ class Document extends Model
             'diajukan_at'        => 'datetime',
             'ditandatangani_at'  => 'datetime',
             'dipublikasikan_at'  => 'datetime',
+            'ditarik_at'         => 'datetime',
             'diarsipkan_at'      => 'datetime',
             'tanggal_surat'      => 'date',
             'current_step'       => 'integer',
@@ -88,6 +91,27 @@ class Document extends Model
         return $this->hasOne(DocumentSignature::class)->latestOfMany();
     }
 
+    public function distributions()
+    {
+        return $this->hasMany(DocumentDistribution::class);
+    }
+
+    /**
+     * Dokumen pengganti (jika dokumen ini ditarik karena ada pembaharuan).
+     */
+    public function penggantiDocument()
+    {
+        return $this->belongsTo(Document::class, 'pengganti_document_id');
+    }
+
+    /**
+     * Dokumen-dokumen lama yang digantikan oleh dokumen ini.
+     */
+    public function digantikanOleh()
+    {
+        return $this->hasMany(Document::class, 'pengganti_document_id');
+    }
+
     public function auditLogs()
     {
         return $this->morphMany(AuditLog::class, 'model')
@@ -101,8 +125,73 @@ class Document extends Model
     public function isMenungguTtd(): bool  { return $this->status === self::STATUS_MENUNGGU_TTD; }
     public function isSigned(): bool       { return $this->status === self::STATUS_DITANDATANGANI; }
     public function isPublished(): bool    { return $this->status === self::STATUS_DIPUBLIKASIKAN; }
+    public function isDitarik(): bool      { return $this->status === self::STATUS_DITARIK; }
     public function isArchived(): bool     { return $this->status === self::STATUS_DIARSIPKAN; }
     public function isLocked(): bool       { return !in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REVISI]); }
+
+    /**
+     * Pengecekan hak akses user terhadap dokumen berdasarkan visibility_scope & unit.
+     */
+    public function isAccessibleBy(User $user): bool
+    {
+        // Admin / Super Admin selalu punya akses
+        if ($user->hasAnyRole(['super-admin', 'admin'])) {
+            return true;
+        }
+
+        // Pengusul selalu punya akses ke dokumennya sendiri
+        if ($this->pengusul_id === $user->id) {
+            return true;
+        }
+
+        // User dalam rantai verifikasi / penandatangan punya akses
+        if ($this->verifications()->where('verifikator_id', $user->id)->exists()) {
+            return true;
+        }
+        if ($this->signature && $this->signature->penandatangan_id === $user->id) {
+            return true;
+        }
+
+        // Cek visibilitas publikasi
+        $scope = $this->visibility_scope ?? ($this->is_rahasia ? 'terbatas' : 'internal');
+
+        return match ($scope) {
+            'terbatas' => ($user->unit_id === $this->unit_id),
+            'unit'     => ($user->unit_id === $this->unit_id || $this->distributions()->where('unit_id', $user->unit_id)->exists()),
+            'internal' => true,
+            default    => true,
+        };
+    }
+
+    /**
+     * Scope query filter dokumen yang dapat diakses user di Arsip/Pencarian.
+     */
+    public function scopeAccessibleBy($query, User $user)
+    {
+        if ($user->hasAnyRole(['super-admin', 'admin'])) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user) {
+            // Pengusul sendiri
+            $q->where('pengusul_id', $user->id)
+              // Scope internal
+              ->orWhere('visibility_scope', 'internal')
+              ->orWhere(function ($q2) use ($user) {
+                  // Scope unit: unit pengusul atau unit tujuan sebar
+                  $q2->where('visibility_scope', 'unit')
+                     ->where(function ($q3) use ($user) {
+                         $q3->where('unit_id', $user->unit_id)
+                            ->orWhereHas('distributions', fn($d) => $d->where('unit_id', $user->unit_id));
+                     });
+              })
+              ->orWhere(function ($q4) use ($user) {
+                  // Scope terbatas: hanya unit pengusul
+                  $q4->where('visibility_scope', 'terbatas')
+                     ->where('unit_id', $user->unit_id);
+              });
+        });
+    }
 
     public function getStatusLabelAttribute(): string
     {
@@ -114,6 +203,7 @@ class Document extends Model
             self::STATUS_MENUNGGU_TTD   => 'Menunggu Tanda Tangan',
             self::STATUS_DITANDATANGANI => 'Ditandatangani',
             self::STATUS_DIPUBLIKASIKAN => 'Dipublikasikan',
+            self::STATUS_DITARIK        => 'Ditarik dari Publikasi',
             self::STATUS_DIARSIPKAN     => 'Diarsipkan',
             self::STATUS_BATAL          => 'Dibatalkan',
         ][$this->status] ?? ucfirst($this->status);
@@ -129,6 +219,7 @@ class Document extends Model
             self::STATUS_MENUNGGU_TTD   => 'purple',
             self::STATUS_DITANDATANGANI => 'green',
             self::STATUS_DIPUBLIKASIKAN => 'teal',
+            self::STATUS_DITARIK        => 'orange',
             self::STATUS_DIARSIPKAN     => 'indigo',
             self::STATUS_BATAL          => 'red',
         ][$this->status] ?? 'gray';

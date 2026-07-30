@@ -89,10 +89,17 @@ class DocumentController extends Controller
 
     public function show(Document $document)
     {
+        abort_unless(
+            $document->isAccessibleBy(auth()->user()),
+            403,
+            'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.'
+        );
+
         $document->load([
             'documentType', 'unit', 'pengusul',
             'versions.uploader', 'verifications.verifikator',
-            'signature.penandatangan', 'auditLogs'
+            'signature.penandatangan', 'distributions.unit',
+            'penggantiDocument', 'auditLogs'
         ]);
 
         $verifikators = User::permission('dokumen.verifikasi')
@@ -542,6 +549,12 @@ class DocumentController extends Controller
 
     public function downloadPdf(Document $document, $versionId = null)
     {
+        abort_unless(
+            $document->isAccessibleBy(auth()->user()),
+            403,
+            'Anda tidak memiliki hak akses untuk mengunduh naskah dinas ini.'
+        );
+
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
         $version = $version ?? $document->currentVersion ?? $document->versions()->first();
 
