@@ -259,6 +259,22 @@ class DocumentService
             abort_unless($user->isOtpValid($otpInput), 422, 'OTP tidak valid atau sudah kadaluarsa.');
             abort_unless($document->status === Document::STATUS_MENUNGGU_TTD, 403, 'Dokumen tidak dalam status menunggu tanda tangan.');
 
+            // Validasi Wewenang Penandatangan (termasuk delegasi Plt/Plh)
+            $signerRoles = $user->getRoleNames()->toArray();
+            if ($delegated = $user->activeDelegation()) {
+                if ($delegated->pejabat) {
+                    $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
+                }
+            }
+
+            $isAuthorizedSigner = $user->hasRole('super_admin') || 
+                ($document->workflowTemplate?->steps()
+                    ->where('tipe', 'penandatangan')
+                    ->whereIn('role_nama', $signerRoles)
+                    ->exists() ?? false);
+
+            abort_unless($isAuthorizedSigner, 403, 'Anda bukan penandatangan yang sah untuk dokumen ini.');
+
             $currentVersion = $document->currentVersion;
             $filePath = $this->ensureDocxFileExists($document, $currentVersion);
 
@@ -280,7 +296,7 @@ class DocumentService
                 'ditandatangani_at'   => now(),
                 'metadata_tte'        => [
                     'signer_name'  => $user->name,
-                    'signer_role'  => $user->getRoleNames()->first(),
+                    'signer_role'  => $user->jabatan ?? $user->getRoleNames()->first() ?? 'Penandatangan',
                     'signed_at'    => now()->toIso8601String(),
                 ],
             ]);

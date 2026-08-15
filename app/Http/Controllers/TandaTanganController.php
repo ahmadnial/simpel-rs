@@ -19,8 +19,23 @@ class TandaTanganController extends Controller
     {
         $user = auth()->user();
 
+        // Roles yang dimiliki (termasuk delegasi Plt/Plh)
+        $signerRoles = $user->getRoleNames()->toArray();
+        if ($delegated = $user->activeDelegation()) {
+            if ($delegated->pejabat) {
+                $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
+            }
+        }
+
         $antrianQuery = Document::where('status', Document::STATUS_MENUNGGU_TTD)
             ->with(['documentType', 'unit', 'pengusul', 'currentVersion']);
+
+        // Filter role penandatangan kecuali super_admin
+        if (!$user->hasRole('super_admin')) {
+            $antrianQuery->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
+                $q->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles);
+            });
+        }
 
         // Filter Jenis Naskah / Klasifikasi Dokumen
         if ($request->filled('document_type_id')) {
@@ -57,10 +72,26 @@ class TandaTanganController extends Controller
     {
         $user = auth()->user();
 
+        // Roles yang dimiliki (termasuk delegasi Plt/Plh)
+        $signerRoles = $user->getRoleNames()->toArray();
+        if ($delegated = $user->activeDelegation()) {
+            if ($delegated->pejabat) {
+                $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
+            }
+        }
+
+        $isAuthorizedSigner = $user->hasRole('super_admin') || 
+            ($document->workflowTemplate?->steps()
+                ->where('tipe', 'penandatangan')
+                ->whereIn('role_nama', $signerRoles)
+                ->exists() ?? false);
+
         abort_unless(
-            $document->status === Document::STATUS_MENUNGGU_TTD && ($user->hasPermissionTo('dokumen.tanda_tangan') || $user->hasRole('super_admin')),
+            $document->status === Document::STATUS_MENUNGGU_TTD 
+            && ($user->hasPermissionTo('dokumen.tanda_tangan') || $user->hasRole('super_admin'))
+            && $isAuthorizedSigner,
             403,
-            'Dokumen tidak dalam antrian tanda tangan atau Anda tidak memiliki wewenang.'
+            'Dokumen tidak dalam antrian tanda tangan Anda atau Anda tidak memiliki wewenang.'
         );
 
         $document->load([

@@ -46,7 +46,7 @@
             </svg>
         </div>
         <div class="stat-body">
-            <div class="stat-value">{{ $stats['menunggu_verifikasi'] }}</div>
+            <div class="stat-value">{{ $stats['menunggu_tindakan'] }}</div>
             <div class="stat-label">Menunggu Tindakan Saya</div>
         </div>
     </div>
