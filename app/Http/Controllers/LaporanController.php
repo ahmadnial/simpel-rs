@@ -15,6 +15,10 @@ class LaporanController extends Controller
         $tahun = $request->get('tahun', date('Y'));
         $unitId = $request->get('unit_id');
 
+        if (!auth()->user()->hasRole('super_admin')) {
+            $unitId = auth()->user()->unit_id;
+        }
+
         $query = Document::whereYear('created_at', $tahun);
 
         if ($unitId) {
@@ -47,6 +51,10 @@ class LaporanController extends Controller
     {
         $tahun = $request->get('tahun', date('Y'));
         $unitId = $request->get('unit_id');
+
+        if (!auth()->user()->hasRole('super_admin')) {
+            $unitId = auth()->user()->unit_id;
+        }
 
         $query = Document::whereYear('created_at', $tahun)->with(['documentType', 'unit', 'pengusul']);
 

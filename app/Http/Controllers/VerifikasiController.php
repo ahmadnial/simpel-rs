@@ -26,11 +26,8 @@ class VerifikasiController extends Controller
         }
 
         $antrianQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
-            ->with(['document.documentType', 'document.pengusul', 'document.unit']);
-
-        if (!$user->hasRole('super_admin')) {
-            $antrianQuery->whereIn('verifikator_id', $pejabatIds);
-        }
+            ->with(['document.documentType', 'document.pengusul', 'document.unit'])
+            ->whereIn('verifikator_id', $pejabatIds);
 
         // Filter Jenis Naskah / Klasifikasi Dokumen
         if ($request->filled('document_type_id')) {

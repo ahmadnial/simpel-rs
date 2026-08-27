@@ -125,6 +125,7 @@
             </a>
             @endcan
 
+            @hasanyrole('super_admin|penandatangan|verifikator')
             <a href="{{ route('delegasi.index') }}" class="nav-item {{ request()->routeIs('delegasi.*') ? 'active' : '' }}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -134,8 +135,9 @@
                 </svg>
                 Delegasi / Plt
             </a>
+            @endhasanyrole
 
-            @role('super_admin|admin_unit')
+            @role('super_admin')
             <div class="nav-section-label">Administrasi</div>
             <a href="{{ route('admin.index') }}" class="nav-item {{ request()->routeIs('admin.index') ? 'active' : '' }}">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

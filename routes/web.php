@@ -86,7 +86,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Delegasi
-    Route::prefix('delegasi')->name('delegasi.')->group(function () {
+    Route::prefix('delegasi')->name('delegasi.')->middleware('role:super_admin|penandatangan|verifikator')->group(function () {
         Route::get('/', [DelegasiController::class, 'index'])->name('index');
         Route::post('/', [DelegasiController::class, 'store'])->name('store');
         Route::delete('/{delegation}', [DelegasiController::class, 'destroy'])->name('destroy');
@@ -106,7 +106,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Admin
-    Route::prefix('admin')->name('admin.')->middleware('role:super_admin|admin_unit')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('role:super_admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\AdminController::class, 'index'])->name('index');
         Route::resource('units', \App\Http\Controllers\Admin\UnitController::class);
         Route::resource('users', \App\Http\Controllers\Admin\UserController::class);

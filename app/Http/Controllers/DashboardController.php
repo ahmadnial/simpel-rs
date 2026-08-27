@@ -35,30 +35,26 @@ class DashboardController extends Controller
 
         // Antrian verifikasi saya
         $antrianVerifikasiQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
-            ->with(['document.documentType', 'document.pengusul']);
-        if (!$user->hasRole('super_admin')) {
-            $antrianVerifikasiQuery->whereIn('verifikator_id', $pejabatIds);
-        }
+            ->with(['document.documentType', 'document.pengusul'])
+            ->whereIn('verifikator_id', $pejabatIds);
         $antrianVerifikasi = $antrianVerifikasiQuery->latest()->take(5)->get();
 
         // Antrian TTD saya
         $antrianTtdQuery = Document::where('status', Document::STATUS_MENUNGGU_TTD)
-            ->with(['documentType', 'pengusul']);
-        if (!$user->hasRole('super_admin')) {
-            $antrianTtdQuery->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
+            ->with(['documentType', 'pengusul'])
+            ->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
                 $q->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles);
             });
-        }
         $antrianTtd = $antrianTtdQuery->latest()->take(5)->get();
 
         // Hitung total menunggu verifikasi & menunggu TTD secara akurat
         $totalVerifikasiMenunggu = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
-            ->when(!$user->hasRole('super_admin'), fn($q) => $q->whereIn('verifikator_id', $pejabatIds))
+            ->whereIn('verifikator_id', $pejabatIds)
             ->count();
 
         $totalTtdMenunggu = Document::where('status', Document::STATUS_MENUNGGU_TTD)
-            ->when(!$user->hasRole('super_admin'), function ($q) use ($signerRoles) {
-                $q->whereHas('workflowTemplate.steps', fn($sq) => $sq->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles));
+            ->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
+                $q->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles);
             })
             ->count();
 

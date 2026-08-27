@@ -29,12 +29,14 @@
             @endfor
         </select>
 
+        @role('super_admin')
         <select name="unit_id" class="form-control" style="width: auto" onchange="this.form.submit()">
             <option value="">Semua Unit / Instalasi</option>
             @foreach($units as $u)
                 <option value="{{ $u->id }}" {{ $unitId == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
             @endforeach
         </select>
+        @endrole
     </form>
 </div>
 
