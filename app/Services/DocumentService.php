@@ -214,36 +214,45 @@ class DocumentService
         $stepsPreview = $steps->values()->map(function ($step, $idx) use (&$verifCounter, &$signCounter) {
             $manual = $idx === 0 && $step->mode_verifikasi === 'serial' && empty($step->role_nama);
 
-            $names = collect();
+            $people = collect();
 
             if (!$manual) {
                 if ($step->isParallelQuorum()) {
                     foreach ($step->verifierPool as $pool) {
                         if ($pool->tipe_pool === 'user' && $pool->user) {
-                            $names->push($this->formatPersonLabel($pool->user));
+                            $people->push($this->personEntry($pool->user));
                         } elseif ($pool->tipe_pool === 'role' && $pool->role_nama) {
                             \App\Models\User::role($pool->role_nama)->where('is_active', true)->get()
-                                ->each(fn ($u) => $names->push($this->formatPersonLabel($u)));
+                                ->each(fn ($u) => $people->push($this->personEntry($u)));
                         }
                     }
                 } elseif ($step->role_nama) {
                     \App\Models\User::role($step->role_nama)->where('is_active', true)->get()
-                        ->each(fn ($u) => $names->push($this->formatPersonLabel($u)));
+                        ->each(fn ($u) => $people->push($this->personEntry($u)));
                 }
             }
 
-            $names = $names->filter()->unique()->values();
+            $people = $people->unique(fn ($p) => $p['name'] . '|' . $p['sub'])->values();
             $min = $step->min_approval ?? 1;
 
             if ($manual) {
-                $who = 'Dipilih pengusul saat pengajuan';
-            } elseif ($names->isEmpty()) {
-                $who = 'Belum ada pejabat ditugaskan';
-            } elseif ($step->isParallelQuorum() && $min < $names->count()) {
-                $who = "Min. {$min} dari " . $names->count() . ' pejabat: ' . $names->join(', ');
+                $note = 'Dipilih pengusul saat pengajuan';
+            } elseif ($people->isEmpty()) {
+                $note = 'Belum ada pejabat ditugaskan — hubungi Admin';
+            } elseif ($step->isParallelQuorum() && $min < $people->count()) {
+                $note = "Min. {$min} dari {$people->count()} orang menyetujui";
+            } elseif ($people->count() > 1) {
+                $note = 'Salah satu dari ' . $people->count() . ' orang';
             } else {
-                $who = $names->join(' / ');
+                $note = null;
             }
+
+            // Kalau semua orang di tahap ini kebetulan berbagi jabatan/unit yang sama, tampilkan
+            // sekali saja di label tahap — supaya tidak berulang di tiap nama (contoh nyata: 4
+            // Asesor Internal jadi "Verifikator 1 · Asesor Internal" + daftar 4 nama polos,
+            // bukan "Nama (Asesor Internal)" diulang 4 kali yang bikin baris jadi sangat panjang).
+            $subs = $people->pluck('sub')->filter()->unique();
+            $commonSub = $subs->count() === 1 ? $subs->first() : null;
 
             if ($step->isPenandatangan()) {
                 $signCounter++;
@@ -257,19 +266,22 @@ class DocumentService
                 'label'      => $label,
                 'nama_tahap' => $step->nama_tahap,
                 'tipe'       => $step->tipe,
-                'who'        => $who,
                 'manual'     => $manual,
+                'note'       => $note,
+                'commonSub'  => $commonSub,
+                'people'     => $people->map(fn ($p) => [
+                    'name' => $p['name'],
+                    'sub'  => $commonSub ? null : $p['sub'],
+                ])->values()->all(),
             ];
         })->values()->all();
 
         return ['configured' => !empty($stepsPreview), 'steps' => $stepsPreview];
     }
 
-    private function formatPersonLabel(\App\Models\User $user): string
+    private function personEntry(\App\Models\User $user): array
     {
-        $sub = $user->jabatan ?: $user->unit?->nama;
-
-        return $sub ? "{$user->name} ({$sub})" : $user->name;
+        return ['name' => $user->name, 'sub' => $user->jabatan ?: $user->unit?->nama];
     }
 
     /**

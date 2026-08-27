@@ -49,7 +49,7 @@ class DocumentWorkflowChainPreviewTest extends TestCase
         $pengusul->assignRole('pengusul');
 
         $asesor = User::create([
-            'name' => 'Asesor Internal', 'email' => 'asesor@test.com', 'jabatan' => 'Asesor',
+            'name' => 'Asesor Utama', 'email' => 'asesor@test.com', 'jabatan' => 'Asesor Internal',
             'password' => bcrypt('password'), 'unit_id' => $unit->id, 'is_active' => true,
         ]);
         $asesor->assignRole('asesor_internal');
@@ -119,18 +119,77 @@ class DocumentWorkflowChainPreviewTest extends TestCase
 
         $this->assertSame('Verifikator 1', $step1['label']);
         $this->assertTrue($step1['manual']);
-        $this->assertSame('Dipilih pengusul saat pengajuan', $step1['who']);
+        $this->assertSame('Dipilih pengusul saat pengajuan', $step1['note']);
+        $this->assertNull($step1['commonSub']);
+        $this->assertSame([], $step1['people']);
 
         $this->assertSame('Verifikator 2', $step2['label']);
         $this->assertFalse($step2['manual']);
-        $this->assertSame('Z. Lestifani (Kesekretariatan)', $step2['who']);
+        $this->assertSame('Kesekretariatan', $step2['commonSub']);
+        $this->assertNull($step2['note']);
+        $this->assertSame([['name' => 'Z. Lestifani', 'sub' => null]], $step2['people']);
 
         $this->assertSame('Penandatangan', $step3['label']);
         $this->assertSame('penandatangan', $step3['tipe']);
-        $this->assertSame('Dr. Direktur (Direktur Utama)', $step3['who']);
+        $this->assertSame('Direktur Utama', $step3['commonSub']);
+        $this->assertSame([['name' => 'Dr. Direktur', 'sub' => null]], $step3['people']);
 
         // Chain harus muncul di HTML lewat data JSON yang dipakai JS form.
         $response->assertSee('workflowChainInfo', false);
+    }
+
+    public function test_workflow_chain_groups_shared_role_suffix_instead_of_repeating_it_per_person(): void
+    {
+        $fixtures = $this->buildChainFixtures();
+
+        $docType2 = DocumentType::create([
+            'nama' => 'SPO Layanan', 'kode' => 'SPO', 'singkatan' => 'SPO',
+            'deskripsi' => 'SPO', 'format_nomor' => '{urut}/SPO/{tahun}',
+            'is_active' => true, 'urutan' => 2,
+        ]);
+
+        $wf2 = WorkflowTemplate::create([
+            'nama' => 'WF SPO Layanan', 'document_type_id' => $docType2->id,
+            'is_default' => true, 'is_active' => true,
+        ]);
+
+        // Tahap paralel dengan kuorum: cukup 1 dari 4 Asesor Internal yang menyetujui — kasus
+        // nyata yang dilaporkan user, di mana jabatan "asesor internal" dulu diulang di tiap nama
+        // dan bikin barisnya sangat panjang & sulit dibaca.
+        $step = WorkflowStep::create([
+            'workflow_template_id' => $wf2->id, 'urutan' => 1,
+            'nama_tahap' => 'Verifikasi Asesor Internal', 'tipe' => 'verifikasi',
+            'mode_verifikasi' => 'parallel', 'min_approval' => 1, 'sla_hari_kerja' => 2,
+        ]);
+        $step->verifierPool()->create(['tipe_pool' => 'role', 'role_nama' => 'asesor_internal']);
+
+        $names = ['Rika Apriliniani', 'Hervikta AW', 'Yuko Mandasari', 'Arlinda P'];
+        foreach ($names as $i => $name) {
+            $u = User::create([
+                'name' => $name, 'email' => strtolower(str_replace(' ', '', $name)) . '@test.com',
+                'jabatan' => 'Asesor Internal', 'password' => bcrypt('password'),
+                'unit_id' => $fixtures['unit']->id, 'is_active' => true,
+            ]);
+            $u->assignRole('asesor_internal');
+        }
+        // Ikut-sertakan asesor dari fixture dasar juga (5 total) supaya query role tidak kosong.
+        $names[] = $fixtures['asesor']->name;
+
+        $chain = app(\App\Services\DocumentService::class)->getWorkflowChainPreview($docType2, $fixtures['unit']->id);
+
+        $this->assertTrue($chain['configured']);
+        $step0 = $chain['steps'][0];
+
+        $this->assertSame('Verifikator 1', $step0['label']);
+        $this->assertSame('Asesor Internal', $step0['commonSub'], 'Jabatan yang sama untuk semua orang harus ditampilkan sekali di label, bukan diulang per nama.');
+        $this->assertSame('Min. 1 dari 5 orang menyetujui', $step0['note']);
+        $this->assertCount(5, $step0['people']);
+
+        foreach ($step0['people'] as $person) {
+            $this->assertNull($person['sub'], 'Sub per-orang harus kosong karena sudah diwakili commonSub.');
+        }
+
+        $this->assertEqualsCanonicalizing($names, array_column($step0['people'], 'name'));
     }
 
     public function test_show_page_ajukan_modal_renders_the_resolved_workflow_chain(): void
@@ -154,8 +213,10 @@ class DocumentWorkflowChainPreviewTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Verifikator 1');
         $response->assertSee('Verifikator 2');
-        $response->assertSee('Z. Lestifani (Kesekretariatan)');
+        $response->assertSee('Kesekretariatan');
+        $response->assertSee('Z. Lestifani');
         $response->assertSee('Penandatangan');
-        $response->assertSee('Dr. Direktur (Direktur Utama)');
+        $response->assertSee('Direktur Utama');
+        $response->assertSee('Dr. Direktur');
     }
 }

@@ -206,39 +206,82 @@
                     </div>
                 </div>
 
-                {{-- Step 2: Verifikasi --}}
-                @foreach($document->verifications as $verif)
-                <div class="timeline-item">
-                    @if($verif->isApproved())
-                        <div class="timeline-dot" style="background:rgba(34,197,94,0.2); color:#4ade80">✓</div>
-                    @elseif($verif->isRevisi())
-                        <div class="timeline-dot" style="background:rgba(249,115,22,0.2); color:#fb923c">!</div>
-                    @else
-                        <div class="timeline-dot" style="background:rgba(234,179,8,0.2); color:#fbbf24">⏳</div>
-                    @endif
+                {{-- Step 2: Verifikasi — dikelompokkan per level. Kalau satu tahap punya pool
+                     verifikator >1 orang (mis. 4 Asesor Internal, salah satu approve = sah),
+                     selama semua masih menunggu cukup ditampilkan 1 baris ringkas dibungkus
+                     jabatan bersama ("Menunggu salah satu dari 4 · Asesor Internal") — bukan
+                     4 baris menunggu yang identik. Begitu ada yang benar-benar bertindak
+                     (approve/minta revisi), namanya ditampilkan sendiri; tiket sisanya yang
+                     otomatis dibatalkan (kalah cepat) disembunyikan, bukan noise. --}}
+                @foreach($document->verifications->groupBy('level') as $level => $levelGroup)
+                    @php
+                        $decided = $levelGroup->reject(fn ($v) => $v->isMenunggu() || $v->isDibatalkan());
+                        $pending = $levelGroup->filter(fn ($v) => $v->isMenunggu());
+                    @endphp
 
-                    <div class="timeline-content">
-                        <div class="timeline-title">
-                            Verifikasi Level {{ $verif->level }}: {{ $verif->verifikator->name }}
-                        </div>
-                        <div class="timeline-meta">
-                            Status: <strong>{{ ucfirst($verif->status) }}</strong>
-                            @if($verif->direspon_at)
-                                &bull; {{ $verif->direspon_at->format('d/m/Y H:i') }}
+                    @foreach($decided as $verif)
+                    <div class="timeline-item">
+                        @if($verif->isApproved())
+                            <div class="timeline-dot" style="background:rgba(34,197,94,0.2); color:#4ade80">✓</div>
+                        @elseif($verif->isRevisi())
+                            <div class="timeline-dot" style="background:rgba(249,115,22,0.2); color:#fb923c">!</div>
+                        @else
+                            <div class="timeline-dot" style="background:rgba(234,179,8,0.2); color:#fbbf24">⏳</div>
+                        @endif
+
+                        <div class="timeline-content">
+                            <div class="timeline-title">
+                                Verifikasi Level {{ $level }}: {{ $verif->verifikator->name }}
+                            </div>
+                            <div class="timeline-meta">
+                                Status: <strong>{{ ucfirst($verif->status) }}</strong>
+                                @if($verif->direspon_at)
+                                    &bull; {{ $verif->direspon_at->format('d/m/Y H:i') }}
+                                @endif
+                            </div>
+                            @if($verif->catatan)
+                                <div class="timeline-note">
+                                    "{{ $verif->catatan }}"
+                                </div>
+                            @endif
+                            @if($verif->direset_alasan)
+                                <div class="timeline-note" style="background:rgba(239,68,68,0.05); border-left-color:#ef4444; color:#ef4444">
+                                    <strong>Dikembalikan:</strong> {{ $verif->direset_alasan }}
+                                </div>
                             @endif
                         </div>
-                        @if($verif->catatan)
-                            <div class="timeline-note">
-                                "{{ $verif->catatan }}"
-                            </div>
-                        @endif
-                        @if($verif->direset_alasan)
-                            <div class="timeline-note" style="background:rgba(239,68,68,0.05); border-left-color:#ef4444; color:#ef4444">
-                                <strong>Dikembalikan:</strong> {{ $verif->direset_alasan }}
-                            </div>
-                        @endif
                     </div>
-                </div>
+                    @endforeach
+
+                    @if($pending->count() === 1)
+                        @php $verif = $pending->first(); @endphp
+                        <div class="timeline-item">
+                            <div class="timeline-dot" style="background:rgba(234,179,8,0.2); color:#fbbf24">⏳</div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">
+                                    Verifikasi Level {{ $level }}: {{ $verif->verifikator->name }}
+                                </div>
+                                <div class="timeline-meta">Status: <strong>Menunggu</strong></div>
+                            </div>
+                        </div>
+                    @elseif($pending->count() > 1)
+                        @php
+                            $pendingSubs = $pending->map(fn ($v) => $v->verifikator->jabatan ?: $v->verifikator->unit?->nama)->filter()->unique();
+                            $pendingCommonSub = $pendingSubs->count() === 1 ? $pendingSubs->first() : null;
+                        @endphp
+                        <div class="timeline-item">
+                            <div class="timeline-dot" style="background:rgba(234,179,8,0.2); color:#fbbf24">⏳</div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">
+                                    Verifikasi Level {{ $level }}
+                                    @if($pendingCommonSub)
+                                        <span style="font-weight:500; color:var(--text-muted)">&middot; {{ $pendingCommonSub }}</span>
+                                    @endif
+                                </div>
+                                <div class="timeline-meta">Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
+                            </div>
+                        </div>
+                    @endif
                 @endforeach
 
                 @if($document->status === \App\Models\Document::STATUS_DITOLAK_TTD || $document->ditolak_ttd_at)
@@ -308,14 +351,30 @@
                     @if(!empty($workflowChain['steps']))
                         <div class="workflow-chain" style="margin-bottom: var(--space-4)">
                             @foreach($workflowChain['steps'] as $i => $step)
-                                @if($i > 0)
-                                    <div class="workflow-chain-arrow">&rarr;</div>
-                                @endif
                                 <div class="workflow-chain-step {{ $step['tipe'] === 'penandatangan' ? 'workflow-chain-step-sign' : '' }}">
                                     <div class="workflow-chain-step-badge">{{ $step['tipe'] === 'penandatangan' ? '✓' : (preg_replace('/\D/', '', $step['label']) ?: ($i + 1)) }}</div>
                                     <div class="workflow-chain-step-body">
-                                        <div class="workflow-chain-step-label">{{ $step['label'] }}</div>
-                                        <div class="workflow-chain-step-name {{ $step['manual'] ? 'is-muted' : '' }}" title="{{ $step['who'] }}">{{ $step['who'] }}</div>
+                                        <div class="workflow-chain-step-label">
+                                            <span>{{ $step['label'] }}</span>
+                                            @if($step['commonSub'])
+                                                <span class="workflow-chain-step-sub">&middot; {{ $step['commonSub'] }}</span>
+                                            @endif
+                                        </div>
+                                        @if($step['note'])
+                                            <div class="workflow-chain-step-note {{ !$step['manual'] && empty($step['people']) ? 'is-warning' : '' }}">{{ $step['note'] }}</div>
+                                        @endif
+                                        @if(!empty($step['people']))
+                                            <div class="workflow-chain-people">
+                                                @foreach($step['people'] as $person)
+                                                    <span class="workflow-chain-person">
+                                                        <span>{{ $person['name'] }}</span>
+                                                        @if($person['sub'])
+                                                            <span class="workflow-chain-person-sub">({{ $person['sub'] }})</span>
+                                                        @endif
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endforeach
