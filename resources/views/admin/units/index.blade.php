@@ -13,11 +13,11 @@
 
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-        <h1 class="page-title">Master Unit Kerja & Instalasi</h1>
-        <p class="page-subtitle">Kelola struktur unit kerja, bidang, dan instalasi di lingkungan rumah sakit</p>
+        <h1 class="page-title">Master Unit & Instalasi</h1>
+        <p class="page-subtitle">Kelola struktur unit, instalasi, tim, komite, dan manajemen rumah sakit</p>
     </div>
     <button class="btn btn-primary" onclick="document.getElementById('modalAddUnit').style.display='flex'">
-        + Tambah Unit Kerja
+        + Tambah Unit / Instalasi
     </button>
 </div>
 

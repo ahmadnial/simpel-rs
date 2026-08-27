@@ -29,6 +29,18 @@
     @endif
 </div>
 
+@if($verification->document->status === 'ditolak_penandatangan')
+<div class="alert alert-danger" style="margin-bottom: var(--space-6); background: rgba(239,68,68,0.1); border: 1px solid var(--border-danger); color: var(--text-danger); padding: var(--space-4); border-radius: var(--radius-md);">
+    <strong style="display:flex; align-items:center; gap:8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Dokumen dikembalikan oleh Penandatangan
+    </strong>
+    <div style="margin-top: 8px; font-style: italic;">
+        "{{ $verification->document->ditolak_ttd_alasan }}"
+    </div>
+</div>
+@endif
+
 <div style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
 
     {{-- Left: Keputusan & Form --}}
@@ -43,6 +55,9 @@
             <div style="display:flex; gap: var(--space-3); margin-bottom: var(--space-4)">
                 <button type="button" id="tab-btn-setuju" class="btn btn-success" style="flex:1" onclick="switchMode('setuju')">
                     ✓ Setujui Dokumen
+                </button>
+                <button type="button" id="tab-btn-kembali" class="btn btn-secondary" style="flex:1; border-color:var(--border-danger); color:var(--text-danger)" onclick="switchMode('kembali')">
+                    ⬇ Kembalikan
                 </button>
                 <button type="button" id="tab-btn-revisi" class="btn btn-secondary" style="flex:1" onclick="switchMode('revisi')">
                     ✍ Minta Revisi
@@ -61,15 +76,27 @@
                 </button>
             </form>
 
+            {{-- Form Kembalikan Bawah --}}
+            <form id="form-kembali" method="POST" action="{{ route('verifikasi.teruskan-bawah', $verification) }}" style="display:none">
+                @csrf
+                <div class="form-group">
+                    <label for="catatan_kembali" class="form-label">Catatan Pengembalian <span style="color:#ef4444">*</span></label>
+                    <textarea name="catatan" id="catatan_kembali" class="form-control" rows="4" placeholder="Alasan mengapa dokumen dikembalikan ke verifikator tingkat sebelumnya..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-lg" style="width:100%; background:var(--bg-elevated); color:var(--text-danger); border:1px solid var(--border-danger);">
+                    Kembalikan ke Level Sebelumnya
+                </button>
+            </form>
+
             {{-- Form Minta Revisi --}}
             <form id="form-revisi" method="POST" action="{{ route('verifikasi.revisi', $verification) }}" style="display:none">
                 @csrf
                 <div class="form-group">
-                    <label for="catatan_revisi" class="form-label">Catatan Detail Revisi <span style="color:#ef4444">*</span></label>
+                    <label for="catatan_revisi" class="form-label">Catatan Detail Perbaikan Pengusul <span style="color:#ef4444">*</span></label>
                     <textarea name="catatan" id="catatan_revisi" class="form-control" rows="4" placeholder="Jelaskan poin-poin yang perlu diperbaiki oleh pengusul..." required></textarea>
                 </div>
                 <button type="submit" class="btn btn-warning btn-lg" style="width:100%">
-                    Kirim Catatan Revisi ke Pengusul
+                    Minta Perbaikan ke Pengusul
                 </button>
             </form>
         </div>
@@ -133,15 +160,26 @@
 
 <script>
     function switchMode(mode) {
+        document.getElementById('form-setuju').style.display = 'none';
+        document.getElementById('form-kembali').style.display = 'none';
+        document.getElementById('form-revisi').style.display = 'none';
+        
+        document.getElementById('tab-btn-setuju').className = 'btn btn-secondary';
+        document.getElementById('tab-btn-kembali').className = 'btn btn-secondary';
+        document.getElementById('tab-btn-revisi').className = 'btn btn-secondary';
+        document.getElementById('tab-btn-kembali').style.borderColor = 'var(--border-danger)';
+        document.getElementById('tab-btn-kembali').style.color = 'var(--text-danger)';
+
         if (mode === 'setuju') {
             document.getElementById('form-setuju').style.display = 'block';
-            document.getElementById('form-revisi').style.display = 'none';
             document.getElementById('tab-btn-setuju').className = 'btn btn-success';
-            document.getElementById('tab-btn-revisi').className = 'btn btn-secondary';
+        } else if (mode === 'kembali') {
+            document.getElementById('form-kembali').style.display = 'block';
+            document.getElementById('tab-btn-kembali').className = 'btn';
+            document.getElementById('tab-btn-kembali').style.background = 'var(--text-danger)';
+            document.getElementById('tab-btn-kembali').style.color = 'white';
         } else {
-            document.getElementById('form-setuju').style.display = 'none';
             document.getElementById('form-revisi').style.display = 'block';
-            document.getElementById('tab-btn-setuju').className = 'btn btn-secondary';
             document.getElementById('tab-btn-revisi').className = 'btn btn-warning';
         }
     }

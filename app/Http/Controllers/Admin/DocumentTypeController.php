@@ -35,6 +35,7 @@ class DocumentTypeController extends Controller
             'singkatan' => 'required|string|max:50',
             'deskripsi' => 'nullable|string',
             'format_nomor' => 'required|string|max:255',
+            'mulai_nomor' => 'required|integer|min:1',
             'level_verifikasi' => 'required|integer|min:1|max:5',
             'penandatangan_default' => 'nullable|string|max:100',
             'perlu_tte_tersertifikasi' => 'boolean',
@@ -59,6 +60,7 @@ class DocumentTypeController extends Controller
             'singkatan' => 'required|string|max:50',
             'deskripsi' => 'nullable|string',
             'format_nomor' => 'required|string|max:255',
+            'mulai_nomor' => 'required|integer|min:1',
             'level_verifikasi' => 'required|integer|min:1|max:5',
             'penandatangan_default' => 'nullable|string|max:100',
             'perlu_tte_tersertifikasi' => 'boolean',
@@ -84,5 +86,18 @@ class DocumentTypeController extends Controller
         $jenisNaskah->delete();
 
         return redirect()->route('admin.jenis-naskah.index')->with('success', 'Jenis Naskah berhasil dihapus.');
+    }
+
+    public function resetNomor(Request $request, DocumentType $jenisNaskah)
+    {
+        $tahun = (int) now()->format('Y');
+        
+        \App\Models\NumberingSequence::where('document_type_id', $jenisNaskah->id)
+            ->where('tahun', $tahun)
+            ->update([
+                'nomor_terakhir' => max(0, $jenisNaskah->mulai_nomor - 1)
+            ]);
+
+        return redirect()->route('admin.jenis-naskah.index')->with('success', "Penomoran untuk {$jenisNaskah->nama} berhasil direset ke nomor mulai ({$jenisNaskah->mulai_nomor}).");
     }
 }

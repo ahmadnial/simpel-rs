@@ -143,7 +143,7 @@
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Jabatan</label>
-                    <input type="text" name="jabatan" class="form-control" placeholder="Direktur / Kabid Pelayanan">
+                    <input type="text" name="jabatan" class="form-control" placeholder="Direktur / Kepala Instalasi / Ketua Komite">
                 </div>
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Unit Kerja / Instalasi</label>

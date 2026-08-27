@@ -30,7 +30,7 @@
         </select>
 
         <select name="unit_id" class="form-control" style="width: auto" onchange="this.form.submit()">
-            <option value="">Semua Unit Kerja</option>
+            <option value="">Semua Unit / Instalasi</option>
             @foreach($units as $u)
                 <option value="{{ $u->id }}" {{ request('unit_id') == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
             @endforeach
@@ -55,7 +55,7 @@
                         <th>Nomor Surat</th>
                         <th>Judul Naskah</th>
                         <th>Jenis</th>
-                        <th>Unit Pengusul</th>
+                        <th>Unit / Instalasi Pengusul</th>
                         <th>Akses / Visibilitas</th>
                         <th>Keabsahan</th>
                         <th>Aksi</th>

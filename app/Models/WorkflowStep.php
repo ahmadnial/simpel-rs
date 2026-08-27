@@ -12,11 +12,16 @@ class WorkflowStep extends Model
     protected $fillable = [
         'workflow_template_id', 'urutan', 'nama_tahap',
         'tipe', 'role_nama', 'sla_hari_kerja',
+        'min_approval', 'mode_verifikasi',
     ];
 
     protected function casts(): array
     {
-        return ['sla_hari_kerja' => 'integer', 'urutan' => 'integer'];
+        return [
+            'sla_hari_kerja' => 'integer', 
+            'urutan'         => 'integer',
+            'min_approval'   => 'integer',
+        ];
     }
 
     public function template()
@@ -29,6 +34,11 @@ class WorkflowStep extends Model
         return $this->hasMany(DocumentVerification::class);
     }
 
+    public function verifierPool()
+    {
+        return $this->hasMany(WorkflowStepVerifier::class);
+    }
+
     public function isVerifikasi(): bool
     {
         return $this->tipe === 'verifikasi';
@@ -37,5 +47,10 @@ class WorkflowStep extends Model
     public function isPenandatangan(): bool
     {
         return $this->tipe === 'penandatangan';
+    }
+
+    public function isParallelQuorum(): bool
+    {
+        return $this->mode_verifikasi === 'parallel';
     }
 }

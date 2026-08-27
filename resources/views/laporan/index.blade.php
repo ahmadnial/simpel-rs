@@ -11,8 +11,8 @@
 
 <div class="page-header" style="display:flex; align-items:center; justify-content:space-between">
     <div>
-        <h1 class="page-title">Laporan & Analytic Persuratan</h1>
-        <p class="page-subtitle">Statistik kinerja persuratan dan ekspor data untuk surveior akreditasi KARS</p>
+        <h1 class="page-title">Laporan & Statistik Persuratan</h1>
+        <p class="page-subtitle">Statistik tata kelola naskah dinas dan rekapitulasi data akreditasi rumah sakit</p>
     </div>
     <a href="{{ route('laporan.ekspor', ['tahun' => $tahun, 'unit_id' => $unitId]) }}" class="btn btn-success">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -30,7 +30,7 @@
         </select>
 
         <select name="unit_id" class="form-control" style="width: auto" onchange="this.form.submit()">
-            <option value="">Semua Unit Kerja</option>
+            <option value="">Semua Unit / Instalasi</option>
             @foreach($units as $u)
                 <option value="{{ $u->id }}" {{ $unitId == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
             @endforeach

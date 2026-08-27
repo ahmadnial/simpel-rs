@@ -59,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{verification}', [VerifikasiController::class, 'show'])->name('show');
         Route::post('/{verification}/setujui', [VerifikasiController::class, 'setujui'])->name('setujui');
         Route::post('/{verification}/revisi', [VerifikasiController::class, 'mintaRevisi'])->name('revisi');
+        Route::post('/{verification}/teruskan-bawah', [VerifikasiController::class, 'teruskanBawah'])->name('teruskan-bawah');
     });
 
     // Tanda Tangan
@@ -67,6 +68,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{document}', [TandaTanganController::class, 'show'])->name('show');
         Route::post('/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp');
         Route::post('/{document}/tandatangani', [TandaTanganController::class, 'tandatangani'])->name('tandatangani');
+        Route::post('/{document}/tolak', [TandaTanganController::class, 'tolak'])->name('tolak');
     });
 
     // Publikasi
@@ -105,11 +107,18 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin
     Route::prefix('admin')->name('admin.')->middleware('role:super_admin|admin_unit')->group(function () {
-        Route::get('/', [AdminController::class, 'index'])->name('index');
+        Route::get('/', [\App\Http\Controllers\Admin\AdminController::class, 'index'])->name('index');
         Route::resource('units', \App\Http\Controllers\Admin\UnitController::class);
         Route::resource('users', \App\Http\Controllers\Admin\UserController::class);
+        
+        Route::post('jenis-naskah/{jenis_naskah}/reset-nomor', [\App\Http\Controllers\Admin\DocumentTypeController::class, 'resetNomor'])->name('jenis-naskah.reset-nomor');
         Route::resource('jenis-naskah', \App\Http\Controllers\Admin\DocumentTypeController::class);
+        
         Route::resource('workflows', \App\Http\Controllers\Admin\WorkflowController::class);
+        
+        Route::get('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'steps'])->name('workflows.steps');
+        Route::post('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'storeStep'])->name('workflows.steps.store');
+        Route::delete('workflows/steps/{step}', [\App\Http\Controllers\Admin\WorkflowController::class, 'destroyStep'])->name('workflows.steps.destroy');
     });
 
     // Notifikasi API

@@ -52,6 +52,7 @@
                     <th>Kode</th>
                     <th>Nama Jenis Naskah</th>
                     <th>Singkatan</th>
+                    <th>Mulai No</th>
                     <th>Formula Format Nomor</th>
                     <th>Level Verifikasi</th>
                     <th>Status</th>
@@ -64,6 +65,7 @@
                     <td><strong style="color:var(--brand-600);">{{ $dt->kode }}</strong></td>
                     <td style="font-weight:600; color:var(--text-primary);">{{ $dt->nama }}</td>
                     <td><span class="badge badge-purple">{{ $dt->singkatan }}</span></td>
+                    <td><strong>{{ $dt->mulai_nomor ?? 1 }}</strong></td>
                     <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem; color:#0f172a;">{{ $dt->format_nomor }}</code></td>
                     <td><span class="badge badge-indigo">{{ $dt->level_verifikasi }} Tahap</span></td>
                     <td>
@@ -75,6 +77,10 @@
                     </td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="editType({{ json_encode($dt) }})">Edit</button>
+                        <form action="{{ route('admin.jenis-naskah.reset-nomor', $dt) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin mereset nomor urut untuk klasifikasi ini ke awal ({{ $dt->mulai_nomor ?? 1 }})? Ini akan mereset counter untuk tahun berjalan.')">
+                            @csrf
+                            <button type="submit" class="btn btn-warning btn-sm" style="background:#f59e0b; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Reset Nomor</button>
+                        </form>
                         <form action="{{ route('admin.jenis-naskah.destroy', $dt) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus jenis naskah ini?')">
                             @csrf
                             @method('DELETE')
@@ -117,16 +123,23 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Formula Format Penomoran Otomatis *</label>
                 <input type="text" name="format_nomor" class="form-control" value="{urut}/{kode}/{unit}/{rs}/{bulan_romawi}/{tahun}" required>
                 <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">
-                    Variabel tersedia: <code>{urut}</code>, <code>{kode}</code>, <code>{induk}</code> (Kode Induk/Bidang), <code>{unit}</code> (Kode Bagian/Instalasi), <code>{rs}</code>, <code>{bulan_romawi}</code>, <code>{bulan}</code>, <code>{tahun}</code>
+                    Variabel tersedia: <code>{urut}</code>, <code>{kode}</code>, <code>{induk}</code> (Kode Induk/Direktorat), <code>{unit}</code> (Kode Unit/Instalasi), <code>{rs}</code>, <code>{bulan_romawi}</code>, <code>{bulan}</code>, <code>{tahun}</code>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Mulai Nomor Urut Dari *</label>
+                <input type="number" name="mulai_nomor" class="form-control" value="1" min="1" required>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">
+                    Nomor awal (otomatis terpusat / lintas unit). Default: 1.
                 </div>
             </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Jumlah Level Verifikasi *</label>
                     <select name="level_verifikasi" class="form-control" required>
-                        <option value="1">1 Tahap (Langsung Verifikator Unit)</option>
-                        <option value="2">2 Tahap (Verifikator Unit $\rightarrow$ Kabid/Wadir)</option>
-                        <option value="3">3 Tahap (Verifikator Unit $\rightarrow$ Kabid $\rightarrow$ Wadir)</option>
+                        <option value="1">1 Tahap (Verifikator Unit/Instalasi)</option>
+                        <option value="2">2 Tahap (Verifikator Unit/Instalasi → Komite/Tim/Manajemen)</option>
+                        <option value="3">3 Tahap (Verifikator Unit/Instalasi → Komite/Tim → Direksi/Manajemen)</option>
                     </select>
                 </div>
             </div>
@@ -172,6 +185,10 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Formula Format Penomoran Otomatis *</label>
                 <input type="text" id="edit_type_format_nomor" name="format_nomor" class="form-control" required>
             </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Mulai Nomor Urut Dari *</label>
+                <input type="number" id="edit_type_mulai_nomor" name="mulai_nomor" class="form-control" min="1" required>
+            </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Jumlah Level Verifikasi *</label>
@@ -206,6 +223,7 @@ function editType(dt) {
     document.getElementById('edit_type_singkatan').value = dt.singkatan;
     document.getElementById('edit_type_nama').value = dt.nama;
     document.getElementById('edit_type_format_nomor').value = dt.format_nomor;
+    document.getElementById('edit_type_mulai_nomor').value = dt.mulai_nomor || 1;
     document.getElementById('edit_type_level_verifikasi').value = dt.level_verifikasi;
     document.getElementById('edit_type_deskripsi').value = dt.deskripsi || '';
     document.getElementById('edit_type_is_active').checked = !!dt.is_active;

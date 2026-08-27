@@ -28,9 +28,9 @@
         </div>
 
         <div style="flex: 1; min-width: 180px;">
-            <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Unit Kerja / Instalasi</label>
+            <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Unit / Instalasi</label>
             <select name="unit_id" class="form-control" style="font-size: 0.85rem; padding: 6px 10px;">
-                <option value="">-- Semua Unit Kerja --</option>
+                <option value="">-- Semua Unit / Instalasi --</option>
                 @foreach($units as $u)
                     <option value="{{ $u->id }}" {{ request('unit_id') == $u->id ? 'selected' : '' }}>{{ $u->nama }}</option>
                 @endforeach

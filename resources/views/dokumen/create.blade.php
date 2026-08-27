@@ -79,14 +79,14 @@
                 @endforeach
             </select>
             <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">
-                Jika dipilihi, dokumen akan langsung dikirim ke antrian verifikator tersebut.
+                Jika dipilih, dokumen langsung diajukan ke antrian verifikator tersebut.
             </small>
         </div>
 
         <div class="form-group">
             <label class="checkbox-label">
                 <input type="checkbox" name="is_rahasia" value="1" {{ old('is_rahasia') ? 'checked' : '' }}>
-                Dokumen bersifat Rahasia / Terbatas (Hanya unit terkait yang dapat membaca)
+                Dokumen Rahasia / Terbatas (Akses terbatas bagi unit/instalasi terkait)
             </label>
         </div>
 

@@ -145,7 +145,7 @@
                 Dashboard Admin
             </a>
             <a href="{{ route('admin.units.index') }}" class="nav-item {{ request()->routeIs('admin.units.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
-                🏢 Master Unit Kerja
+                🏢 Master Unit & Instalasi
             </a>
             <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
                 👤 Master Pengguna

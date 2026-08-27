@@ -20,6 +20,7 @@ class DocumentVerification extends Model
         'document_id', 'document_version_id', 'workflow_step_id',
         'verifikator_id', 'level', 'status', 'catatan',
         'batas_waktu', 'direspon_at',
+        'direset_alasan', 'direset_at',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class DocumentVerification extends Model
         return [
             'batas_waktu'  => 'datetime',
             'direspon_at'  => 'datetime',
+            'direset_at'   => 'datetime',
             'level'        => 'integer',
         ];
     }

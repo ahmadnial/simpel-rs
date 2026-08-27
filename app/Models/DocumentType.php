@@ -11,7 +11,7 @@ class DocumentType extends Model
 
     protected $fillable = [
         'kode', 'nama', 'singkatan', 'deskripsi',
-        'format_nomor', 'level_verifikasi', 'penandatangan_default',
+        'format_nomor', 'mulai_nomor', 'level_verifikasi', 'penandatangan_default',
         'perlu_tte_tersertifikasi', 'is_active', 'urutan',
     ];
 

@@ -39,9 +39,9 @@
             </div>
 
             <div style="padding: var(--space-4); background: rgba(99,102,241,0.08); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid rgba(99,102,241,0.2)">
-                <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode TTE: Internal SHA-256 + QR Code Verifikasi</h4>
+                <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode Pengesahan: Tanda Tangan Elektronik (TTE) Tersertifikasi</h4>
                 <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5">
-                    Sistem akan membuat hash kriptografi SHA-256 pada dokumen PDF final, menerbitkan nomor surat resmi secara otomatis, dan membubuhkan QR Code validasi keaslian dokumen.
+                    Sistem menerbitkan nomor naskah dinas resmi, menyematkan QR Code validasi keaslian, dan membubuhkan hash kriptografi SHA-256 pada dokumen PDF final.
                 </p>
             </div>
 
@@ -50,7 +50,7 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     Kirim Kode OTP Pengesahan
                 </button>
-                <div style="font-size:0.78rem; color:var(--text-muted)">Kode 6 digit akan dikirimkan untuk otentikasi pengesahan.</div>
+                <div style="font-size:0.78rem; color:var(--text-muted)">Kode otentikasi 6-digit berlaku selama 5 menit.</div>
             </div>
 
             <form method="POST" action="{{ route('ttd.tandatangani', $document) }}" id="form-tte" style="margin-top: var(--space-4)">
@@ -61,10 +61,16 @@
                         <input type="text" name="otp" id="otp" class="form-control" style="font-size:1.5rem; text-align:center; letter-spacing:8px; font-weight:700" maxlength="6" placeholder="000000" required>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg" style="width:100%">
-                    Sah kan & Tandatangani Dokumen
-                </button>
+                <div style="display:flex; gap: var(--space-4);">
+                    <button type="submit" class="btn btn-primary btn-lg" style="flex:1">
+                        Sahkan & Tandatangani Naskah
+                    </button>
+                    <button type="button" class="btn btn-lg" style="background:var(--bg-elevated); color:var(--text-danger); border:1px solid var(--border-danger);" onclick="document.getElementById('modal-tolak').style.display='flex'">
+                        Kembalikan ke Verifikator
+                    </button>
+                </div>
             </form>
+        </div>
         {{-- Pratinjau Naskah Sebelum TTE --}}
         <div class="card">
             <div class="card-header">
@@ -90,6 +96,41 @@
                 </div>
             @endif
         </div>
+
+        {{-- Panel Riwayat Verifikasi --}}
+        <div class="card">
+            <div class="card-header" style="cursor: pointer;" onclick="document.getElementById('riwayat-panel').classList.toggle('hidden')">
+                <span class="card-title" style="display:flex; justify-content:space-between; width:100%">
+                    Riwayat Verifikasi
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+            </div>
+            <div id="riwayat-panel" style="padding: var(--space-4); max-height: 400px; overflow-y: auto;">
+                @if($document->verifications->count() > 0)
+                    <div style="display:flex; flex-direction:column; gap: var(--space-3)">
+                    @foreach($document->verifications->sortByDesc('level') as $verif)
+                        <div style="padding: 10px; background: var(--bg-body); border-radius: var(--radius-sm); border-left: 3px solid {{ $verif->status == 'disetujui' ? 'var(--brand-500)' : 'var(--text-muted)' }}">
+                            <div style="font-size: 0.85rem; font-weight: 600;">Tahap {{ $verif->level }}: {{ $verif->verifikator->name ?? 'Verifikator' }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
+                                Status: <span style="text-transform: capitalize;">{{ $verif->status }}</span>
+                                @if($verif->catatan)
+                                    <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border-light); font-style: italic;">
+                                        "{{ $verif->catatan }}"
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                    </div>
+                @else
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Belum ada riwayat verifikasi</div>
+                @endif
+            </div>
+        </div>
+        
+        <style>
+            .hidden { display: none !important; }
+        </style>
     </div>
 
 </div>
@@ -118,5 +159,30 @@
         });
     }
 </script>
+
+{{-- Modal Tolak --}}
+<div id="modal-tolak" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
+    <div class="card" style="width: 100%; max-width: 500px; margin: 1rem;">
+        <div class="card-header" style="border-bottom: 1px solid var(--border-light); padding-bottom: 1rem;">
+            <h3 style="margin:0; font-size: 1.1rem; color: var(--text-danger);">Kembalikan Dokumen ke Verifikator</h3>
+        </div>
+        <form method="POST" action="{{ route('ttd.tolak', $document) }}">
+            @csrf
+            <div style="padding: 1.5rem;">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                    Dokumen yang dikembalikan akan di-reset ke verifikator tingkat tertinggi untuk ditindaklanjuti.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Catatan Penolakan <span style="color:red">*</span></label>
+                    <textarea name="alasan_tolak" class="form-control" rows="4" placeholder="Tuliskan catatan perbaikan atau alasan pengembalian (min. 10 karakter)..." required minlength="10"></textarea>
+                </div>
+            </div>
+            <div style="padding: 1rem 1.5rem; background: var(--bg-body); border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 0.5rem; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                <button type="button" class="btn" style="background: white; border: 1px solid var(--border-light);" onclick="document.getElementById('modal-tolak').style.display='none'">Batal</button>
+                <button type="submit" class="btn" style="background: var(--text-danger); color: white;">Kembalikan Dokumen</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 @endsection

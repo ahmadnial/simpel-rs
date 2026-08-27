@@ -86,4 +86,51 @@ class WorkflowController extends Controller
 
         return redirect()->route('admin.workflows.index')->with('success', 'Template Workflow berhasil dihapus.');
     }
+
+    public function steps(WorkflowTemplate $workflow)
+    {
+        $workflow->load('steps.verifierPool');
+        $roles = \Spatie\Permission\Models\Role::all();
+        $users = \App\Models\User::all();
+        return view('admin.workflows.steps', compact('workflow', 'roles', 'users'));
+    }
+
+    public function storeStep(Request $request, WorkflowTemplate $workflow)
+    {
+        $validated = $request->validate([
+            'nama_tahap'      => 'required|string',
+            'tipe'            => 'required|in:verifikasi,penandatangan',
+            'urutan'          => 'required|integer',
+            'sla_hari_kerja'  => 'required|integer',
+            'role_nama'       => 'nullable|string',
+            'mode_verifikasi' => 'required|in:serial,parallel',
+            'min_approval'    => 'nullable|integer',
+            'verifier_users'  => 'nullable|array',
+            'verifier_roles'  => 'nullable|array',
+        ]);
+
+        $step = $workflow->steps()->create($validated);
+
+        if ($validated['mode_verifikasi'] === 'parallel') {
+            if (!empty($validated['verifier_users'])) {
+                foreach ($validated['verifier_users'] as $uid) {
+                    $step->verifierPool()->create(['tipe_pool' => 'user', 'user_id' => $uid]);
+                }
+            }
+            if (!empty($validated['verifier_roles'])) {
+                foreach ($validated['verifier_roles'] as $rName) {
+                    $step->verifierPool()->create(['tipe_pool' => 'role', 'role_nama' => $rName]);
+                }
+            }
+        }
+
+        return back()->with('success', 'Tahapan berhasil ditambahkan.');
+    }
+
+    public function destroyStep(\App\Models\WorkflowStep $step)
+    {
+        $step->verifierPool()->delete();
+        $step->delete();
+        return back()->with('success', 'Tahapan berhasil dihapus.');
+    }
 }

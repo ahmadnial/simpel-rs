@@ -80,6 +80,7 @@
                         @endif
                     </td>
                     <td>
+                        <a href="{{ route('admin.workflows.steps', $wf) }}" class="btn btn-primary btn-sm">Kelola Tahapan</a>
                         <button class="btn btn-secondary btn-sm" onclick="editWorkflow({{ json_encode($wf) }})">Edit</button>
                         <form action="{{ route('admin.workflows.destroy', $wf) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus template workflow ini?')">
                             @csrf

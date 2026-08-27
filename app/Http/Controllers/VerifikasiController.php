@@ -111,6 +111,19 @@ class VerifikasiController extends Controller
         return redirect()->route('verifikasi.index')->with('success', 'Catatan revisi berhasil dikirim ke pengusul.');
     }
 
+    public function teruskanBawah(Request $request, DocumentVerification $verification)
+    {
+        $this->checkAccess($verification);
+
+        $request->validate([
+            'catatan' => 'required|string|max:1000',
+        ]);
+
+        $this->documentService->turunkanKeVerifikatorBawah($verification, $request->catatan);
+
+        return redirect()->route('verifikasi.index')->with('success', 'Dokumen berhasil dikembalikan ke verifikator tingkat sebelumnya.');
+    }
+
     /**
      * Cek hak akses verifikasi (pemilik antrian, Plt/Plh, super_admin, atau role verifikator)
      */

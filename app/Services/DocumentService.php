@@ -97,16 +97,7 @@ class DocumentService
 
             $firstStep = $template?->steps()->first();
 
-            // Buat record verifikasi
-            DocumentVerification::create([
-                'document_id'         => $document->id,
-                'document_version_id' => $currentVersion->id,
-                'workflow_step_id'    => $firstStep?->id,
-                'verifikator_id'      => $verifikatorId,
-                'level'               => 1,
-                'status'              => DocumentVerification::STATUS_MENUNGGU,
-                'batas_waktu'         => now()->addDays($firstStep?->sla_hari_kerja ?? 2),
-            ]);
+            $this->createVerificationsForStep($document, $currentVersion, $firstStep, 1, $verifikatorId);
 
             $document->update([
                 'status'              => Document::STATUS_DIAJUKAN,
@@ -117,18 +108,59 @@ class DocumentService
 
             AuditLog::catat('ajukan', "Dokumen diajukan ke verifikasi", $document);
 
-            // Kirim notifikasi ke verifikator
-            $verifikator = \App\Models\User::find($verifikatorId);
-            $verifikator?->notify(new \App\Notifications\DokumenNotification(
-                $document,
-                'diajukan',
-                'Permohonan Verifikasi Dokumen',
-                "Dokumen '{$document->judul}' membutuhkan verifikasi dari Anda.",
-                route('verifikasi.index')
-            ));
-
             return $document->fresh();
         });
+    }
+
+    /**
+     * Helper membuat verifikasi berdasarkan konfigurasi step.
+     */
+    private function createVerificationsForStep(Document $document, $currentVersion, $step, $level, $defaultVerifikatorId = null)
+    {
+        if (!$step) return;
+        $verifiers = [];
+
+        if ($step->isParallelQuorum()) {
+            $pools = $step->verifierPool;
+            foreach ($pools as $pool) {
+                if ($pool->tipe_pool === 'user' && $pool->user_id) {
+                    $verifiers[] = $pool->user;
+                } elseif ($pool->tipe_pool === 'role' && $pool->role_nama) {
+                    $users = \App\Models\User::role($pool->role_nama)->get();
+                    foreach ($users as $u) { $verifiers[] = $u; }
+                }
+            }
+        } else {
+            if ($defaultVerifikatorId) {
+                $verifiers[] = \App\Models\User::find($defaultVerifikatorId);
+            } elseif ($step->role_nama) {
+                $users = \App\Models\User::role($step->role_nama)->get();
+                foreach ($users as $u) { $verifiers[] = $u; }
+            }
+        }
+
+        $uniqueVerifiers = collect($verifiers)->filter()->unique('id');
+
+        foreach ($uniqueVerifiers as $v) {
+            $verif = DocumentVerification::firstOrCreate([
+                'document_id'         => $document->id,
+                'workflow_step_id'    => $step->id,
+                'verifikator_id'      => $v->id,
+                'level'               => $level,
+                'status'              => DocumentVerification::STATUS_MENUNGGU,
+            ], [
+                'document_version_id' => $currentVersion->id,
+                'batas_waktu'         => now()->addDays($step->sla_hari_kerja ?? 2),
+            ]);
+
+            $v->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'diajukan',
+                'Antrian Verifikasi Dokumen',
+                "Dokumen '{$document->judul}' memerlukan verifikasi dari Anda.",
+                route('verifikasi.index')
+            ));
+        }
     }
 
     /**
@@ -147,7 +179,23 @@ class DocumentService
 
             AuditLog::catat('setujui', "Dokumen disetujui oleh " . auth()->user()->name, $document);
 
-            // Cek apakah ada level VERIFIKASI berikutnya (bukan step penandatangan)
+            $step = $verification->workflowStep;
+            if ($step && $step->isParallelQuorum()) {
+                $minApproval = $step->min_approval ?? 1;
+                $approvedCount = DocumentVerification::where('document_id', $document->id)
+                    ->where('workflow_step_id', $step->id)
+                    ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                    ->count();
+
+                if ($approvedCount < $minApproval) {
+                    if ($document->status === Document::STATUS_DITOLAK_TTD) {
+                        $document->update(['status' => Document::STATUS_VERIFIKASI]);
+                    }
+                    return $document->fresh();
+                }
+            }
+
+            // Advance step
             $template = $document->workflowTemplate;
             $nextVerificationStep = $template?->steps()
                 ->where('urutan', '>', $verification->level)
@@ -155,34 +203,13 @@ class DocumentService
                 ->first();
 
             if ($nextVerificationStep) {
-                // Masih ada level verifikasi berikutnya
-                $nextLevel = $verification->level + 1;
-                DocumentVerification::firstOrCreate([
-                    'document_id'         => $document->id,
-                    'level'               => $nextLevel,
-                ], [
-                    'document_version_id' => $verification->document_version_id,
-                    'workflow_step_id'    => $nextVerificationStep->id,
-                    'status'              => DocumentVerification::STATUS_MENUNGGU,
-                    'batas_waktu'         => now()->addDays($nextVerificationStep->sla_hari_kerja ?? 2),
-                ]);
+                $nextLevel = $nextVerificationStep->urutan;
+                $this->createVerificationsForStep($document, $verification->documentVersion, $nextVerificationStep, $nextLevel);
 
                 $document->update([
                     'status'       => Document::STATUS_VERIFIKASI,
-                    'current_step' => $nextVerificationStep->urutan,
+                    'current_step' => $nextLevel,
                 ]);
-
-                // Notifikasi verifikator selanjutnya
-                $nextVerifiers = \App\Models\User::permission('dokumen.verifikasi')->get();
-                foreach ($nextVerifiers as $v) {
-                    $v->notify(new \App\Notifications\DokumenNotification(
-                        $document,
-                        'diajukan',
-                        'Antrian Verifikasi Dokumen',
-                        "Dokumen '{$document->judul}' memerlukan verifikasi tahap berikutnya.",
-                        route('verifikasi.index')
-                    ));
-                }
             } else {
                 // Semua verifikasi selesai → Menunggu TTD Direktur / Penandatangan
                 $penandatanganStep = $template?->steps()->where('tipe', 'penandatangan')->first();
@@ -451,7 +478,7 @@ class DocumentService
         $unit  = $document->unit;
         $tahun = (int) now()->format('Y');
 
-        $nomorUrut = NumberingSequence::getNextNomor($type->id, $unit->id, $tahun);
+        $nomorUrut = NumberingSequence::getNextNomor($type, $tahun);
 
         return $type->generateNomor($unit, $nomorUrut, now());
     }
@@ -560,5 +587,124 @@ class DocumentService
 </w:document>');
 
         $zip->close();
+    }
+
+    /**
+     * Penandatangan menolak dokumen dan mengembalikan ke verifikator tertinggi.
+     */
+    public function tolakTandaTangan(Document $document, string $alasanTolak): Document
+    {
+        return DB::transaction(function () use ($document, $alasanTolak) {
+            $user = auth()->user();
+
+            $document->update([
+                'status'             => Document::STATUS_DITOLAK_TTD,
+                'ditolak_ttd_alasan' => $alasanTolak,
+                'ditolak_ttd_at'     => now(),
+                'ditolak_ttd_oleh'   => $user->id,
+            ]);
+
+            // Cari verifikasi yang levelnya tertinggi dan disetujui
+            $highestLevel = DocumentVerification::where('document_id', $document->id)
+                ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                ->max('level');
+
+            if ($highestLevel) {
+                $verificationsToReset = DocumentVerification::where('document_id', $document->id)
+                    ->where('level', $highestLevel)
+                    ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                    ->get();
+
+                foreach ($verificationsToReset as $verif) {
+                    $verif->update([
+                        'status'         => DocumentVerification::STATUS_MENUNGGU,
+                        'direset_alasan' => "Dikembalikan penandatangan: {$alasanTolak}",
+                        'direset_at'     => now(),
+                        'direspon_at'    => null,
+                    ]);
+
+                    $verif->verifikator?->notify(new \App\Notifications\DokumenNotification(
+                        $document,
+                        'ditolak_penandatangan',
+                        'Dokumen Dikembalikan Penandatangan',
+                        "Dokumen '{$document->judul}' dikembalikan. Catatan: {$alasanTolak}",
+                        route('verifikasi.show', $verif)
+                    ));
+                }
+            }
+
+            AuditLog::catat('tolak_ttd', "Dikembalikan penandatangan: {$alasanTolak}", $document);
+
+            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $document,
+                'ditolak_penandatangan',
+                'Dokumen Dikembalikan Penandatangan',
+                "Dokumen '{$document->judul}' dikembalikan ke tahap verifikasi dengan catatan: {$alasanTolak}",
+                route('dokumen.show', $document)
+            ));
+
+            return $document->fresh();
+        });
+    }
+
+    /**
+     * Verifikator meneruskan dokumen ke level verifikasi sebelumnya (bawah).
+     */
+    public function turunkanKeVerifikatorBawah(DocumentVerification $verification, string $alasan): Document
+    {
+        return DB::transaction(function () use ($verification, $alasan) {
+            $document = $verification->document;
+            
+            $verification->update([
+                'status'         => DocumentVerification::STATUS_MENUNGGU,
+                'direset_alasan' => "Diturunkan sendiri dengan alasan: {$alasan}",
+                'direset_at'     => now(),
+            ]);
+
+            // Cari level sebelumnya
+            $lowerLevel = DocumentVerification::where('document_id', $document->id)
+                ->where('level', '<', $verification->level)
+                ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                ->max('level');
+
+            if ($lowerLevel) {
+                $lowerVerifications = DocumentVerification::where('document_id', $document->id)
+                    ->where('level', $lowerLevel)
+                    ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                    ->get();
+
+                foreach ($lowerVerifications as $lowerVerif) {
+                    $lowerVerif->update([
+                        'status'         => DocumentVerification::STATUS_MENUNGGU,
+                        'direset_alasan' => "Dikembalikan dari level atas: {$alasan}",
+                        'direset_at'     => now(),
+                        'direspon_at'    => null,
+                    ]);
+
+                    $lowerVerif->verifikator?->notify(new \App\Notifications\DokumenNotification(
+                        $document,
+                        'dikembalikan_verifikator',
+                        'Dokumen Dikembalikan ke Tahap Sebelumnya',
+                        "Dokumen '{$document->judul}' dikembalikan dari tahap selanjutnya. Catatan: {$alasan}",
+                        route('verifikasi.show', $lowerVerif)
+                    ));
+                }
+                
+                $document->update(['current_step' => $lowerLevel]);
+            } else {
+                $document->update(['status' => Document::STATUS_REVISI]);
+                $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                    $document,
+                    'revisi',
+                    'Dokumen Perlu Diperbaiki',
+                    "Dokumen '{$document->judul}' dikembalikan ke pengusul. Catatan: {$alasan}",
+                    route('dokumen.show', $document)
+                ));
+            }
+
+            AuditLog::catat('turunkan_verifikasi', "Diturunkan ke level bawah: {$alasan}", $document);
+
+            return $document->fresh();
+        });
     }
 }

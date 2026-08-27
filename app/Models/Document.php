@@ -22,6 +22,7 @@ class Document extends Model
     const STATUS_DITARIK        = 'ditarik';
     const STATUS_DIARSIPKAN     = 'diarsipkan';
     const STATUS_BATAL          = 'ditolak_batal';
+    const STATUS_DITOLAK_TTD    = 'ditolak_penandatangan';
 
     protected $fillable = [
         'judul', 'document_type_id', 'unit_id', 'pengusul_id',
@@ -30,6 +31,7 @@ class Document extends Model
         'is_rahasia', 'visibility_scope', 'diajukan_at', 'ditandatangani_at',
         'dipublikasikan_at', 'ditarik_at', 'alasan_penarikan',
         'pengganti_document_id', 'diarsipkan_at', 'hash_final',
+        'ditolak_ttd_alasan', 'ditolak_ttd_at', 'ditolak_ttd_oleh',
     ];
 
     protected function casts(): array
@@ -41,6 +43,7 @@ class Document extends Model
             'dipublikasikan_at'  => 'datetime',
             'ditarik_at'         => 'datetime',
             'diarsipkan_at'      => 'datetime',
+            'ditolak_ttd_at'     => 'datetime',
             'tanggal_surat'      => 'date',
             'current_step'       => 'integer',
         ];
@@ -127,7 +130,8 @@ class Document extends Model
     public function isPublished(): bool    { return $this->status === self::STATUS_DIPUBLIKASIKAN; }
     public function isDitarik(): bool      { return $this->status === self::STATUS_DITARIK; }
     public function isArchived(): bool     { return $this->status === self::STATUS_DIARSIPKAN; }
-    public function isLocked(): bool       { return !in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REVISI]); }
+    public function isDitolakTtd(): bool   { return $this->status === self::STATUS_DITOLAK_TTD; }
+    public function isLocked(): bool       { return !in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REVISI, self::STATUS_DITOLAK_TTD]); }
 
     /**
      * Pengecekan hak akses user terhadap dokumen berdasarkan visibility_scope & unit.
@@ -201,6 +205,7 @@ class Document extends Model
             self::STATUS_VERIFIKASI     => 'Dalam Verifikasi',
             self::STATUS_REVISI         => 'Perlu Revisi',
             self::STATUS_MENUNGGU_TTD   => 'Menunggu Tanda Tangan',
+            self::STATUS_DITOLAK_TTD    => 'Dikembalikan Penandatangan',
             self::STATUS_DITANDATANGANI => 'Ditandatangani',
             self::STATUS_DIPUBLIKASIKAN => 'Dipublikasikan',
             self::STATUS_DITARIK        => 'Ditarik dari Publikasi',
@@ -217,6 +222,7 @@ class Document extends Model
             self::STATUS_VERIFIKASI     => 'yellow',
             self::STATUS_REVISI         => 'orange',
             self::STATUS_MENUNGGU_TTD   => 'purple',
+            self::STATUS_DITOLAK_TTD    => 'red',
             self::STATUS_DITANDATANGANI => 'green',
             self::STATUS_DIPUBLIKASIKAN => 'teal',
             self::STATUS_DITARIK        => 'orange',

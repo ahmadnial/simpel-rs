@@ -128,4 +128,19 @@ class TandaTanganController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+
+    public function tolak(Request $request, Document $document)
+    {
+        $request->validate([
+            'alasan_tolak' => 'required|string|min:10|max:1000',
+        ]);
+
+        try {
+            $this->documentService->tolakTandaTangan($document, $request->alasan_tolak);
+            return redirect()->route('ttd.index')
+                ->with('success', "Dokumen dikembalikan. Verifikator terkait telah dinotifikasi.");
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
 }

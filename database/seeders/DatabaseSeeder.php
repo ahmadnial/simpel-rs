@@ -113,22 +113,22 @@ class DatabaseSeeder extends Seeder
             ['kode' => 'FIS',  'nama' => 'Instalasi Rehabmedik', 'singkatan' => 'FIS', 'parent' => 'JANGMED'],
 
             // Umum dan SDM
-            ['kode' => 'URT',  'nama' => 'Umum, Rumah Tangga, PSRS', 'singkatan' => 'URT', 'parent' => 'UMSDM'],
-            ['kode' => 'SDM',  'nama' => 'Bagian SDM', 'singkatan' => 'SDM', 'parent' => 'UMSDM'],
-            ['kode' => 'IT',   'nama' => 'Instalasi IT', 'singkatan' => 'IT', 'parent' => 'UMSDM'],
-            ['kode' => 'KJZ',  'nama' => 'Kamar Jenazah', 'singkatan' => 'KJZ', 'parent' => 'UMSDM'],
-            ['kode' => 'MKT',  'nama' => 'Pemasaran & Humas', 'singkatan' => 'MKT', 'parent' => 'UMSDM'],
+            ['kode' => 'URT',  'nama' => 'Unit Umum, RT, dan IPSRS', 'singkatan' => 'URT', 'parent' => 'UMSDM'],
+            ['kode' => 'SDM',  'nama' => 'Unit SDM & Diklat', 'singkatan' => 'SDM', 'parent' => 'UMSDM'],
+            ['kode' => 'IT',   'nama' => 'Instalasi SIMRS & IT', 'singkatan' => 'IT', 'parent' => 'UMSDM'],
+            ['kode' => 'KJZ',  'nama' => 'Instalasi Pemulasaraan Jenazah', 'singkatan' => 'KJZ', 'parent' => 'UMSDM'],
+            ['kode' => 'MKT',  'nama' => 'Unit Pemasaran & Humas', 'singkatan' => 'MKT', 'parent' => 'UMSDM'],
 
             // Keuangan
-            ['kode' => 'KEU_SUB', 'nama' => 'Sub Bagian Keuangan', 'singkatan' => 'KEU', 'parent' => 'KEU'],
-            ['kode' => 'PBY',     'nama' => 'Sub Bagian Pembiayaan', 'singkatan' => 'PBY', 'parent' => 'KEU'],
+            ['kode' => 'KEU_SUB', 'nama' => 'Unit Perbendaharaan & Akuntansi', 'singkatan' => 'KEU', 'parent' => 'KEU'],
+            ['kode' => 'PBY',     'nama' => 'Unit Pembiayaan & JKN', 'singkatan' => 'PBY', 'parent' => 'KEU'],
 
             // Komite
-            ['kode' => 'PMKP', 'nama' => 'Komite PMKP', 'singkatan' => 'PMKP', 'parent' => 'KMT'],
-            ['kode' => 'PPI',  'nama' => 'Komite PPI', 'singkatan' => 'PPI', 'parent' => 'KMT'],
+            ['kode' => 'PMKP', 'nama' => 'Komite Mutu & Keselamatan Pasien', 'singkatan' => 'PMKP', 'parent' => 'KMT'],
+            ['kode' => 'PPI',  'nama' => 'Komite Pencegahan & Pengendalian Infeksi', 'singkatan' => 'PPI', 'parent' => 'KMT'],
             ['kode' => 'EHK',  'nama' => 'Komite Etik dan Hukum', 'singkatan' => 'EHK', 'parent' => 'KMT'],
             ['kode' => 'PRWT', 'nama' => 'Komite Keperawatan', 'singkatan' => 'PRWT', 'parent' => 'KMT'],
-            ['kode' => 'NKSL', 'nama' => 'Komite Nakes Lain', 'singkatan' => 'NKSL', 'parent' => 'KMT'],
+            ['kode' => 'NKSL', 'nama' => 'Komite Tenaga Kesehatan Lain', 'singkatan' => 'NKSL', 'parent' => 'KMT'],
             ['kode' => 'MED',  'nama' => 'Komite Medik', 'singkatan' => 'MED', 'parent' => 'KMT'],
         ];
 
@@ -173,7 +173,7 @@ class DatabaseSeeder extends Seeder
             [
                 'email'    => 'yanmed@simpel-rs.test',
                 'name'     => 'dr. Budi Yanmed, Sp.B',
-                'jabatan'  => 'Kabid Pelayanan Medis',
+                'jabatan'  => 'Ketua Tim Pelayanan Medis',
                 'role'     => 'verifikator',
                 'unit'     => 'YANMED',
             ],
@@ -272,11 +272,11 @@ class DatabaseSeeder extends Seeder
         // Workflow SPO
         $wfSPO = WorkflowTemplate::updateOrCreate(
             ['nama' => 'Workflow Standard SPO (2 Level)', 'document_type_id' => $createdTypes['SPO']->id],
-            ['is_default' => true, 'is_active' => true, 'deskripsi' => 'Verifikasi Kepala Bidang/Induk kemudian TTD Direktur']
+            ['is_default' => true, 'is_active' => true, 'deskripsi' => 'Verifikasi Kepala Unit/Instalasi/Komite kemudian TTE Direktur Utama']
         );
         WorkflowStep::updateOrCreate(
             ['workflow_template_id' => $wfSPO->id, 'urutan' => 1],
-            ['nama_tahap' => 'Verifikasi Kepala Induk / Bidang', 'tipe' => 'verifikasi', 'role_nama' => 'verifikator', 'sla_hari_kerja' => 2]
+            ['nama_tahap' => 'Verifikasi Kepala Unit / Instalasi / Komite', 'tipe' => 'verifikasi', 'role_nama' => 'verifikator', 'sla_hari_kerja' => 2]
         );
         WorkflowStep::updateOrCreate(
             ['workflow_template_id' => $wfSPO->id, 'urutan' => 2],
