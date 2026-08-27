@@ -66,8 +66,9 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('tanda-tangan')->name('ttd.')->group(function () {
         Route::get('/', [TandaTanganController::class, 'index'])->name('index');
         Route::get('/{document}', [TandaTanganController::class, 'show'])->name('show');
-        Route::post('/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp');
-        Route::post('/{document}/tandatangani', [TandaTanganController::class, 'tandatangani'])->name('tandatangani');
+        // Dibatasi (throttle) karena OTP 6 digit rentan brute force bila tidak dibatasi jumlah percobaan.
+        Route::post('/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp')->middleware('throttle:5,1');
+        Route::post('/{document}/tandatangani', [TandaTanganController::class, 'tandatangani'])->name('tandatangani')->middleware('throttle:10,1');
         Route::post('/{document}/tolak', [TandaTanganController::class, 'tolak'])->name('tolak');
     });
 
@@ -98,11 +99,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/ekspor', [LaporanController::class, 'ekspor'])->name('ekspor');
     });
 
-    // OnlyOffice Docs Web Application
+    // OnlyOffice Docs Web Application — halaman editor butuh sesi user login.
+    // Route 'download' & 'callback' SENGAJA tidak diletakkan di sini (lihat bawah file):
+    // keduanya dipanggil langsung oleh OnlyOffice Document Server (server-to-server, tanpa
+    // cookie sesi browser), sehingga tidak akan pernah lolos middleware 'auth'.
     Route::prefix('onlyoffice')->name('onlyoffice.')->group(function () {
         Route::get('/editor/{document}', [OnlyOfficeController::class, 'editor'])->name('editor');
-        Route::get('/download/{document}/{version}', [OnlyOfficeController::class, 'download'])->name('download');
-        Route::post('/callback/{document}', [OnlyOfficeController::class, 'callback'])->name('callback');
     });
 
     // Admin
@@ -128,4 +130,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('read');
     });
 
+});
+
+// ==========================================
+// OnlyOffice Document Server callbacks (server-to-server, tanpa sesi browser)
+// ==========================================
+// 'download' diamankan dengan signed URL (dibuat oleh editor() untuk user yang sudah auth),
+// bukan session auth, karena yang memanggil route ini adalah Document Server, bukan browser.
+Route::prefix('onlyoffice')->name('onlyoffice.')->group(function () {
+    Route::get('/download/{document}/{version}', [OnlyOfficeController::class, 'download'])
+        ->name('download')
+        ->middleware('signed');
+
+    // 'callback' diamankan dengan verifikasi JWT OnlyOffice (lihat OnlyOfficeController::callback),
+    // bukan signed URL, karena URL callback statis sedangkan JWT-nya berbeda tiap request.
+    Route::post('/callback/{document}', [OnlyOfficeController::class, 'callback'])->name('callback');
 });

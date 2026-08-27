@@ -1124,3 +1124,176 @@ tbody tr:hover td {
 .hover-underline:hover {
     text-decoration: underline;
 }
+
+/* ============================================
+   Submit Mode Toggle — dua pilihan besar (Ajukan / Internal)
+   ============================================ */
+.submit-mode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+.submit-mode-option {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border: 1.5px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.submit-mode-option:hover {
+    border-color: var(--brand-300);
+    background: var(--brand-50);
+    transform: translateY(-1px);
+}
+
+.submit-mode-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.submit-mode-option.is-selected {
+    border-color: var(--brand-500);
+    background: var(--brand-50);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.submit-mode-icon {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    transition: all var(--transition-fast);
+}
+
+.submit-mode-option.is-selected .submit-mode-icon {
+    background: var(--brand-100);
+}
+
+.submit-mode-text strong {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.submit-mode-text small {
+    display: block;
+    font-size: 0.775rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+    .submit-mode-toggle { grid-template-columns: 1fr; }
+}
+
+/* ============================================
+   Workflow Chain Preview — pratinjau rantai verifikator & penandatangan
+   ============================================ */
+.workflow-chain {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    animation: workflowChainIn var(--transition-base);
+}
+
+@keyframes workflowChainIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.workflow-chain-empty {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    padding: var(--space-2) 0;
+}
+
+.workflow-chain-step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xs);
+}
+
+.workflow-chain-step-badge {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    background: var(--brand-100);
+    color: var(--brand-700);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.workflow-chain-step-sign .workflow-chain-step-badge {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.workflow-chain-step-body { min-width: 0; }
+
+.workflow-chain-step-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+}
+
+.workflow-chain-step-name {
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.workflow-chain-step-name.is-muted {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-style: italic;
+}
+
+.workflow-chain-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text-disabled);
+    font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+    .workflow-chain { flex-direction: column; align-items: stretch; }
+    .workflow-chain-arrow { transform: rotate(90deg); align-self: center; }
+    .workflow-chain-step-name { max-width: none; white-space: normal; }
+}

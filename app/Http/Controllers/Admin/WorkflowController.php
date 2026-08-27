@@ -8,12 +8,13 @@ use Illuminate\Http\Request;
 use App\Models\WorkflowTemplate;
 use App\Models\DocumentType;
 use App\Models\Unit;
+use Illuminate\Validation\Rule;
 
 class WorkflowController extends Controller
 {
     public function index(Request $request)
     {
-        $query = WorkflowTemplate::with(['documentType', 'unit', 'steps']);
+        $query = WorkflowTemplate::with(['documentType', 'units', 'steps']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -32,7 +33,8 @@ class WorkflowController extends Controller
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'document_type_id' => 'required|exists:document_types,id',
-            'unit_id' => 'nullable|exists:units,id',
+            'unit_ids' => 'nullable|array',
+            'unit_ids.*' => 'exists:units,id',
             'deskripsi' => 'nullable|string',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
@@ -40,12 +42,17 @@ class WorkflowController extends Controller
 
         $validated['is_default'] = $request->has('is_default');
         $validated['is_active'] = $request->has('is_active');
+        $unitIds = $validated['unit_ids'] ?? [];
+        unset($validated['unit_ids']);
 
+        // Isolasi tetap per jenis naskah (document_type), bukan per unit: satu template
+        // default berlaku untuk semua unit yang tidak dibatasi cakupannya.
         if ($validated['is_default']) {
             WorkflowTemplate::where('document_type_id', $validated['document_type_id'])->update(['is_default' => false]);
         }
 
-        WorkflowTemplate::create($validated);
+        $workflow = WorkflowTemplate::create($validated);
+        $workflow->units()->sync($unitIds);
 
         return redirect()->route('admin.workflows.index')->with('success', 'Template Workflow berhasil ditambahkan.');
     }
@@ -55,7 +62,8 @@ class WorkflowController extends Controller
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'document_type_id' => 'required|exists:document_types,id',
-            'unit_id' => 'nullable|exists:units,id',
+            'unit_ids' => 'nullable|array',
+            'unit_ids.*' => 'exists:units,id',
             'deskripsi' => 'nullable|string',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
@@ -63,6 +71,8 @@ class WorkflowController extends Controller
 
         $validated['is_default'] = $request->has('is_default');
         $validated['is_active'] = $request->has('is_active');
+        $unitIds = $validated['unit_ids'] ?? [];
+        unset($validated['unit_ids']);
 
         if ($validated['is_default']) {
             WorkflowTemplate::where('document_type_id', $validated['document_type_id'])
@@ -71,6 +81,7 @@ class WorkflowController extends Controller
         }
 
         $workflow->update($validated);
+        $workflow->units()->sync($unitIds);
 
         return redirect()->route('admin.workflows.index')->with('success', 'Template Workflow berhasil diperbarui.');
     }
@@ -102,12 +113,42 @@ class WorkflowController extends Controller
             'tipe'            => 'required|in:verifikasi,penandatangan',
             'urutan'          => 'required|integer',
             'sla_hari_kerja'  => 'required|integer',
-            'role_nama'       => 'nullable|string',
+            'role_nama'       => [
+                Rule::requiredIf(function () use ($request) {
+                    // Tahap 1 mode serial boleh kosong role_nama-nya (pengusul yang pilih manual
+                    // verifikator saat mengajukan dokumen). Tahap serial di atas level 1 dan tahap
+                    // penandatangan WAJIB role_nama — kalau kosong, proses dokumen akan macet di
+                    // tengah jalan (tidak ada verifikator/penandatangan yang bisa ditugaskan)
+                    // alih-alih dicegah lebih awal saat admin menyusun template.
+                    // Mode parallel tidak butuh role_nama di sini — pool-nya divalidasi terpisah
+                    // di bawah lewat verifier_users/verifier_roles.
+                    if ($request->input('tipe') === 'penandatangan') {
+                        return true;
+                    }
+
+                    return $request->input('mode_verifikasi') === 'serial' && (int) $request->input('urutan') > 1;
+                }),
+                'nullable', 'string',
+            ],
             'mode_verifikasi' => 'required|in:serial,parallel',
             'min_approval'    => 'nullable|integer',
             'verifier_users'  => 'nullable|array',
             'verifier_roles'  => 'nullable|array',
+        ], [
+            'role_nama.required' => 'Nama Role wajib diisi untuk tahap ini — tidak ada mekanisme pemilihan verifikator manual selain di tahap pertama.',
         ]);
+
+        // Mode parallel-quorum wajib punya minimal satu anggota pool (user atau role), kalau
+        // kosong DocumentService::createVerificationsForStep() akan gagal total saat dokumen
+        // nyata mencoba masuk ke tahap ini.
+        if ($validated['mode_verifikasi'] === 'parallel'
+            && empty($validated['verifier_users'])
+            && empty($validated['verifier_roles'])
+        ) {
+            return back()->withErrors([
+                'verifier_users' => 'Mode Parallel/Quorum wajib punya minimal 1 anggota pool (pilih user atau role).',
+            ])->withInput();
+        }
 
         $step = $workflow->steps()->create($validated);
 

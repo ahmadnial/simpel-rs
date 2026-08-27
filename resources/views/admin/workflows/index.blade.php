@@ -63,7 +63,7 @@
                 <tr>
                     <td style="font-weight:600; color:var(--text-primary);">{{ $wf->nama }}</td>
                     <td><span class="badge badge-purple">{{ $wf->documentType?->nama ?? 'Semua Jenis' }}</span></td>
-                    <td>{{ $wf->unit?->nama ?? 'Semua Unit (Global)' }}</td>
+                    <td>{{ $wf->units->isNotEmpty() ? $wf->units->pluck('nama')->join(', ') : 'Semua Unit (Global)' }}</td>
                     <td><span class="badge badge-indigo">{{ $wf->steps->count() }} Tahap</span></td>
                     <td>
                         @if($wf->is_default)
@@ -119,15 +119,17 @@
                         @endforeach
                     </select>
                 </div>
-                <div style="flex:1;">
-                    <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Spesifik Unit Kerja (Optional)</label>
-                    <select name="unit_id" class="form-control">
-                        <option value="">-- Berlaku Semua Unit --</option>
-                        @foreach($units as $u)
-                            <option value="{{ $u->id }}">{{ $u->nama }}</option>
-                        @endforeach
-                    </select>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Batasi ke Unit Kerja Tertentu (Optional)</label>
+                <div style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px">
+                    @foreach($units as $u)
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; padding:3px 0; cursor:pointer;">
+                            <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}"> {{ $u->nama }}
+                        </label>
+                    @endforeach
                 </div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kosongkan semua = berlaku untuk semua unit/instalasi/tim/komite (default).</div>
             </div>
             <div style="margin-bottom:12px;">
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Workflow</label>
@@ -169,15 +171,17 @@
                         @endforeach
                     </select>
                 </div>
-                <div style="flex:1;">
-                    <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Spesifik Unit Kerja (Optional)</label>
-                    <select id="edit_wf_unit_id" name="unit_id" class="form-control">
-                        <option value="">-- Berlaku Semua Unit --</option>
-                        @foreach($units as $u)
-                            <option value="{{ $u->id }}">{{ $u->nama }}</option>
-                        @endforeach
-                    </select>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Batasi ke Unit Kerja Tertentu (Optional)</label>
+                <div id="edit_wf_units_box" style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px">
+                    @foreach($units as $u)
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; padding:3px 0; cursor:pointer;">
+                            <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}" class="edit-wf-unit-checkbox"> {{ $u->nama }}
+                        </label>
+                    @endforeach
                 </div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kosongkan semua = berlaku untuk semua unit/instalasi/tim/komite (default).</div>
             </div>
             <div style="margin-bottom:12px;">
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Workflow</label>
@@ -204,7 +208,12 @@ function editWorkflow(wf) {
     document.getElementById('formEditWorkflow').action = '/admin/workflows/' + wf.id;
     document.getElementById('edit_wf_nama').value = wf.nama;
     document.getElementById('edit_wf_document_type_id').value = wf.document_type_id;
-    document.getElementById('edit_wf_unit_id').value = wf.unit_id || '';
+
+    const selectedUnitIds = (wf.units || []).map(u => String(u.id));
+    document.querySelectorAll('.edit-wf-unit-checkbox').forEach(cb => {
+        cb.checked = selectedUnitIds.includes(cb.value);
+    });
+
     document.getElementById('edit_wf_deskripsi').value = wf.deskripsi || '';
     document.getElementById('edit_wf_is_default').checked = !!wf.is_default;
     document.getElementById('edit_wf_is_active').checked = !!wf.is_active;

@@ -56,6 +56,13 @@ class DatabaseSeeder extends Seeder
             'verifikator' => [
                 'dokumen.lihat', 'dokumen.verifikasi',
             ],
+            // Pool verifikator tahap 1 yang dipilih manual oleh pengusul saat mengajukan
+            // dokumen: cukup salah satu dari mereka approve, tahap dianggap sah (first-approve-wins).
+            // Dipisah dari role 'verifikator' generik supaya dropdown pemilihan di form upload
+            // tidak ikut menampilkan verifikator role_nama-driven di tahap-tahap lain.
+            'asesor_internal' => [
+                'dokumen.lihat', 'dokumen.verifikasi',
+            ],
             'penandatangan' => [
                 'dokumen.lihat', 'dokumen.tanda_tangan',
             ],
@@ -211,7 +218,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'SK-Dir',
                 'deskripsi'        => 'Kebijakan Direktur RSNR',
                 'format_nomor'     => '{urut}/SK-Dir/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 2,
                 'urutan'           => 1,
             ],
             [
@@ -220,7 +226,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'Ped',
                 'deskripsi'        => 'Pedoman Pengorganisasian / Pelayanan RSNR',
                 'format_nomor'     => '{urut}/SK-Dir/Ped/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 2,
                 'urutan'           => 2,
             ],
             [
@@ -229,7 +234,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'Pad',
                 'deskripsi'        => 'Panduan Pelayanan RSNR',
                 'format_nomor'     => '{urut}/SK-Dir/Pad/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 2,
                 'urutan'           => 3,
             ],
             [
@@ -238,7 +242,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'Prog',
                 'deskripsi'        => 'Program Kerja RSNR',
                 'format_nomor'     => '{urut}/SK-Dir/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 2,
                 'urutan'           => 4,
             ],
             [
@@ -247,7 +250,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'SPO',
                 'deskripsi'        => 'Standar Prosedur Operasional RSNR',
                 'format_nomor'     => '{urut}/{induk}-{unit}/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 2,
                 'urutan'           => 5,
             ],
             [
@@ -256,7 +258,6 @@ class DatabaseSeeder extends Seeder
                 'singkatan'        => 'Lap',
                 'deskripsi'        => 'Laporan Kinerja / Pelayanan RSNR',
                 'format_nomor'     => '{urut}/Lap-{unit}/RSNR/{bulan_romawi}/{tahun}',
-                'level_verifikasi' => 1,
                 'urutan'           => 6,
             ],
         ];

@@ -300,22 +300,51 @@
         <form method="POST" action="{{ route('dokumen.ajukan', $document) }}">
             @csrf
             <div class="modal-body">
-                <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:1rem">
-                    Pilih pejabat/verifikator yang berwenang meninjau naskah ini.
-                </p>
-                <div class="form-group">
-                    <label for="verifikator_select" class="form-label">Pilih Verifikator</label>
-                    <select name="verifikator_id" id="verifikator_select" class="form-control" required>
-                        <option value="">-- Pilih Verifikator --</option>
-                        @foreach($verifikators as $v)
-                            <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }})</option>
-                        @endforeach
-                    </select>
-                </div>
+                @if(!$firstStepInfo['configured'])
+                    <div class="alert alert-error" style="margin:0">
+                        Jenis naskah ini belum bisa diajukan ke verifikator. Hubungi Admin untuk mengatur alurnya.
+                    </div>
+                @else
+                    @if(!empty($workflowChain['steps']))
+                        <div class="workflow-chain" style="margin-bottom: var(--space-4)">
+                            @foreach($workflowChain['steps'] as $i => $step)
+                                @if($i > 0)
+                                    <div class="workflow-chain-arrow">&rarr;</div>
+                                @endif
+                                <div class="workflow-chain-step {{ $step['tipe'] === 'penandatangan' ? 'workflow-chain-step-sign' : '' }}">
+                                    <div class="workflow-chain-step-badge">{{ $step['tipe'] === 'penandatangan' ? '✓' : (preg_replace('/\D/', '', $step['label']) ?: ($i + 1)) }}</div>
+                                    <div class="workflow-chain-step-body">
+                                        <div class="workflow-chain-step-label">{{ $step['label'] }}</div>
+                                        <div class="workflow-chain-step-name {{ $step['manual'] ? 'is-muted' : '' }}" title="{{ $step['who'] }}">{{ $step['who'] }}</div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if($firstStepInfo['needsManual'])
+                        <div class="form-group" style="margin-bottom:0">
+                            <label for="verifikator_ids_modal" class="form-label">Pilih Verifikator</label>
+                            <select name="verifikator_ids[]" id="verifikator_ids_modal" class="form-control" multiple required data-tomselect data-placeholder="Cari & pilih verifikator...">
+                                @foreach($verifikators as $v)
+                                    <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }})</option>
+                                @endforeach
+                            </select>
+                            <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih siapa yang akan memeriksa dokumen ini terlebih dahulu.</small>
+                        </div>
+                    @else
+                        <input type="hidden" name="ajukan_langsung" value="1">
+                        <p style="font-size:0.875rem; color:var(--text-secondary); margin:0">
+                            Dokumen akan otomatis diproses sesuai alur yang berlaku untuk jenis naskah ini.
+                        </p>
+                    @endif
+                @endif
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-ajukan').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
+                @unless(!$firstStepInfo['configured'])
+                    <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
+                @endunless
             </div>
         </form>
     </div>

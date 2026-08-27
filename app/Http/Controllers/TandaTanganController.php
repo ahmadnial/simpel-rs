@@ -105,14 +105,24 @@ class TandaTanganController extends Controller
     public function kirimOtp(Request $request)
     {
         $user = auth()->user();
+        $expiryMinutes = config('app.otp_expiry_minutes', 5);
         $otp = $user->generateOtp();
 
-        session()->flash('otp_debug', "Kode OTP Anda: {$otp} (berlaku 5 menit)");
+        $user->notify(new \App\Notifications\OtpTandaTangan($otp, $expiryMinutes));
 
-        return response()->json([
+        $response = [
             'success' => true,
-            'message' => "OTP berhasil dikirim. (Kode Test: {$otp})"
-        ]);
+            'message' => "OTP berhasil dikirim ke email terdaftar Anda (berlaku {$expiryMinutes} menit).",
+        ];
+
+        // Kode OTP asli sebelumnya selalu dikembalikan di response & session flash,
+        // sehingga tidak berfungsi sebagai faktor otentikasi kedua yang sesungguhnya.
+        // Sekarang hanya disertakan saat APP_DEBUG=true (local/testing), tidak pernah di produksi.
+        if (config('app.debug')) {
+            $response['debug_otp'] = $otp;
+        }
+
+        return response()->json($response);
     }
 
     public function tandatangani(Request $request, Document $document)

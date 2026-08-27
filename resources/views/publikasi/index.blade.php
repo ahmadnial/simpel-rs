@@ -3,27 +3,27 @@
 @section('title', 'Publikasi & Distribusi')
 
 @section('breadcrumb')
-    <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-current">Publikasi</span>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Publikasi</span>
 @endsection
 
 @section('content')
 
 <div class="page-header">
-    <h1 class="page-title">Publikasi & Distribusi Naskah Dinas</h1>
+    <h1 class="page-title">Publikasi & Distribusi Naskah / Dokumen</h1>
     <p class="page-subtitle">Kelola dan publikasikan naskah dinas yang telah disahkan ke portal internal / unit kerja</p>
 </div>
 
 @if(session('success'))
-    <div style="padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; color: #166534; border-radius: 8px; margin-bottom: 20px;">
-        {{ session('success') }}
-    </div>
+<div style="padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; color: #166534; border-radius: 8px; margin-bottom: 20px;">
+    {{ session('success') }}
+</div>
 @endif
 
 @if(session('error'))
-    <div style="padding: 12px 16px; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
-        {{ session('error') }}
-    </div>
+<div style="padding: 12px 16px; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
+    {{ session('error') }}
+</div>
 @endif
 
 {{-- ═══════════════════════════════════════════════════════ --}}
@@ -35,49 +35,49 @@
     </div>
 
     @if($siapPublikasi->isEmpty())
-        <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.875rem">
-            Tidak ada dokumen bertanda tangan yang menunggu publikasi.
-        </div>
+    <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.875rem">
+        Tidak ada dokumen bertanda tangan yang menunggu publikasi.
+    </div>
     @else
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nomor Surat</th>
-                        <th>Judul Dokumen</th>
-                        <th>Jenis Naskah</th>
-                        <th>Pengusul / Unit</th>
-                        <th>Status Sifat</th>
-                        <th>Tanggal TTD</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($siapPublikasi as $doc)
-                    <tr>
-                        <td style="font-family:monospace; font-weight:700; color:var(--brand-300)">{{ $doc->nomor_surat }}</td>
-                        <td style="font-weight:600; color:var(--text-primary)">{{ $doc->judul }}</td>
-                        <td><span class="badge badge-indigo">{{ $doc->documentType->singkatan }}</span></td>
-                        <td>{{ $doc->pengusul->name }} <br><small style="color:#64748b">({{ $doc->unit->nama }})</small></td>
-                        <td>
-                            @if($doc->is_rahasia)
-                                <span class="badge badge-red">🔒 Rahasia</span>
-                            @else
-                                <span class="badge badge-gray">Biasa</span>
-                            @endif
-                        </td>
-                        <td>{{ $doc->ditandatangani_at?->format('d/m/Y H:i') }}</td>
-                        <td>
-                            <button class="btn btn-success btn-sm" onclick="openModalPublikasi({{ json_encode($doc) }})">
-                                📢 Publikasikan
-                            </button>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-        <div style="margin-top: var(--space-4)">{{ $siapPublikasi->links() }}</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nomor Surat</th>
+                    <th>Judul Dokumen</th>
+                    <th>Jenis Naskah</th>
+                    <th>Pengusul / Unit</th>
+                    <th>Status Sifat</th>
+                    <th>Tanggal TTD</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($siapPublikasi as $doc)
+                <tr>
+                    <td style="font-family:monospace; font-weight:700; color:var(--brand-300)">{{ $doc->nomor_surat }}</td>
+                    <td style="font-weight:600; color:var(--text-primary)">{{ $doc->judul }}</td>
+                    <td><span class="badge badge-indigo">{{ $doc->documentType->singkatan }}</span></td>
+                    <td>{{ $doc->pengusul->name }} <br><small style="color:#64748b">({{ $doc->unit->nama }})</small></td>
+                    <td>
+                        @if($doc->is_rahasia)
+                        <span class="badge badge-red">🔒 Rahasia</span>
+                        @else
+                        <span class="badge badge-gray">Biasa</span>
+                        @endif
+                    </td>
+                    <td>{{ $doc->ditandatangani_at?->format('d/m/Y H:i') }}</td>
+                    <td>
+                        <button class="btn btn-success btn-sm" onclick="openModalPublikasi({{ json_encode($doc) }})">
+                            📢 Publikasikan
+                        </button>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    <div style="margin-top: var(--space-4)">{{ $siapPublikasi->links() }}</div>
     @endif
 </div>
 
@@ -90,50 +90,50 @@
     </div>
 
     @if($dipublikasikan->isEmpty())
-        <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.875rem">
-            Belum ada dokumen yang dipublikasikan.
-        </div>
+    <div style="padding:2rem; text-align:center; color:var(--text-muted); font-size:0.875rem">
+        Belum ada dokumen yang dipublikasikan.
+    </div>
     @else
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nomor Surat</th>
-                        <th>Judul Dokumen</th>
-                        <th>Pengusul</th>
-                        <th>Visibilitas</th>
-                        <th>Waktu Publikasi</th>
-                        <th style="min-width:180px">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($dipublikasikan as $doc)
-                    <tr>
-                        <td style="font-family:monospace; font-weight:700; color:var(--brand-300)">{{ $doc->nomor_surat }}</td>
-                        <td style="font-weight:600; color:var(--text-primary)">{{ $doc->judul }}</td>
-                        <td>{{ $doc->pengusul->name }}</td>
-                        <td>
-                            @if($doc->visibility_scope === 'terbatas')
-                                <span class="badge badge-red">🔒 Terbatas / Rahasia</span>
-                            @elseif($doc->visibility_scope === 'unit')
-                                <span class="badge badge-yellow">🏢 {{ $doc->distributions->count() }} Unit Terkait</span>
-                            @else
-                                <span class="badge badge-green">🌐 Publik Internal RS</span>
-                            @endif
-                        </td>
-                        <td>{{ $doc->dipublikasikan_at?->format('d/m/Y H:i') }}</td>
-                        <td style="display:flex; gap:6px; flex-wrap:wrap">
-                            <a href="{{ route('dokumen.show', $doc) }}" class="btn btn-secondary btn-sm">Lihat</a>
-                            <button class="btn btn-danger btn-sm" onclick="openModalUnpublish({{ json_encode($doc) }})">
-                                ⏏️ Tarik
-                            </button>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-        <div style="margin-top: var(--space-4)">{{ $dipublikasikan->links() }}</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nomor Surat</th>
+                    <th>Judul Dokumen</th>
+                    <th>Pengusul</th>
+                    <th>Visibilitas</th>
+                    <th>Waktu Publikasi</th>
+                    <th style="min-width:180px">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($dipublikasikan as $doc)
+                <tr>
+                    <td style="font-family:monospace; font-weight:700; color:var(--brand-300)">{{ $doc->nomor_surat }}</td>
+                    <td style="font-weight:600; color:var(--text-primary)">{{ $doc->judul }}</td>
+                    <td>{{ $doc->pengusul->name }}</td>
+                    <td>
+                        @if($doc->visibility_scope === 'terbatas')
+                        <span class="badge badge-red">🔒 Terbatas / Rahasia</span>
+                        @elseif($doc->visibility_scope === 'unit')
+                        <span class="badge badge-yellow">🏢 {{ $doc->distributions->count() }} Unit Terkait</span>
+                        @else
+                        <span class="badge badge-green">🌐 Publik Internal RS</span>
+                        @endif
+                    </td>
+                    <td>{{ $doc->dipublikasikan_at?->format('d/m/Y H:i') }}</td>
+                    <td style="display:flex; gap:6px; flex-wrap:wrap">
+                        <a href="{{ route('dokumen.show', $doc) }}" class="btn btn-secondary btn-sm">Lihat</a>
+                        <button class="btn btn-danger btn-sm" onclick="openModalUnpublish({{ json_encode($doc) }})">
+                            ⏏️ Tarik
+                        </button>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    <div style="margin-top: var(--space-4)">{{ $dipublikasikan->links() }}</div>
     @endif
 </div>
 
@@ -168,11 +168,11 @@
                     </td>
                     <td>
                         @if($doc->penggantiDocument)
-                            <a href="{{ route('dokumen.show', $doc->penggantiDocument) }}" style="font-size:0.8rem; color:var(--brand-400)">
-                                {{ $doc->penggantiDocument->nomor_surat }}
-                            </a>
+                        <a href="{{ route('dokumen.show', $doc->penggantiDocument) }}" style="font-size:0.8rem; color:var(--brand-400)">
+                            {{ $doc->penggantiDocument->nomor_surat }}
+                        </a>
                         @else
-                            <span style="color:#94a3b8; font-size:0.8rem">—</span>
+                        <span style="color:#94a3b8; font-size:0.8rem">—</span>
                         @endif
                     </td>
                     <td>{{ $doc->ditarik_at?->format('d/m/Y H:i') }}</td>
@@ -224,10 +224,10 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:6px;">Pilih Unit Kerja Tujuan Distribusi:</label>
                 <div style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
                     @foreach($units as $u)
-                        <label style="font-size:0.8rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                            <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}">
-                            {{ $u->nama }}
-                        </label>
+                    <label style="font-size:0.8rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}">
+                        {{ $u->nama }}
+                    </label>
                     @endforeach
                 </div>
             </div>
@@ -266,7 +266,7 @@
                 <select name="pengganti_document_id" class="form-control" style="width:100%;">
                     <option value="">— Tidak ada dokumen pengganti —</option>
                     @foreach($dokumenPengganti as $dp)
-                        <option value="{{ $dp->id }}">{{ $dp->nomor_surat }} — {{ Str::limit($dp->judul, 50) }}</option>
+                    <option value="{{ $dp->id }}">{{ $dp->nomor_surat }} — {{ Str::limit($dp->judul, 50) }}</option>
                     @endforeach
                 </select>
                 <small style="color:#64748b; font-size:0.75rem;">Pilih jika dokumen ini ditarik karena telah ada versi/naskah yang lebih baru.</small>
@@ -314,10 +314,10 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:6px;">Pilih Unit Kerja Tujuan Distribusi:</label>
                 <div style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
                     @foreach($units as $u)
-                        <label style="font-size:0.8rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                            <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}">
-                            {{ $u->nama }}
-                        </label>
+                    <label style="font-size:0.8rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="unit_ids[]" value="{{ $u->id }}">
+                        {{ $u->nama }}
+                    </label>
                     @endforeach
                 </div>
             </div>
@@ -332,68 +332,79 @@
 
 <style>
     .modal-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.5); z-index: 1000;
-        align-items: center; justify-content: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
     }
+
     .modal-content {
-        background: #fff; width: 90%; border-radius: 12px;
-        padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-        max-height: 90vh; overflow-y: auto;
+        background: #fff;
+        width: 90%;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        max-height: 90vh;
+        overflow-y: auto;
     }
 </style>
 
 <script>
-// ====== Publikasi Modal ======
-function openModalPublikasi(doc) {
-    document.getElementById('formPublikasi').action = '/publikasi/' + doc.id + '/publikasi';
-    document.getElementById('modalDocTitle').innerText = (doc.nomor_surat || 'Draft') + ' — ' + doc.judul;
+    // ====== Publikasi Modal ======
+    function openModalPublikasi(doc) {
+        document.getElementById('formPublikasi').action = '/publikasi/' + doc.id + '/publikasi';
+        document.getElementById('modalDocTitle').innerText = (doc.nomor_surat || 'Draft') + ' — ' + doc.judul;
 
-    if (doc.is_rahasia) {
-        document.getElementById('scope_terbatas').checked = true;
-    } else {
-        document.getElementById('scope_internal').checked = true;
+        if (doc.is_rahasia) {
+            document.getElementById('scope_terbatas').checked = true;
+        } else {
+            document.getElementById('scope_internal').checked = true;
+        }
+
+        toggleUnitList();
+        document.getElementById('modalPublikasi').style.display = 'flex';
     }
 
-    toggleUnitList();
-    document.getElementById('modalPublikasi').style.display = 'flex';
-}
+    function toggleUnitList() {
+        document.getElementById('unitListSection').style.display =
+            document.getElementById('scope_unit').checked ? 'block' : 'none';
+    }
 
-function toggleUnitList() {
-    document.getElementById('unitListSection').style.display =
-        document.getElementById('scope_unit').checked ? 'block' : 'none';
-}
+    // ====== Unpublish Modal ======
+    function openModalUnpublish(doc) {
+        document.getElementById('formUnpublish').action = '/publikasi/' + doc.id + '/unpublish';
+        document.getElementById('unpubDocTitle').innerText = doc.nomor_surat + ' — ' + doc.judul;
+        document.getElementById('modalUnpublish').style.display = 'flex';
+    }
 
-// ====== Unpublish Modal ======
-function openModalUnpublish(doc) {
-    document.getElementById('formUnpublish').action = '/publikasi/' + doc.id + '/unpublish';
-    document.getElementById('unpubDocTitle').innerText = doc.nomor_surat + ' — ' + doc.judul;
-    document.getElementById('modalUnpublish').style.display = 'flex';
-}
+    // ====== Republish Modal ======
+    function openModalRepublish(doc) {
+        document.getElementById('formRepublish').action = '/publikasi/' + doc.id + '/republish';
+        document.getElementById('repDocTitle').innerText = (doc.nomor_surat || 'Draft') + ' — ' + doc.judul;
+        document.getElementById('repDocAlasan').innerText = doc.alasan_penarikan ?
+            '📌 Alasan penarikan sebelumnya: ' + doc.alasan_penarikan :
+            '';
 
-// ====== Republish Modal ======
-function openModalRepublish(doc) {
-    document.getElementById('formRepublish').action = '/publikasi/' + doc.id + '/republish';
-    document.getElementById('repDocTitle').innerText = (doc.nomor_surat || 'Draft') + ' — ' + doc.judul;
-    document.getElementById('repDocAlasan').innerText = doc.alasan_penarikan
-        ? '📌 Alasan penarikan sebelumnya: ' + doc.alasan_penarikan
-        : '';
+        var scope = doc.visibility_scope || 'internal';
+        document.getElementById('rep_scope_' + scope).checked = true;
+        toggleRepUnitList();
+        document.getElementById('modalRepublish').style.display = 'flex';
+    }
 
-    var scope = doc.visibility_scope || 'internal';
-    document.getElementById('rep_scope_' + scope).checked = true;
-    toggleRepUnitList();
-    document.getElementById('modalRepublish').style.display = 'flex';
-}
+    function toggleRepUnitList() {
+        document.getElementById('repUnitListSection').style.display =
+            document.getElementById('rep_scope_unit').checked ? 'block' : 'none';
+    }
 
-function toggleRepUnitList() {
-    document.getElementById('repUnitListSection').style.display =
-        document.getElementById('rep_scope_unit').checked ? 'block' : 'none';
-}
-
-// ====== Close any modal ======
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
-}
+    // ====== Close any modal ======
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
 </script>
 
 @endsection

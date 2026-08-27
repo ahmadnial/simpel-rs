@@ -47,23 +47,48 @@ class DocumentController extends Controller
     public function create()
     {
         $documentTypes = DocumentType::active()->get();
-        $verifikators = User::permission('dokumen.verifikasi')
+        // Khusus role 'asesor_internal' — pool tahap 1 yang dipilih manual pengusul dengan
+        // semantik "salah satu approve = sah". Bukan semua pemegang permission dokumen.verifikasi
+        // (yang juga mencakup verifikator role_nama-driven di tahap-tahap lain).
+        $verifikators = User::role('asesor_internal')
             ->where('is_active', true)
             ->where('id', '!=', auth()->id())
             ->get();
 
-        return view('dokumen.create', compact('documentTypes', 'verifikators'));
+        // Picker "Ajukan ke Asesor Internal" cuma relevan untuk jenis naskah yang tahap 1
+        // workflow-nya sengaja dikosongkan (serial, tanpa role_nama) — pengusul yang pilih manual.
+        // Kalau tahap 1 sudah punya pool otomatis (parallel, atau serial dengan role_nama), pilihan
+        // manual pengusul akan diabaikan (lihat DocumentService::createVerificationsForStep), jadi
+        // form JS menyembunyikan picker untuk jenis naskah itu berdasarkan map ini.
+        $unitId = auth()->user()->unit_id;
+        $workflowStepInfo = $documentTypes->mapWithKeys(
+            fn (DocumentType $dt) => [$dt->id => $this->documentService->getFirstStepInfo($dt, $unitId)]
+        );
+        // Pratinjau rantai alur lengkap per jenis naskah, ditampilkan di form supaya pengusul
+        // tahu siapa saja yang akan memeriksa & menandatangani sebelum mengajukan.
+        $workflowChainInfo = $documentTypes->mapWithKeys(
+            fn (DocumentType $dt) => [$dt->id => $this->documentService->getWorkflowChainPreview($dt, $unitId)]
+        );
+
+        return view('dokumen.create', compact('documentTypes', 'verifikators', 'workflowStepInfo', 'workflowChainInfo'));
     }
 
     public function store(Request $request)
     {
+        Gate::authorize('create', Document::class);
+
         $validated = $request->validate([
             'judul'             => 'required|string|max:255',
             'document_type_id'  => 'required|exists:document_types,id',
             'perihal'           => 'nullable|string|max:255',
             'keterangan'        => 'nullable|string',
             'file_dokumen'      => 'required|file|mimes:docx,doc,pdf|max:10240',
-            'verifikator_id'    => 'nullable|exists:users,id',
+            'submit_mode'       => 'nullable|in:ajukan,internal',
+            'verifikator_ids'   => 'nullable|array',
+            'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
+            // Dipakai saat tahap 1 workflow jenis naskah ini sudah otomatis (pool/role_nama) —
+            // tidak ada picker manual untuk dipilih, cukup konfirmasi mau langsung diajukan.
+            'ajukan_langsung'   => 'nullable|boolean',
             'is_rahasia'        => 'nullable|boolean',
         ]);
 
@@ -79,12 +104,22 @@ class DocumentController extends Controller
             $request->file('file_dokumen')
         );
 
-        if ($request->filled('verifikator_id')) {
-            $this->documentService->ajukanDokumen($document, $request->verifikator_id);
-            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen berhasil dibuat dan diajukan ke verifikator.');
+        $verifikatorIds = $validated['verifikator_ids'] ?? [];
+        $wantsAjukan = ($validated['submit_mode'] ?? 'ajukan') === 'ajukan';
+
+        if ($wantsAjukan && (!empty($verifikatorIds) || $request->boolean('ajukan_langsung'))) {
+            $this->documentService->ajukanDokumen($document, $verifikatorIds);
+            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen berhasil dibuat dan diajukan ke verifikasi.');
         }
 
-        return redirect()->route('dokumen.show', $document)->with('success', 'Draft dokumen berhasil dibuat.');
+        if ($wantsAjukan) {
+            // Pengusul memilih "Ajukan ke Verifikator" tapi jenis naskah ini belum punya
+            // Template Workflow aktif — dokumen tetap tersimpan sebagai draft, bukan diam-diam
+            // "berhasil" seolah sudah diajukan.
+            return redirect()->route('dokumen.show', $document)->with('error', 'Dokumen tersimpan sebagai draft, tapi belum bisa diajukan: jenis naskah ini belum punya alur verifikasi. Hubungi Admin.');
+        }
+
+        return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen tersimpan sebagai Arsip Internal Unit.');
     }
 
     public function show(Document $document)
@@ -102,12 +137,18 @@ class DocumentController extends Controller
             'penggantiDocument', 'auditLogs'
         ]);
 
-        $verifikators = User::permission('dokumen.verifikasi')
+        // Khusus role 'asesor_internal' — pool tahap 1 yang dipilih manual pengusul dengan
+        // semantik "salah satu approve = sah". Bukan semua pemegang permission dokumen.verifikasi
+        // (yang juga mencakup verifikator role_nama-driven di tahap-tahap lain).
+        $verifikators = User::role('asesor_internal')
             ->where('is_active', true)
             ->where('id', '!=', auth()->id())
             ->get();
 
-        return view('dokumen.show', compact('document', 'verifikators'));
+        $firstStepInfo = $this->documentService->getFirstStepInfo($document->documentType, $document->unit_id);
+        $workflowChain = $this->documentService->getWorkflowChainPreview($document->documentType, $document->unit_id);
+
+        return view('dokumen.show', compact('document', 'verifikators', 'firstStepInfo', 'workflowChain'));
     }
 
     public function edit(Document $document)
@@ -533,13 +574,44 @@ class DocumentController extends Controller
 
     public function ajukan(Request $request, Document $document)
     {
-        $request->validate([
-            'verifikator_id' => 'required|exists:users,id',
+        Gate::authorize('update', $document);
+
+        $validated = $request->validate([
+            'verifikator_ids'   => 'nullable|array',
+            'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
+            'ajukan_langsung'   => 'nullable|boolean',
         ]);
 
-        $this->documentService->ajukanDokumen($document, $request->verifikator_id);
+        $verifikatorIds = $validated['verifikator_ids'] ?? [];
+        abort_unless(
+            !empty($verifikatorIds) || $request->boolean('ajukan_langsung'),
+            422,
+            'Pilih minimal 1 Asesor Internal, atau konfirmasi pengajuan langsung.'
+        );
+
+        $this->documentService->ajukanDokumen($document, $verifikatorIds);
 
         return back()->with('success', 'Dokumen berhasil diajukan ke verifikator.');
+    }
+
+    /**
+     * Aturan validasi verifikator: harus user aktif, punya role 'asesor_internal',
+     * dan bukan pengusul sendiri (mencegah self-approval). Dipakai di store() & ajukan()
+     * agar konsisten dengan daftar dropdown verifikator yang ditampilkan di show()/create().
+     */
+    private function verifikatorRule(): \Closure
+    {
+        return function (string $attribute, $value, \Closure $fail) {
+            $target = User::find($value);
+            $isEligible = $target
+                && $target->is_active
+                && $target->id !== auth()->id()
+                && $target->hasRole('asesor_internal');
+
+            if (!$isEligible) {
+                $fail('Verifikator yang dipilih tidak valid, tidak aktif, atau tidak memiliki wewenang verifikasi.');
+            }
+        };
     }
 
     public function download(Document $document, $versionId = null)

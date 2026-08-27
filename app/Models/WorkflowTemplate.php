@@ -10,7 +10,7 @@ class WorkflowTemplate extends Model
     use HasFactory;
 
     protected $fillable = [
-        'nama', 'document_type_id', 'unit_id',
+        'nama', 'document_type_id',
         'deskripsi', 'is_default', 'is_active',
     ];
 
@@ -27,9 +27,13 @@ class WorkflowTemplate extends Model
         return $this->belongsTo(DocumentType::class);
     }
 
-    public function unit()
+    /**
+     * Unit/instalasi/tim/komite yang jadi pengecualian cakupan template ini.
+     * Kosong (tidak ada baris pivot) = berlaku untuk semua unit (perilaku default).
+     */
+    public function units()
     {
-        return $this->belongsTo(Unit::class);
+        return $this->belongsToMany(Unit::class, 'workflow_template_units');
     }
 
     public function steps()

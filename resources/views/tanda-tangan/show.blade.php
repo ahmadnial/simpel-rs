@@ -19,15 +19,6 @@
     </p>
 </div>
 
-@if(session('otp_debug'))
-<div class="alert alert-warning fade-in" style="margin-bottom: var(--space-6)">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <div>
-        <strong>DEBUG KODE OTP:</strong> {{ session('otp_debug') }}
-    </div>
-</div>
-@endif
-
 <div style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">
 
     {{-- Form TTE & Modal --}}
@@ -150,7 +141,9 @@
         })
         .then(r => r.json())
         .then(data => {
-            alert(data.message);
+            // debug_otp hanya ada di response saat APP_DEBUG=true (local/testing)
+            const msg = data.debug_otp ? `${data.message}\n\n[DEBUG] Kode OTP: ${data.debug_otp}` : data.message;
+            alert(msg);
             location.reload();
         })
         .catch(e => {

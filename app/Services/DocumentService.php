@@ -9,6 +9,7 @@ use App\Models\DocumentVerification;
 use App\Models\DocumentVersion;
 use App\Models\NumberingSequence;
 use App\Models\WorkflowStep;
+use App\Models\WorkflowTemplate;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -36,7 +37,12 @@ class DocumentService
                 'perihal'             => $data['perihal'] ?? null,
                 'keterangan'          => $data['keterangan'] ?? null,
                 'is_rahasia'          => $isRahasia,
-                'visibility_scope'    => $isRahasia ? 'terbatas' : 'internal',
+                // Selalu mulai dari 'terbatas' (hanya unit sendiri yang bisa lihat), apapun status
+                // is_rahasia — dokumen yang belum diverifikasi/dipublikasikan tidak semestinya
+                // langsung terlihat semua unit. Visibilitas yang lebih luas baru dibuka lewat
+                // publikasi() setelah dokumen final & sah. Ini juga jadi dasar "Arsip Internal
+                // Unit": dokumen yang tidak pernah diajukan ke verifikator tetap 'terbatas' selamanya.
+                'visibility_scope'    => 'terbatas',
                 'status'              => Document::STATUS_DRAFT,
             ]);
 
@@ -80,9 +86,9 @@ class DocumentService
     /**
      * Ajukan dokumen ke verifikasi.
      */
-    public function ajukanDokumen(Document $document, int $verifikatorId): Document
+    public function ajukanDokumen(Document $document, array $verifikatorIds): Document
     {
-        return DB::transaction(function () use ($document, $verifikatorId) {
+        return DB::transaction(function () use ($document, $verifikatorIds) {
             abort_unless(
                 in_array($document->status, [Document::STATUS_DRAFT, Document::STATUS_REVISI]),
                 403, 'Dokumen tidak dapat diajukan dari status saat ini.'
@@ -91,20 +97,26 @@ class DocumentService
             $currentVersion = $document->currentVersion;
             abort_unless($currentVersion, 422, 'Tidak ada file dokumen yang diunggah.');
 
-            // Tentukan workflow template
-            $template = $document->workflowTemplate
-                ?? $document->documentType->workflowTemplates()->where('is_default', true)->first();
+            $template = $document->workflowTemplate ?? $this->resolveWorkflowTemplate($document->documentType, $document->unit_id);
 
             abort_unless($template, 422, 'Template alur kerja (workflow) belum dikonfigurasi untuk jenis naskah ini.');
-            $firstStep = $template->steps()->orderBy('urutan')->first();
+            // steps() sudah orderBy('urutan') bawaan relasi — jangan tambah orderBy lagi di sini,
+            // SQL Server (sqlsrv) menolak ORDER BY dengan kolom yang sama dua kali (error 20018).
+            $firstStep = $template->steps()->first();
             abort_unless($firstStep, 422, 'Langkah verifikasi belum dikonfigurasi pada workflow ini.');
 
             // Batalkan antrian verifikasi lama yang masih berstatus menunggu (jika pengajuan ulang dari revisi)
             DocumentVerification::where('document_id', $document->id)
                 ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->update(['status' => 'batal']);
+                ->update(['status' => DocumentVerification::STATUS_DIBATALKAN]);
 
-            $this->createVerificationsForStep($document, $currentVersion, $firstStep, 1, $verifikatorId);
+            // visibility_scope TETAP 'terbatas' selama proses verifikasi+TTE berjalan — orang di
+            // luar rantai verifikasi (bukan pengusul/verifikator/penandatangan/admin) memang belum
+            // perlu lihat dokumen yang belum final. isAccessibleBy() sudah otomatis meng-izinkan
+            // pengusul & setiap verifikator/penandatangan yang ditugaskan terlepas dari scope ini.
+            // Visibilitas baru dilebarkan secara sadar lewat publikasi() setelah dokumen sah.
+
+            $this->createVerificationsForStep($document, $currentVersion, $firstStep, 1, $verifikatorIds);
 
             $document->update([
                 'status'              => Document::STATUS_DIAJUKAN,
@@ -120,9 +132,150 @@ class DocumentService
     }
 
     /**
+     * Resolusi Template Workflow default untuk jenis naskah dokumen ini.
+     *
+     * Isolasi alur utama tetap PER JENIS NASKAH (document_type) — satu template default
+     * berlaku untuk semua unit/instalasi/tim/komite secara global. Cakupan unit pada template
+     * (WorkflowTemplate::units(), pivot many-to-many) hanyalah PENGECUALIAN OPSIONAL: kalau ada
+     * template lain untuk jenis naskah yang sama yang sengaja dibatasi ke unit tertentu dan unit
+     * dokumen ini termasuk di dalamnya, template yang lebih spesifik itu menang atas template
+     * default global. Hanya template aktif (is_active=true) yang dipertimbangkan.
+     */
+    private function resolveWorkflowTemplate(\App\Models\DocumentType $documentType, int $unitId): ?WorkflowTemplate
+    {
+        $candidates = $documentType->workflowTemplates()
+            ->where('is_active', true)
+            ->with('units')
+            ->get();
+
+        $unitSpecific = $candidates->filter(
+            fn (WorkflowTemplate $t) => $t->units->contains('id', $unitId)
+        );
+
+        if ($unitSpecific->isNotEmpty()) {
+            // Kalau admin tidak sengaja membuat >1 template yang cakupan unitnya tumpang tindih,
+            // utamakan yang ditandai default; kalau tidak ada, pilih deterministik (id terkecil)
+            // supaya tidak diam-diam berbeda tiap request.
+            return $unitSpecific->firstWhere('is_default', true) ?? $unitSpecific->sortBy('id')->first();
+        }
+
+        // Fallback: template tanpa cakupan unit sama sekali (berlaku untuk semua unit).
+        return $candidates->filter(fn (WorkflowTemplate $t) => $t->units->isEmpty())
+            ->firstWhere('is_default', true);
+    }
+
+    /**
+     * Info tahap 1 workflow untuk sebuah jenis naskah + unit (dipakai form upload dokumen untuk
+     * menentukan apakah picker "Ajukan ke Asesor Internal" perlu ditampilkan atau tidak).
+     *
+     * - 'configured' = false → belum ada Template Workflow aktif untuk kombinasi ini sama sekali.
+     * - 'needsManual' = true → tahap 1 mode serial TANPA role_nama: TIDAK ada pool otomatis,
+     *   pengusul WAJIB pilih manual verifikator (asesor_internal) di form upload.
+     * - 'needsManual' = false (tapi configured=true) → tahap 1 sudah otomatis (mode parallel dengan
+     *   pool, atau serial dengan role_nama terisi) — pilihan manual pengusul akan diabaikan, jadi
+     *   form tidak perlu menampilkan picker sama sekali, cukup tombol "Ajukan".
+     */
+    public function getFirstStepInfo(\App\Models\DocumentType $documentType, int $unitId): array
+    {
+        $template = $this->resolveWorkflowTemplate($documentType, $unitId);
+        $firstStep = $template?->steps()->first();
+
+        if (!$firstStep) {
+            return ['configured' => false, 'needsManual' => false, 'stepName' => null];
+        }
+
+        $needsManual = $firstStep->mode_verifikasi === 'serial' && empty($firstStep->role_nama);
+
+        return [
+            'configured'  => true,
+            'needsManual' => $needsManual,
+            'stepName'    => $firstStep->nama_tahap,
+        ];
+    }
+
+    /**
+     * Pratinjau lengkap rantai alur (semua tahap, urut) untuk sebuah jenis naskah + unit —
+     * dipakai form pengajuan dokumen supaya pengusul tahu siapa saja yang akan memeriksa &
+     * menandatangani SEBELUM mengklik ajukan, bukan baru tahu setelah diajukan.
+     */
+    public function getWorkflowChainPreview(\App\Models\DocumentType $documentType, int $unitId): array
+    {
+        $template = $this->resolveWorkflowTemplate($documentType, $unitId);
+
+        if (!$template) {
+            return ['configured' => false, 'steps' => []];
+        }
+
+        $steps = $template->steps()->with('verifierPool.user.unit')->get();
+
+        $verifCounter = 0;
+        $signCounter = 0;
+
+        $stepsPreview = $steps->values()->map(function ($step, $idx) use (&$verifCounter, &$signCounter) {
+            $manual = $idx === 0 && $step->mode_verifikasi === 'serial' && empty($step->role_nama);
+
+            $names = collect();
+
+            if (!$manual) {
+                if ($step->isParallelQuorum()) {
+                    foreach ($step->verifierPool as $pool) {
+                        if ($pool->tipe_pool === 'user' && $pool->user) {
+                            $names->push($this->formatPersonLabel($pool->user));
+                        } elseif ($pool->tipe_pool === 'role' && $pool->role_nama) {
+                            \App\Models\User::role($pool->role_nama)->where('is_active', true)->get()
+                                ->each(fn ($u) => $names->push($this->formatPersonLabel($u)));
+                        }
+                    }
+                } elseif ($step->role_nama) {
+                    \App\Models\User::role($step->role_nama)->where('is_active', true)->get()
+                        ->each(fn ($u) => $names->push($this->formatPersonLabel($u)));
+                }
+            }
+
+            $names = $names->filter()->unique()->values();
+            $min = $step->min_approval ?? 1;
+
+            if ($manual) {
+                $who = 'Dipilih pengusul saat pengajuan';
+            } elseif ($names->isEmpty()) {
+                $who = 'Belum ada pejabat ditugaskan';
+            } elseif ($step->isParallelQuorum() && $min < $names->count()) {
+                $who = "Min. {$min} dari " . $names->count() . ' pejabat: ' . $names->join(', ');
+            } else {
+                $who = $names->join(' / ');
+            }
+
+            if ($step->isPenandatangan()) {
+                $signCounter++;
+                $label = $signCounter > 1 ? "Penandatangan {$signCounter}" : 'Penandatangan';
+            } else {
+                $verifCounter++;
+                $label = "Verifikator {$verifCounter}";
+            }
+
+            return [
+                'label'      => $label,
+                'nama_tahap' => $step->nama_tahap,
+                'tipe'       => $step->tipe,
+                'who'        => $who,
+                'manual'     => $manual,
+            ];
+        })->values()->all();
+
+        return ['configured' => !empty($stepsPreview), 'steps' => $stepsPreview];
+    }
+
+    private function formatPersonLabel(\App\Models\User $user): string
+    {
+        $sub = $user->jabatan ?: $user->unit?->nama;
+
+        return $sub ? "{$user->name} ({$sub})" : $user->name;
+    }
+
+    /**
      * Helper membuat verifikasi berdasarkan konfigurasi step.
      */
-    private function createVerificationsForStep(Document $document, $currentVersion, $step, $level, $defaultVerifikatorId = null)
+    private function createVerificationsForStep(Document $document, $currentVersion, $step, $level, array $defaultVerifikatorIds = [])
     {
         if (!$step) return;
         $verifiers = [];
@@ -138,9 +291,30 @@ class DocumentService
                 }
             }
         } else {
-            if ($defaultVerifikatorId) {
-                $target = \App\Models\User::find($defaultVerifikatorId);
-                if ($target) $verifiers[] = $target;
+            if (!empty($defaultVerifikatorIds)) {
+                // Multi-verifikator "salah satu approve = sah": setiap ID yang dipilih pengusul
+                // divalidasi kelayakannya sendiri-sendiri, lalu semua dapat tiket di level yang
+                // sama — begitu satu approve, sisanya otomatis dibatalkan (lihat setujui()).
+                foreach ($defaultVerifikatorIds as $verifikatorId) {
+                    $target = \App\Models\User::find($verifikatorId);
+
+                    // Cegah pengusul menugaskan dirinya sendiri (atau user tanpa role
+                    // 'asesor_internal') sebagai verifikator — mencegah self-approval, dan
+                    // memastikan pool "salah satu approve = sah" cuma diisi asesor internal
+                    // yang sah, bukan sembarang pemegang permission dokumen.verifikasi.
+                    $isEligibleVerifikator = $target
+                        && $target->is_active
+                        && $target->id !== $document->pengusul_id
+                        && $target->hasRole('asesor_internal');
+
+                    abort_unless(
+                        $isEligibleVerifikator,
+                        422,
+                        'Verifikator yang dipilih tidak valid, tidak aktif, atau bukan Asesor Internal.'
+                    );
+
+                    $verifiers[] = $target;
+                }
             } elseif ($step->role_nama) {
                 $users = \App\Models\User::role($step->role_nama)->where('is_active', true)->get();
                 foreach ($users as $u) { $verifiers[] = $u; }
@@ -197,10 +371,14 @@ class DocumentService
             $step = $verification->workflowStep;
             if ($step && $step->isParallelQuorum()) {
                 $minApproval = $step->min_approval ?? 1;
+                // lockForUpdate mengunci baris-baris ini selama transaksi agar dua verifikator yang
+                // approve nyaris bersamaan tidak sama-sama membaca count di bawah kuorum lalu
+                // sama-sama meloloskan step (race condition pada quorum check).
                 $approvedCount = DocumentVerification::where('document_id', $document->id)
                     ->where('document_version_id', $currentVersionId)
                     ->where('workflow_step_id', $step->id)
                     ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                    ->lockForUpdate()
                     ->count();
 
                 if ($approvedCount < $minApproval) {
@@ -217,14 +395,15 @@ class DocumentService
                 ->where('workflow_step_id', $step?->id)
                 ->where('level', $verification->level)
                 ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->update(['status' => 'batal']);
+                ->update(['status' => DocumentVerification::STATUS_DIBATALKAN]);
 
             // Advance step
             $template = $document->workflowTemplate;
+            // steps() sudah orderBy('urutan') bawaan relasi — jangan tambah orderBy lagi di sini,
+            // SQL Server (sqlsrv) menolak ORDER BY dengan kolom yang sama dua kali (error 20018).
             $nextVerificationStep = $template?->steps()
                 ->where('urutan', '>', $verification->level)
                 ->where('tipe', 'verifikasi')
-                ->orderBy('urutan')
                 ->first();
 
             if ($nextVerificationStep) {
@@ -318,22 +497,7 @@ class DocumentService
             // Validasi OTP
             abort_unless($user->isOtpValid($otpInput), 422, 'OTP tidak valid atau sudah kadaluarsa.');
             abort_unless($document->status === Document::STATUS_MENUNGGU_TTD, 403, 'Dokumen tidak dalam status menunggu tanda tangan.');
-
-            // Validasi Wewenang Penandatangan (termasuk delegasi Plt/Plh)
-            $signerRoles = $user->getRoleNames()->toArray();
-            if ($delegated = $user->activeDelegation()) {
-                if ($delegated->pejabat) {
-                    $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
-                }
-            }
-
-            $isAuthorizedSigner = $user->hasRole('super_admin') || 
-                ($document->workflowTemplate?->steps()
-                    ->where('tipe', 'penandatangan')
-                    ->whereIn('role_nama', $signerRoles)
-                    ->exists() ?? false);
-
-            abort_unless($isAuthorizedSigner, 403, 'Anda bukan penandatangan yang sah untuk dokumen ini.');
+            $this->assertAuthorizedSigner($document, $user);
 
             $currentVersion = $document->currentVersion;
             $filePath = $this->ensureDocxFileExists($document, $currentVersion);
@@ -384,6 +548,29 @@ class DocumentService
 
             return $document->fresh();
         });
+    }
+
+    /**
+     * Validasi wewenang penandatangan (termasuk delegasi Plt/Plh) untuk sebuah dokumen.
+     * Dipakai bersama oleh tandaTangani() dan tolakTandaTangan() agar aturan otorisasi
+     * tidak bisa berbeda/lupa disinkronkan antara aksi tanda tangan dan aksi tolak.
+     */
+    private function assertAuthorizedSigner(Document $document, \App\Models\User $user): void
+    {
+        $signerRoles = $user->getRoleNames()->toArray();
+        if ($delegated = $user->activeDelegation()) {
+            if ($delegated->pejabat) {
+                $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
+            }
+        }
+
+        $isAuthorizedSigner = $user->hasRole('super_admin') ||
+            ($document->workflowTemplate?->steps()
+                ->where('tipe', 'penandatangan')
+                ->whereIn('role_nama', $signerRoles)
+                ->exists() ?? false);
+
+        abort_unless($isAuthorizedSigner, 403, 'Anda bukan penandatangan yang sah untuk dokumen ini.');
     }
 
     /**
@@ -629,6 +816,16 @@ class DocumentService
     {
         return DB::transaction(function () use ($document, $alasanTolak) {
             $user = auth()->user();
+
+            // Sebelumnya method ini tidak memvalidasi status dokumen maupun wewenang penandatangan,
+            // sehingga user manapun yang login bisa menolak dokumen apapun di status apapun.
+            abort_unless(
+                $document->status === Document::STATUS_MENUNGGU_TTD,
+                403,
+                'Dokumen tidak dalam status menunggu tanda tangan, tidak dapat dikembalikan.'
+            );
+            $this->assertAuthorizedSigner($document, $user);
+
             $currentVersionId = $document->currentVersion?->id;
 
             $document->update([

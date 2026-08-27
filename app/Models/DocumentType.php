@@ -11,16 +11,13 @@ class DocumentType extends Model
 
     protected $fillable = [
         'kode', 'nama', 'singkatan', 'deskripsi',
-        'format_nomor', 'mulai_nomor', 'level_verifikasi', 'penandatangan_default',
-        'perlu_tte_tersertifikasi', 'is_active', 'urutan',
+        'format_nomor', 'mulai_nomor', 'is_active', 'urutan',
     ];
 
     protected function casts(): array
     {
         return [
-            'perlu_tte_tersertifikasi' => 'boolean',
-            'is_active'               => 'boolean',
-            'level_verifikasi'        => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 

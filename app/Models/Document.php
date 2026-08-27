@@ -139,7 +139,7 @@ class Document extends Model
     public function isAccessibleBy(User $user): bool
     {
         // Admin / Super Admin selalu punya akses
-        if ($user->hasAnyRole(['super-admin', 'admin'])) {
+        if ($user->hasAnyRole(['super_admin', 'admin'])) {
             return true;
         }
 
@@ -172,7 +172,7 @@ class Document extends Model
      */
     public function scopeAccessibleBy($query, User $user)
     {
-        if ($user->hasAnyRole(['super-admin', 'admin'])) {
+        if ($user->hasAnyRole(['super_admin', 'admin'])) {
             return $query;
         }
 

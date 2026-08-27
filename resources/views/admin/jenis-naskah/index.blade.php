@@ -54,7 +54,6 @@
                     <th>Singkatan</th>
                     <th>Mulai No</th>
                     <th>Formula Format Nomor</th>
-                    <th>Level Verifikasi</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr>
@@ -67,7 +66,6 @@
                     <td><span class="badge badge-purple">{{ $dt->singkatan }}</span></td>
                     <td><strong>{{ $dt->mulai_nomor ?? 1 }}</strong></td>
                     <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem; color:#0f172a;">{{ $dt->format_nomor }}</code></td>
-                    <td><span class="badge badge-indigo">{{ $dt->level_verifikasi }} Tahap</span></td>
                     <td>
                         @if($dt->is_active)
                             <span class="badge badge-green">Aktif</span>
@@ -133,16 +131,6 @@
                     Nomor awal (otomatis terpusat / lintas unit). Default: 1.
                 </div>
             </div>
-            <div style="display:flex; gap:12px; margin-bottom:12px;">
-                <div style="flex:1;">
-                    <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Jumlah Level Verifikasi *</label>
-                    <select name="level_verifikasi" class="form-control" required>
-                        <option value="1">1 Tahap (Verifikator Unit/Instalasi)</option>
-                        <option value="2">2 Tahap (Verifikator Unit/Instalasi → Komite/Tim/Manajemen)</option>
-                        <option value="3">3 Tahap (Verifikator Unit/Instalasi → Komite/Tim → Direksi/Manajemen)</option>
-                    </select>
-                </div>
-            </div>
             <div style="margin-bottom:12px;">
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Naskah</label>
                 <textarea name="deskripsi" class="form-control" rows="2" placeholder="Penjelasan singkat mengenai naskah dinas ini..."></textarea>
@@ -189,16 +177,6 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Mulai Nomor Urut Dari *</label>
                 <input type="number" id="edit_type_mulai_nomor" name="mulai_nomor" class="form-control" min="1" required>
             </div>
-            <div style="display:flex; gap:12px; margin-bottom:12px;">
-                <div style="flex:1;">
-                    <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Jumlah Level Verifikasi *</label>
-                    <select id="edit_type_level_verifikasi" name="level_verifikasi" class="form-control" required>
-                        <option value="1">1 Tahap</option>
-                        <option value="2">2 Tahap</option>
-                        <option value="3">3 Tahap</option>
-                    </select>
-                </div>
-            </div>
             <div style="margin-bottom:12px;">
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Naskah</label>
                 <textarea id="edit_type_deskripsi" name="deskripsi" class="form-control" rows="2"></textarea>
@@ -224,7 +202,6 @@ function editType(dt) {
     document.getElementById('edit_type_nama').value = dt.nama;
     document.getElementById('edit_type_format_nomor').value = dt.format_nomor;
     document.getElementById('edit_type_mulai_nomor').value = dt.mulai_nomor || 1;
-    document.getElementById('edit_type_level_verifikasi').value = dt.level_verifikasi;
     document.getElementById('edit_type_deskripsi').value = dt.deskripsi || '';
     document.getElementById('edit_type_is_active').checked = !!dt.is_active;
 

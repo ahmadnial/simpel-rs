@@ -36,14 +36,10 @@ class DocumentTypeController extends Controller
             'deskripsi' => 'nullable|string',
             'format_nomor' => 'required|string|max:255',
             'mulai_nomor' => 'required|integer|min:1',
-            'level_verifikasi' => 'required|integer|min:1|max:5',
-            'penandatangan_default' => 'nullable|string|max:100',
-            'perlu_tte_tersertifikasi' => 'boolean',
             'is_active' => 'boolean',
             'urutan' => 'nullable|integer',
         ]);
 
-        $validated['perlu_tte_tersertifikasi'] = $request->has('perlu_tte_tersertifikasi');
         $validated['is_active'] = $request->has('is_active');
         $validated['urutan'] = $request->urutan ?? 0;
 
@@ -61,14 +57,10 @@ class DocumentTypeController extends Controller
             'deskripsi' => 'nullable|string',
             'format_nomor' => 'required|string|max:255',
             'mulai_nomor' => 'required|integer|min:1',
-            'level_verifikasi' => 'required|integer|min:1|max:5',
-            'penandatangan_default' => 'nullable|string|max:100',
-            'perlu_tte_tersertifikasi' => 'boolean',
             'is_active' => 'boolean',
             'urutan' => 'nullable|integer',
         ]);
 
-        $validated['perlu_tte_tersertifikasi'] = $request->has('perlu_tte_tersertifikasi');
         $validated['is_active'] = $request->has('is_active');
         $validated['urutan'] = $request->urutan ?? 0;
 

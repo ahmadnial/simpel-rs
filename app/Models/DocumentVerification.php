@@ -11,10 +11,11 @@ class DocumentVerification extends Model
 {
     use HasFactory, FixesSqlServerDates;
 
-    const STATUS_MENUNGGU  = 'menunggu';
-    const STATUS_DISETUJUI = 'disetujui';
-    const STATUS_REVISI    = 'revisi';
-    const STATUS_DITOLAK   = 'ditolak';
+    const STATUS_MENUNGGU   = 'menunggu';
+    const STATUS_DISETUJUI  = 'disetujui';
+    const STATUS_REVISI     = 'revisi';
+    const STATUS_DITOLAK    = 'ditolak';
+    const STATUS_DIBATALKAN = 'batal';
 
     protected $fillable = [
         'document_id', 'document_version_id', 'workflow_step_id',
@@ -53,9 +54,10 @@ class DocumentVerification extends Model
         return $this->belongsTo(User::class, 'verifikator_id');
     }
 
-    public function isMenunggu(): bool  { return $this->status === self::STATUS_MENUNGGU; }
-    public function isApproved(): bool  { return $this->status === self::STATUS_DISETUJUI; }
-    public function isRevisi(): bool    { return $this->status === self::STATUS_REVISI; }
+    public function isMenunggu(): bool   { return $this->status === self::STATUS_MENUNGGU; }
+    public function isApproved(): bool   { return $this->status === self::STATUS_DISETUJUI; }
+    public function isRevisi(): bool     { return $this->status === self::STATUS_REVISI; }
+    public function isDibatalkan(): bool { return $this->status === self::STATUS_DIBATALKAN; }
     public function isOverdue(): bool
     {
         return $this->isMenunggu() && $this->batas_waktu && now()->gt($this->batas_waktu);
