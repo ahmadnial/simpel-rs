@@ -47,7 +47,7 @@
         @if($document->currentVersion && in_array($document->status, [\App\Models\Document::STATUS_DITANDATANGANI, \App\Models\Document::STATUS_DIPUBLIKASIKAN, \App\Models\Document::STATUS_DIARSIPKAN]))
             <a href="{{ route('dokumen.download-pdf', $document) }}" class="btn btn-primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
-                Unduh PDF Resmi (TTE)
+                Unduh PDF Resmi (Pengesahan Internal)
             </a>
         @endif
 
@@ -81,7 +81,7 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     <div>
         <strong>Status Dokumen: Draft / Dalam Proses</strong>
-        <div style="font-size: 0.85rem; margin-top: 2px;">Nomor naskah dinas resmi diterbitkan otomatis setelah dokumen disahkan melalui Tanda Tangan Elektronik (TTE).</div>
+        <div style="font-size: 0.85rem; margin-top: 2px;">Nomor naskah dinas resmi diterbitkan otomatis setelah dokumen disahkan secara elektronik.</div>
     </div>
 </div>
 @endif
@@ -94,7 +94,7 @@
         {{-- Pratinjau Naskah Dinas --}}
         <div class="card">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center">
-                <span class="card-title">Pratinjau Lembar Naskah Dinas</span>
+                <span class="card-title">Pratinjau Lembar Dokumen</span>
                 <span class="badge badge-indigo">Versi v{{ $document->currentVersion->versi ?? 1 }}</span>
             </div>
             <div class="docx-paper-wrapper">
@@ -105,7 +105,7 @@
         {{-- Detail Meta Card --}}
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Informasi Naskah Dinas</span>
+                <span class="card-title">Informasi Dokumen</span>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); font-size:0.875rem">
                 <div>
@@ -295,7 +295,7 @@
                 </div>
                 @endif
 
-                {{-- Step 3: TTE --}}
+                {{-- Tahap pengesahan elektronik internal --}}
                 @if($document->signature)
                 <div class="timeline-item">
                     <div class="timeline-dot" style="background:rgba(168,85,247,0.2); color:#c084fc">🔏</div>
@@ -439,4 +439,3 @@
     </div>
 </div>
 @endsection
-

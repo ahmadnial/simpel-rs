@@ -16,10 +16,10 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'nip', 'email', 'phone', 'jabatan',
         'unit_id', 'avatar', 'is_active', 'password',
-        'otp_code', 'otp_expires_at',
+        'otp_code', 'otp_hash', 'otp_document_id', 'otp_expires_at',
     ];
 
-    protected $hidden = ['password', 'remember_token', 'otp_code'];
+    protected $hidden = ['password', 'remember_token', 'otp_code', 'otp_hash'];
 
     protected function casts(): array
     {
@@ -73,19 +73,23 @@ class User extends Authenticatable
     }
 
     // Generate OTP
-    public function generateOtp(): string
+    public function generateOtp(Document $document): string
     {
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $this->update([
-            'otp_code'       => $otp,
+            'otp_code'       => null,
+            'otp_hash'       => password_hash($otp, PASSWORD_DEFAULT),
+            'otp_document_id'=> $document->id,
             'otp_expires_at' => now()->addMinutes(config('app.otp_expiry_minutes', 5)),
         ]);
         return $otp;
     }
 
-    public function isOtpValid(string $otp): bool
+    public function isOtpValid(string $otp, Document $document): bool
     {
-        return $this->otp_code === $otp
+        return $this->otp_hash
+            && password_verify($otp, $this->otp_hash)
+            && (int) $this->otp_document_id === (int) $document->id
             && $this->otp_expires_at
             && now()->lt($this->otp_expires_at);
     }

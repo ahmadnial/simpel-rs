@@ -48,7 +48,7 @@
                     <th>Jenis Naskah</th>
                     <th>Pengusul / Unit</th>
                     <th>Status Sifat</th>
-                    <th>Tanggal TTD</th>
+                    <th>Tanggal Pengesahan</th>
                     <th>Aksi</th>
                 </tr>
             </thead>

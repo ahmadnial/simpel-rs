@@ -33,6 +33,19 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        // Dokumen yang dikembalikan verifikator adalah tindakan pengusul,
+        // bukan antrian verifikasi. Sebelumnya status revisi hanya terlihat
+        // di Dokumen Saya sehingga kartu tindakan di dashboard menyesatkan.
+        $totalRevisi = Document::where('pengusul_id', $user->id)
+            ->where('status', Document::STATUS_REVISI)
+            ->count();
+        $dokumenRevisi = Document::where('pengusul_id', $user->id)
+            ->where('status', Document::STATUS_REVISI)
+            ->with(['documentType', 'unit'])
+            ->latest()
+            ->take(5)
+            ->get();
+
         // Antrian verifikasi saya
         $antrianVerifikasiQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
             ->with(['document.documentType', 'document.pengusul'])
@@ -61,7 +74,8 @@ class DashboardController extends Controller
         // Statistik Dashboard
         $stats = [
             'total_dokumen'      => Document::where('pengusul_id', $user->id)->count(),
-            'menunggu_tindakan'  => $totalVerifikasiMenunggu + $totalTtdMenunggu,
+            'menunggu_tindakan'  => $totalVerifikasiMenunggu + $totalTtdMenunggu + $totalRevisi,
+            'perlu_revisi'       => $totalRevisi,
             'menunggu_verifikasi'=> $totalVerifikasiMenunggu,
             'menunggu_ttd'       => $totalTtdMenunggu,
             'draft'              => Document::where('pengusul_id', $user->id)->where('status', Document::STATUS_DRAFT)->count(),
@@ -72,6 +86,6 @@ class DashboardController extends Controller
                 ->count(),
         ];
 
-        return view('dashboard', compact('dokumenSaya', 'antrianVerifikasi', 'antrianTtd', 'stats'));
+        return view('dashboard', compact('dokumenSaya', 'dokumenRevisi', 'antrianVerifikasi', 'antrianTtd', 'stats'));
     }
 }

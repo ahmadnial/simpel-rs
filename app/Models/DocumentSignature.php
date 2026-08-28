@@ -45,6 +45,11 @@ class DocumentSignature extends Model
         return $this->belongsTo(User::class, 'delegasi_id');
     }
 
+    public function principal()
+    {
+        return $this->belongsTo(User::class, 'delegasi_id');
+    }
+
     public function getVerifikasiUrlAttribute(): string
     {
         return route('public.verify', $this->qr_token);

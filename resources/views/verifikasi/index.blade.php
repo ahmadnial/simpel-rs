@@ -80,7 +80,7 @@
                         <td>
                             <div style="font-weight:600; color:var(--text-primary)">{{ $v->document->judul }}</div>
                             <div style="font-size:0.75rem; color:var(--brand-400)">{{ $v->document->documentType->nama }}</div>
-                            <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">[DRAFT - Belum TTE]</div>
+                            <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">[DRAFT - Belum Disahkan]</div>
                         </td>
                         <td>
                             <div>{{ $v->document->pengusul->name }}</div>
@@ -136,13 +136,15 @@
                         <td style="font-weight:500; color:var(--text-primary)">{{ $r->document->judul }}</td>
                         <td>{{ $r->document->pengusul->name }}</td>
                         <td>
-                            @if($r->isApproved())
-                                <span class="badge badge-green">Disetujui</span>
-                            @else
-                                <span class="badge badge-orange">Minta Revisi</span>
-                            @endif
+                            @switch($r->status)
+                                @case('disetujui') <span class="badge badge-green">Disetujui</span> @break
+                                @case('revisi') <span class="badge badge-orange">Minta Revisi</span> @break
+                                @case('batal') <span class="badge badge-gray">Dibatalkan Sistem</span> @break
+                                @case('ditolak') <span class="badge badge-red">Ditolak</span> @break
+                                @default <span class="badge badge-gray">{{ ucfirst($r->status) }}</span>
+                            @endswitch
                         </td>
-                        <td style="font-size:0.8rem; color:var(--text-muted)">{{ $r->catatan ?? '-' }}</td>
+                        <td style="font-size:0.8rem; color:var(--text-muted)">{{ $r->catatan ?? $r->direset_alasan ?? '-' }}</td>
                         <td>{{ $r->direspon_at?->format('d/m/Y H:i') }}</td>
                     </tr>
                     @endforeach

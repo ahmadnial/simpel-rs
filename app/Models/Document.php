@@ -152,7 +152,21 @@ class Document extends Model
         if ($this->verifications()->where('verifikator_id', $user->id)->exists()) {
             return true;
         }
+        if (($delegation = $user->activeDelegation())
+            && $this->verifications()->where('verifikator_id', $delegation->pejabat_id)->exists()) {
+            return true;
+        }
         if ($this->signature && $this->signature->penandatangan_id === $user->id) {
+            return true;
+        }
+        $signerRoles = $user->getRoleNames()->toArray();
+        if ($delegation?->pejabat) {
+            $signerRoles = array_unique(array_merge($signerRoles, $delegation->pejabat->getRoleNames()->toArray()));
+        }
+        if ($this->workflowTemplate?->steps()
+            ->where('tipe', 'penandatangan')
+            ->whereIn('role_nama', $signerRoles)
+            ->exists()) {
             return true;
         }
 

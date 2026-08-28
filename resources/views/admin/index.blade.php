@@ -11,7 +11,7 @@
 
 <div class="page-header">
     <h1 class="page-title">Panel Administrator SIMPEL-RS</h1>
-    <p class="page-subtitle">Kelola Master Data Unit, Pengguna, Role Access, Jenis Naskah, dan Workflow Verifikasi</p>
+    <p class="page-subtitle">Kelola unit, pengguna, hak akses, klasifikasi naskah, dan alur persetujuan</p>
 </div>
 
 <div class="stats-grid">
@@ -40,7 +40,7 @@
         <div class="stat-icon">⚙️</div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['total_workflows'] }}</div>
-            <div class="stat-label">Kelola Workflow &rarr;</div>
+            <div class="stat-label">Kelola Alur Persetujuan &rarr;</div>
         </div>
     </a>
 </div>
@@ -83,7 +83,7 @@
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Jenis Naskah Dinas & Format Nomor</span>
+                <span class="card-title">Jenis Dokumen & Format Nomor</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:10px">
                 @foreach($documentTypes as $dt)

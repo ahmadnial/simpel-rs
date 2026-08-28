@@ -36,10 +36,10 @@
             <div style="display:flex; align-items:center; gap:12px; color:#166534">
                 <span style="font-size:1.4rem">🔏</span>
                 <div>
-                    <strong style="color:#14532d">Dokumen Terverifikasi TTE Sah</strong> &bull; {{ $signature->penandatangan->name }} ({{ $signature->ditandatangani_at->translatedFormat('d F Y H:i') }} WIB)
+                    <strong style="color:#14532d">Dokumen Disahkan Secara Elektronik Internal</strong> &bull; {{ $signature->penandatangan->name }} ({{ $signature->ditandatangani_at->translatedFormat('d F Y H:i') }} WIB)
                 </div>
             </div>
-            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:underline; font-size:0.8rem">Cek Sertifikat QR</a>
+            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:underline; font-size:0.8rem">Cek Rekam QR</a>
         </div>
     @endif
 

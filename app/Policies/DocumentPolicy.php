@@ -14,10 +14,7 @@ class DocumentPolicy
 
     public function view(User $user, Document $document): bool
     {
-        return $document->pengusul_id === $user->id
-            || $user->hasRole('super_admin')
-            || $user->hasRole('auditor')
-            || $document->verifications()->where('verifikator_id', $user->id)->exists();
+        return $user->hasRole('auditor') || $document->isAccessibleBy($user);
     }
 
     public function create(User $user): bool

@@ -26,7 +26,7 @@ class OtpTandaTangan extends Notification
         return (new MailMessage)
             ->subject('Kode OTP Tanda Tangan Elektronik SIMPEL-RS')
             ->greeting("Halo {$notifiable->name},")
-            ->line('Berikut kode OTP untuk menandatangani naskah dinas secara elektronik (TTE):')
+            ->line('Berikut kode OTP untuk pengesahan elektronik internal naskah dinas:')
             ->line("**{$this->otp}**")
             ->line("Kode berlaku selama {$this->expiryMinutes} menit dan hanya untuk satu kali proses tanda tangan.")
             ->line('Jangan bagikan kode ini kepada siapa pun, termasuk pihak yang mengaku dari tim IT.');

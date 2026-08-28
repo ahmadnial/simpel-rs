@@ -11,9 +11,18 @@
 
 @section('content')
 
+@php
+    $isCurrentTicket = $verification->isMenunggu()
+        && $verification->document_version_id === $verification->document->currentVersion?->id
+        && (int) $verification->level === (int) $verification->document->current_step
+        && in_array($verification->document->status, ['diajukan', 'dalam_verifikasi', 'ditolak_penandatangan'], true);
+@endphp
+
 <div class="page-header" style="display:flex; align-items:flex-start; justify-content:space-between">
     <div>
-        <span class="badge badge-yellow" style="margin-bottom:8px">Menunggu Keputusan Anda</span>
+        <span class="badge {{ $isCurrentTicket ? 'badge-yellow' : 'badge-gray' }}" style="margin-bottom:8px">
+            {{ $isCurrentTicket ? 'Menunggu Keputusan Anda' : 'Tiket Riwayat · Tidak Aktif' }}
+        </span>
         <h1 class="page-title">{{ $verification->document->judul }}</h1>
         <p class="page-subtitle">
             Diajukan oleh <strong>{{ $verification->document->pengusul->name }}</strong> ({{ $verification->document->unit->nama }}) &bull; Versi Aktif: v{{ $verification->document->currentVersion->versi }}
@@ -21,9 +30,9 @@
     </div>
     @if($verification->document->currentVersion)
         <div style="display:flex; gap:10px">
-            <a href="{{ route('onlyoffice.editor', ['document' => $verification->document->id, 'mode' => 'edit']) }}" class="btn btn-primary btn-lg" style="background: linear-gradient(135deg, #a855f7, #7c3aed)">
+            <a href="{{ route('onlyoffice.editor', ['document' => $verification->document->id, 'mode' => 'view']) }}" class="btn btn-primary btn-lg" style="background: linear-gradient(135deg, #a855f7, #7c3aed)">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Buka di OnlyOffice Docs
+                Lihat di OnlyOffice Docs
             </a>
         </div>
     @endif
@@ -41,7 +50,7 @@
 </div>
 @endif
 
-<div style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
+<div class="workflow-review-grid" style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
 
     {{-- Left: Keputusan & Form --}}
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
@@ -52,17 +61,22 @@
                 <span class="card-title">Form Keputusan Verifikasi</span>
             </div>
 
-            <div style="display:flex; gap: var(--space-3); margin-bottom: var(--space-4)">
+            @if($isCurrentTicket)
+            <div class="verification-action-tabs" style="display:flex; gap: var(--space-3); margin-bottom: var(--space-4)">
                 <button type="button" id="tab-btn-setuju" class="btn btn-success" style="flex:1" onclick="switchMode('setuju')">
                     ✓ Setujui Dokumen
                 </button>
-                <button type="button" id="tab-btn-kembali" class="btn btn-secondary" style="flex:1; border-color:var(--border-danger); color:var(--text-danger)" onclick="switchMode('kembali')">
-                    ⬇ Kembalikan
-                </button>
+                @if($verification->level > $verification->document->verifications->where('document_version_id', $verification->document_version_id)->min('level'))
+                    <button type="button" id="tab-btn-kembali" class="btn btn-secondary verification-return-tab" style="flex:1" onclick="switchMode('kembali')">
+                        ⬇ Ke Level Sebelumnya
+                    </button>
+                @endif
                 <button type="button" id="tab-btn-revisi" class="btn btn-secondary" style="flex:1" onclick="switchMode('revisi')">
                     ✍ Minta Revisi
                 </button>
             </div>
+
+            <p style="font-size:.8rem; color:var(--text-muted); margin-bottom:var(--space-4)">“Minta revisi” mengembalikan naskah ke pengusul dan mewajibkan versi baru. “Ke level sebelumnya” hanya membuka kembali keputusan level di bawah tanpa mengubah berkas.</p>
 
             {{-- Form Setujui --}}
             <form id="form-setuju" method="POST" action="{{ route('verifikasi.setujui', $verification) }}">
@@ -72,24 +86,24 @@
                     <textarea name="catatan" id="catatan_setuju" class="form-control" rows="3" placeholder="mis: Dokumen sudah sesuai dengan format baku dan kebijakan RS."></textarea>
                 </div>
                 <button type="submit" class="btn btn-success btn-lg" style="width:100%">
-                    Setujui & Lanjutkan Workflow
+                    Setujui & Lanjutkan Alur
                 </button>
             </form>
 
             {{-- Form Kembalikan Bawah --}}
-            <form id="form-kembali" method="POST" action="{{ route('verifikasi.teruskan-bawah', $verification) }}" style="display:none">
+            <form id="form-kembali" method="POST" action="{{ route('verifikasi.teruskan-bawah', $verification) }}" style="display:none" data-confirm="Dokumen akan dikembalikan ke level verifikasi sebelumnya. Lanjutkan tindakan ini?">
                 @csrf
                 <div class="form-group">
                     <label for="catatan_kembali" class="form-label">Catatan Pengembalian <span style="color:#ef4444">*</span></label>
                     <textarea name="catatan" id="catatan_kembali" class="form-control" rows="4" placeholder="Alasan mengapa dokumen dikembalikan ke verifikator tingkat sebelumnya..." required></textarea>
                 </div>
-                <button type="submit" class="btn btn-lg" style="width:100%; background:var(--bg-elevated); color:var(--text-danger); border:1px solid var(--border-danger);">
+                <button type="submit" class="btn btn-danger btn-lg" style="width:100%;">
                     Kembalikan ke Level Sebelumnya
                 </button>
             </form>
 
             {{-- Form Minta Revisi --}}
-            <form id="form-revisi" method="POST" action="{{ route('verifikasi.revisi', $verification) }}" style="display:none">
+            <form id="form-revisi" method="POST" action="{{ route('verifikasi.revisi', $verification) }}" style="display:none" data-confirm="Dokumen akan dikembalikan kepada pengusul untuk diperbaiki. Lanjutkan tindakan ini?">
                 @csrf
                 <div class="form-group">
                     <label for="catatan_revisi" class="form-label">Catatan Detail Perbaikan Pengusul <span style="color:#ef4444">*</span></label>
@@ -99,12 +113,15 @@
                     Minta Perbaikan ke Pengusul
                 </button>
             </form>
+            @else
+                <div class="alert alert-info">Tiket ini tidak lagi aktif karena sudah diproses, dibatalkan, atau berasal dari versi/tahap lama. Seluruh aksi dinonaktifkan.</div>
+            @endif
         </div>
 
         {{-- Embedded Pratinjau Dokumen Naskah Dinas --}}
         <div class="card">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center">
-                <span class="card-title">Pratinjau Lembar Naskah Dinas</span>
+                <span class="card-title">Pratinjau Lembar Dokumen</span>
                 <span class="badge badge-indigo">Versi v{{ $verification->document->currentVersion->versi ?? 1 }}</span>
             </div>
             <div class="docx-paper-wrapper">
@@ -115,7 +132,7 @@
         {{-- Informasi Naskah --}}
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Ringkasan Naskah Dinas</span>
+                <span class="card-title">Ringkasan Dokumen</span>
             </div>
             <div style="font-size:0.875rem; display:flex; flex-direction:column; gap:12px">
                 <div>
@@ -146,8 +163,11 @@
                  jadi 1 baris ringkas, bukan 1 baris identik per orang. Tiket yang otomatis
                  dibatalkan (kalah cepat) disembunyikan; begitu ada yang benar-benar bertindak,
                  namanya tampil sendiri. --}}
-            @foreach($verification->document->verifications->groupBy('level') as $level => $levelGroup)
+            @foreach($verification->document->verifications->groupBy(fn ($v) => $v->document_version_id.'-'.$v->level) as $cycleGroup)
                 @php
+                    $levelGroup = $cycleGroup;
+                    $level = $levelGroup->first()->level;
+                    $versionNumber = $levelGroup->first()->version?->versi ?? '?';
                     $decided = $levelGroup->reject(fn ($v) => $v->isMenunggu() || $v->isDibatalkan());
                     $pending = $levelGroup->filter(fn ($v) => $v->isMenunggu());
                 @endphp
@@ -157,7 +177,7 @@
                     <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
                     <div class="timeline-content">
                         <div class="timeline-title">{{ $v->verifikator->name }}</div>
-                        <div class="timeline-meta">Status: <strong>{{ ucfirst($v->status) }}</strong></div>
+                        <div class="timeline-meta">Versi {{ $versionNumber }} · Status: <strong>{{ ucfirst($v->status) }}</strong></div>
                         @if($v->catatan)
                             <div class="timeline-note">"{{ $v->catatan }}"</div>
                         @endif
@@ -171,7 +191,7 @@
                         <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
                         <div class="timeline-content">
                             <div class="timeline-title">{{ $v->verifikator->name }}</div>
-                            <div class="timeline-meta">Status: <strong>Menunggu</strong></div>
+                            <div class="timeline-meta">Versi {{ $versionNumber }} · Status: <strong>Menunggu</strong></div>
                         </div>
                     </div>
                 @elseif($pending->count() > 1)
@@ -188,7 +208,7 @@
                                     <span style="font-weight:500; color:var(--text-muted)">&middot; {{ $pendingCommonSub }}</span>
                                 @endif
                             </div>
-                            <div class="timeline-meta">Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
+                            <div class="timeline-meta">Versi {{ $versionNumber }} · Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
                         </div>
                     </div>
                 @endif
@@ -201,28 +221,35 @@
 <script>
     function switchMode(mode) {
         document.getElementById('form-setuju').style.display = 'none';
-        document.getElementById('form-kembali').style.display = 'none';
+        const formKembali = document.getElementById('form-kembali');
+        if (formKembali) formKembali.style.display = 'none';
         document.getElementById('form-revisi').style.display = 'none';
         
         document.getElementById('tab-btn-setuju').className = 'btn btn-secondary';
-        document.getElementById('tab-btn-kembali').className = 'btn btn-secondary';
+        const btnKembali = document.getElementById('tab-btn-kembali');
+        if (btnKembali) btnKembali.className = 'btn btn-secondary';
         document.getElementById('tab-btn-revisi').className = 'btn btn-secondary';
-        document.getElementById('tab-btn-kembali').style.borderColor = 'var(--border-danger)';
-        document.getElementById('tab-btn-kembali').style.color = 'var(--text-danger)';
 
         if (mode === 'setuju') {
             document.getElementById('form-setuju').style.display = 'block';
             document.getElementById('tab-btn-setuju').className = 'btn btn-success';
         } else if (mode === 'kembali') {
-            document.getElementById('form-kembali').style.display = 'block';
-            document.getElementById('tab-btn-kembali').className = 'btn';
-            document.getElementById('tab-btn-kembali').style.background = 'var(--text-danger)';
-            document.getElementById('tab-btn-kembali').style.color = 'white';
+            formKembali.style.display = 'block';
+            btnKembali.className = 'btn btn-danger';
         } else {
             document.getElementById('form-revisi').style.display = 'block';
             document.getElementById('tab-btn-revisi').className = 'btn btn-warning';
         }
     }
+
+    document.querySelectorAll('form[action*="/verifikasi/"]').forEach(form => {
+        form.addEventListener('submit', () => {
+            form.querySelectorAll('button[type="submit"]').forEach(button => {
+                button.disabled = true;
+                button.textContent = 'Memproses keputusan…';
+            });
+        });
+    });
 </script>
 
 @endsection

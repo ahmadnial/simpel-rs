@@ -98,7 +98,7 @@
                     </td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="editUser({{ json_encode($user) }}, {{ json_encode($user->roles->pluck('name')) }})">Edit</button>
-                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus akun ini?')">
+                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST" style="display:inline;" data-confirm="Hapus akun pengguna ini?">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger btn-sm">Hapus</button>

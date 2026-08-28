@@ -8,8 +8,10 @@ use App\Models\DocumentVersion;
 use App\Services\DocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class OnlyOfficeController extends Controller
@@ -23,6 +25,9 @@ class OnlyOfficeController extends Controller
 
     public function editor(Request $request, Document $document)
     {
+        Gate::authorize('view', $document);
+        abort_unless(config('onlyoffice.jwt_secret'), 503, 'OnlyOffice belum aman digunakan. Administrator harus mengatur JWT secret terlebih dahulu.');
+
         $document->load(['currentVersion', 'documentType', 'unit', 'pengusul']);
         $version = $document->currentVersion;
 
@@ -30,6 +35,9 @@ class OnlyOfficeController extends Controller
 
         $mode = $request->get('mode', 'edit'); // edit | view
         $user = auth()->user();
+        if ($mode === 'edit') {
+            Gate::authorize('update', $document);
+        }
 
         // Unique document key for OnlyOffice caching
         $documentKey = md5($document->id . '-' . $version->id . '-' . $version->updated_at->timestamp);
@@ -126,11 +134,21 @@ class OnlyOfficeController extends Controller
         $status = $request->input('status');
         $fileUrl = $request->input('url');
 
+        if (($status === 2 || $status === 6) && (!$fileUrl || !$this->isAllowedOnlyOfficeUrl($fileUrl))) {
+            return response()->json(['error' => 1, 'message' => 'URL sumber OnlyOffice tidak diizinkan.']);
+        }
+
         // Status 2 = Editing finished & saved, Status 6 = Force save
-        if (($status === 2 || $status === 6) && $fileUrl && in_array(parse_url($fileUrl, PHP_URL_SCHEME), ['http', 'https'], true)) {
+        if (($status === 2 || $status === 6) && $fileUrl && $this->isAllowedOnlyOfficeUrl($fileUrl)) {
+            $callbackKey = 'onlyoffice-save:'.hash('sha256', $document->id.'|'.$fileUrl);
+            if (!Cache::add($callbackKey, true, now()->addMinutes(10))) {
+                return response()->json(['error' => 0]);
+            }
             try {
-                $response = Http::get($fileUrl);
+                $response = Http::timeout(15)->withOptions(['allow_redirects' => false])->get($fileUrl);
                 if ($response->successful()) {
+                    abort_unless(str_starts_with($response->body(), "PK"), 422, 'Berkas callback bukan DOCX yang valid.');
+                    abort_unless(strlen($response->body()) <= 10 * 1024 * 1024, 422, 'Berkas callback melebihi batas 10 MB.');
                     $fileName = 'onlyoffice_edited_' . time() . '.docx';
                     $tempPath = storage_path('app/temp/' . $fileName);
                     Storage::disk('local')->makeDirectory('temp');
@@ -148,7 +166,8 @@ class OnlyOfficeController extends Controller
                     $this->documentService->simpanVersi(
                         $document,
                         $file,
-                        'Disunting via OnlyOffice Docs Web Application'
+                        'Disunting via OnlyOffice Docs Web Application',
+                        $document->pengusul_id
                     );
 
                     AuditLog::catat('onlyoffice_save', "Naskah disunting dan disimpan via OnlyOffice Docs", $document);
@@ -156,6 +175,7 @@ class OnlyOfficeController extends Controller
                     @unlink($tempPath);
                 }
             } catch (\Exception $e) {
+                Cache::forget($callbackKey);
                 logger()->error('OnlyOffice callback error: ' . $e->getMessage());
                 return response()->json(['error' => 1, 'message' => $e->getMessage()]);
             }
@@ -167,14 +187,13 @@ class OnlyOfficeController extends Controller
     /**
      * Verifikasi JWT yang dikirim OnlyOffice Document Server pada request callback.
      * OnlyOffice mengirim token via header Authorization: Bearer, atau field 'token' di body,
-     * tergantung konfigurasi. Jika jwt_secret tidak diisi di config/onlyoffice.php, JWT dianggap
-     * tidak diaktifkan pada instance OnlyOffice ini (perilaku default OnlyOffice sendiri).
+     * tergantung konfigurasi. Konfigurasi tanpa secret ditolak (fail closed).
      */
     private function verifyOnlyOfficeJwt(Request $request): bool
     {
         $secret = config('onlyoffice.jwt_secret');
         if (!$secret) {
-            return true;
+            return false;
         }
 
         $token = $request->bearerToken() ?? $request->input('token');
@@ -184,8 +203,30 @@ class OnlyOfficeController extends Controller
 
         [$header, $body, $signature] = explode('.', $token);
         $expected = $this->base64UrlEncode(hash_hmac('sha256', "{$header}.{$body}", $secret, true));
+        if (!hash_equals($expected, $signature)) {
+            return false;
+        }
 
-        return hash_equals($expected, $signature);
+        $headerData = json_decode($this->base64UrlDecode($header), true);
+        $bodyData = json_decode($this->base64UrlDecode($body), true);
+        if (($headerData['alg'] ?? null) !== 'HS256') {
+            return false;
+        }
+
+        return !isset($bodyData['exp']) || (int) $bodyData['exp'] >= now()->timestamp;
+    }
+
+    private function isAllowedOnlyOfficeUrl(string $url): bool
+    {
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $allowedHosts = collect(config('onlyoffice.allowed_hosts', []))
+            ->map(fn ($item) => strtolower(trim($item)))
+            ->filter();
+
+        return in_array($scheme, ['http', 'https'], true)
+            && $host !== ''
+            && $allowedHosts->contains($host);
     }
 
     /**
@@ -204,5 +245,10 @@ class OnlyOfficeController extends Controller
     private function base64UrlEncode(string $data): string
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    private function base64UrlDecode(string $data): string
+    {
+        return (string) base64_decode(strtr($data, '-_', '+/'), true);
     }
 }

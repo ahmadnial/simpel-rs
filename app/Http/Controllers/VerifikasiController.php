@@ -76,7 +76,7 @@ class VerifikasiController extends Controller
 
         $verification->load([
             'document.documentType', 'document.unit', 'document.pengusul',
-            'document.versions.uploader', 'document.verifications.verifikator'
+            'document.versions.uploader', 'document.verifications.verifikator', 'document.verifications.version'
         ]);
 
         return view('verifikasi.show', compact('verification'));
@@ -121,20 +121,16 @@ class VerifikasiController extends Controller
         return redirect()->route('verifikasi.index')->with('success', 'Dokumen berhasil dikembalikan ke verifikator tingkat sebelumnya.');
     }
 
-    /**
-     * Cek hak akses verifikasi (pemilik antrian, Plt/Plh, super_admin, atau role verifikator)
-     */
+    /** Cek hak akses aksi: hanya pemilik tiket atau Plt/Plh aktifnya. */
     private function checkAccess(DocumentVerification $verification): void
     {
         $user = auth()->user();
 
         $isDirectVerifikator = $verification->verifikator_id === $user->id;
-        $isSuperAdmin        = $user->hasRole('super_admin');
-        $hasPermission       = $user->hasPermissionTo('dokumen.verifikasi');
         $isDelegate          = $user->activeDelegation() && $user->activeDelegation()->pejabat_id === $verification->verifikator_id;
 
         abort_unless(
-            $isDirectVerifikator || $isSuperAdmin || $hasPermission || $isDelegate,
+            $isDirectVerifikator || $isDelegate,
             403,
             'Anda tidak memiliki wewenang untuk memverifikasi dokumen ini.'
         );

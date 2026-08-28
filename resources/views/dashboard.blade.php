@@ -47,7 +47,7 @@
         </div>
         <div class="stat-body">
             <div class="stat-value">{{ $stats['menunggu_tindakan'] }}</div>
-            <div class="stat-label">Menunggu Tindakan Saya</div>
+            <div class="stat-label">Perlu Tindakan Saya</div>
         </div>
     </div>
 
@@ -78,11 +78,11 @@
 </div>
 
 {{-- Main Grid --}}
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6)">
+<div class="dashboard-main-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6)">
 
     {{-- Antrian Verifikasi --}}
     @can('dokumen.verifikasi')
-    <div class="card fade-in" style="animation-delay:0.2s">
+    <div class="card dashboard-verification-card fade-in" style="animation-delay:0.2s">
         <div class="card-header">
             <div style="display:flex; align-items:center; gap: var(--space-3)">
                 <div style="width:32px;height:32px;background:rgba(234,179,8,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fbbf24">
@@ -131,7 +131,7 @@
     @endcan
 
     {{-- Dokumen Saya Terbaru --}}
-    <div class="card fade-in" style="animation-delay:0.25s">
+    <div class="card dashboard-documents-card fade-in" style="animation-delay:0.25s">
         <div class="card-header">
             <div style="display:flex; align-items:center; gap: var(--space-3)">
                 <div style="width:32px;height:32px;background:rgba(99,102,241,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand-400)">
@@ -179,18 +179,46 @@
         @endif
     </div>
 
-</div>
+    {{-- Dokumen yang dikembalikan untuk diperbaiki oleh pengusul --}}
+    @if($dokumenRevisi->isNotEmpty())
+    <div class="card dashboard-revision-card fade-in" style="animation-delay:0.28s">
+    <div class="card-header">
+        <div style="display:flex; align-items:center; gap: var(--space-3)">
+            <div style="width:32px;height:32px;background:rgba(249,115,22,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#f97316">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.7 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
+            </div>
+            <div>
+                <span class="card-title">Perlu Revisi</span>
+                <div class="card-helper-text">Perbaiki dokumen berdasarkan catatan verifikator</div>
+            </div>
+        </div>
+        <a href="{{ route('dokumen.index', ['status' => 'revisi']) }}" class="btn btn-warning btn-sm">Lihat Dokumen</a>
+    </div>
+    <div class="dashboard-revision-list">
+        @foreach($dokumenRevisi as $doc)
+        <a href="{{ route('dokumen.show', $doc) }}" class="dashboard-revision-item">
+            <div class="dashboard-doc-type">{{ $doc->documentType->singkatan }}</div>
+            <div class="dashboard-revision-content">
+                <strong>{{ $doc->judul }}</strong>
+                <small>Dikembalikan {{ $doc->updated_at->diffForHumans() }}</small>
+            </div>
+            <span class="badge badge-orange">Perlu Revisi</span>
+        </a>
+        @endforeach
+    </div>
+    </div>
+    @endif
 
-{{-- Antrian TTD (full width jika ada) --}}
+    {{-- Antrian Pengesahan --}}
 @can('dokumen.tanda_tangan')
 @if($antrianTtd->isNotEmpty())
-<div class="card fade-in" style="margin-top: var(--space-6); animation-delay:0.3s">
+<div class="card dashboard-ttd-card fade-in" style="animation-delay:0.3s">
     <div class="card-header">
         <div style="display:flex; align-items:center; gap: var(--space-3)">
             <div style="width:32px;height:32px;background:rgba(168,85,247,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#c084fc">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
             </div>
-            <span class="card-title">Menunggu Tanda Tangan Saya</span>
+            <span class="card-title">Menunggu Pengesahan Saya</span>
         </div>
         <a href="{{ route('ttd.index') }}" class="btn btn-secondary btn-sm">Lihat Semua</a>
     </div>
@@ -226,5 +254,7 @@
 </div>
 @endif
 @endcan
+
+</div>
 
 @endsection

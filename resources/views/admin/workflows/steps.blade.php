@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Kelola Tahapan Workflow')
+@section('title', 'Kelola Tahapan Alur Persetujuan')
 
 @section('breadcrumb')
     <span class="breadcrumb-separator">/</span>
     <a href="{{ route('admin.index') }}" style="color:inherit; text-decoration:none;">Admin</a>
     <span class="breadcrumb-separator">/</span>
-    <a href="{{ route('admin.workflows.index') }}" style="color:inherit; text-decoration:none;">Workflow Verifikasi</a>
+    <a href="{{ route('admin.workflows.index') }}" style="color:inherit; text-decoration:none;">Alur Persetujuan</a>
     <span class="breadcrumb-separator">/</span>
     <span class="breadcrumb-current">Tahapan</span>
 @endsection
@@ -15,7 +15,7 @@
 
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-        <h1 class="page-title">Tahapan Workflow: {{ $workflow->nama }}</h1>
+        <h1 class="page-title">Tahapan Alur: {{ $workflow->nama }}</h1>
         <p class="page-subtitle">Atur skema rantai persetujuan untuk template ini.</p>
     </div>
     <button class="btn btn-primary" onclick="document.getElementById('modalAddStep').style.display='flex'">
@@ -36,10 +36,10 @@
                 <tr>
                     <th>Urutan</th>
                     <th>Nama Tahapan</th>
-                    <th>Tipe</th>
-                    <th>Mode</th>
-                    <th>Verifier (Pool/Role)</th>
-                    <th>SLA (Hari Kerja)</th>
+                    <th>Jenis Tahapan</th>
+                    <th>Pola Verifikasi</th>
+                    <th>Penanggung Jawab</th>
+                    <th>Batas Waktu (Hari Kerja)</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -55,15 +55,15 @@
                     </td>
                     <td>
                         @if($step->mode_verifikasi == 'parallel')
-                            <span class="badge badge-indigo">Parallel (Min: {{ $step->min_approval }})</span>
+                            <span class="badge badge-indigo">Bersamaan (min. {{ $step->min_approval }})</span>
                         @else
-                            <span class="badge badge-gray">Serial</span>
+                            <span class="badge badge-gray">Berurutan</span>
                         @endif
                     </td>
                     <td>
                         @if($step->mode_verifikasi == 'parallel')
                             <div style="font-size:0.8rem; color:var(--text-muted)">
-                                {{ $step->verifierPool->count() }} Anggota Pool
+                                {{ $step->verifierPool->count() }} Anggota Penanggung Jawab
                             </div>
                         @else
                             @if($step->role_nama)
@@ -75,7 +75,7 @@
                     </td>
                     <td>{{ $step->sla_hari_kerja }} Hari</td>
                     <td>
-                        <form action="{{ route('admin.workflows.steps.destroy', $step) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus tahapan ini?')">
+                        <form action="{{ route('admin.workflows.steps.destroy', $step) }}" method="POST" style="display:inline;" data-confirm="Hapus tahapan ini dari alur persetujuan?">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
@@ -95,7 +95,7 @@
 {{-- Modal Add Step --}}
 <div id="modalAddStep" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; width:100%; max-width:650px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
-        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Tahapan Workflow</h3>
+        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Tahapan Alur</h3>
         <form method="POST" action="{{ route('admin.workflows.steps.store', $workflow) }}">
             @csrf
             

@@ -67,7 +67,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [TandaTanganController::class, 'index'])->name('index');
         Route::get('/{document}', [TandaTanganController::class, 'show'])->name('show');
         // Dibatasi (throttle) karena OTP 6 digit rentan brute force bila tidak dibatasi jumlah percobaan.
-        Route::post('/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp')->middleware('throttle:5,1');
+        Route::post('/{document}/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp')->middleware('throttle:5,1');
         Route::post('/{document}/tandatangani', [TandaTanganController::class, 'tandatangani'])->name('tandatangani')->middleware('throttle:10,1');
         Route::post('/{document}/tolak', [TandaTanganController::class, 'tolak'])->name('tolak');
     });

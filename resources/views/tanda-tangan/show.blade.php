@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Tanda Tangan Elektronik')
+@section('title', 'Pengesahan Elektronik Internal')
 
 @section('breadcrumb')
     <span class="breadcrumb-separator">/</span>
-    <a href="{{ route('ttd.index') }}" style="color:var(--text-muted)">Antrian TTE</a>
+    <a href="{{ route('ttd.index') }}" style="color:var(--text-muted)">Antrian Pengesahan</a>
     <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-current">Prosedur TTE</span>
+    <span class="breadcrumb-current">Pengesahan Internal</span>
 @endsection
 
 @section('content')
@@ -15,24 +15,27 @@
     <span class="badge badge-purple" style="margin-bottom:8px">Siap Ditandatangani</span>
     <h1 class="page-title">{{ $document->judul }}</h1>
     <p class="page-subtitle">
-        Pengusul: <strong>{{ $document->pengusul->name }}</strong> ({{ $document->unit->nama }}) &bull; Jenis: {{ $document->documentType->nama }}
+        Pengusul: <strong>{{ $document->pengusul->name }}</strong> ({{ $document->unit->nama }}) &bull; Jenis: {{ $document->documentType->nama }} &bull; Versi resmi kandidat: v{{ $document->currentVersion->versi }}
     </p>
+    @if(auth()->user()->activeDelegation())
+        <p class="page-subtitle" style="margin-top:4px">Anda bertindak sebagai {{ strtoupper(auth()->user()->activeDelegation()->tipe) }} untuk <strong>{{ auth()->user()->activeDelegation()->pejabat->name }}</strong>, berlaku {{ auth()->user()->activeDelegation()->berlaku_dari->format('d/m/Y') }}–{{ auth()->user()->activeDelegation()->berlaku_sampai->format('d/m/Y') }}.</p>
+    @endif
 </div>
 
-<div style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">
+<div class="workflow-review-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">
 
-    {{-- Form TTE & Modal --}}
+    {{-- Form pengesahan dan dialog konfirmasi --}}
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
 
         <div class="card" style="border: 2px solid var(--border-brand); background: var(--bg-card)">
             <div class="card-header">
-                <span class="card-title">Proses Pengesahan & Tanda Tangan Elektronik</span>
+                <span class="card-title">Proses Pengesahan Elektronik Internal</span>
             </div>
 
             <div style="padding: var(--space-4); background: rgba(99,102,241,0.08); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid rgba(99,102,241,0.2)">
-                <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode Pengesahan: Tanda Tangan Elektronik (TTE) Tersertifikasi</h4>
+                <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode: Pengesahan Elektronik Internal SIMPEL-RS</h4>
                 <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5">
-                    Sistem menerbitkan nomor naskah dinas resmi, menyematkan QR Code validasi keaslian, dan membubuhkan hash kriptografi SHA-256 pada dokumen PDF final.
+                    Ini adalah persetujuan internal rumah sakit, bukan tanda tangan tersertifikasi PSrE/BSrE. Sistem menerbitkan nomor, QR validasi, dan hash SHA-256 dari PDF final yang disimpan permanen.
                 </p>
             </div>
 
@@ -56,16 +59,16 @@
                     <button type="submit" class="btn btn-primary btn-lg" style="flex:1">
                         Sahkan & Tandatangani Naskah
                     </button>
-                    <button type="button" class="btn btn-lg" style="background:var(--bg-elevated); color:var(--text-danger); border:1px solid var(--border-danger);" onclick="document.getElementById('modal-tolak').style.display='flex'">
+                    <button type="button" class="btn btn-danger btn-lg" onclick="openReturnModal()">
                         Kembalikan ke Verifikator
                     </button>
                 </div>
             </form>
         </div>
-        {{-- Pratinjau Naskah Sebelum TTE --}}
+        {{-- Pratinjau naskah sebelum pengesahan --}}
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Pratinjau Lembar Naskah Dinas</span>
+                <span class="card-title">Pratinjau Lembar Dokumen</span>
             </div>
             <div class="docx-paper-wrapper">
                 <x-naskah-preview :document="$document" />
@@ -133,55 +136,92 @@
 </div>
 
 <script>
+    document.getElementById('form-tte').addEventListener('submit', function () {
+        this.querySelectorAll('button').forEach(button => button.disabled = true);
+        this.querySelector('button[type="submit"]').textContent = 'Membuat PDF final…';
+    });
+
     function mintaOtp() {
         const btn = document.getElementById('btn-minta-otp');
         btn.disabled = true;
         btn.innerText = 'Mengirim OTP...';
 
-        fetch("{{ route('ttd.kirim-otp') }}", {
+        fetch("{{ route('ttd.kirim-otp', $document) }}", {
             method: "POST",
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}",
                 "Content-Type": "application/json"
             }
         })
-        .then(r => r.json())
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.message || 'OTP gagal dikirim.');
+            return data;
+        })
         .then(data => {
             // debug_otp hanya ada di response saat APP_DEBUG=true (local/testing)
             const msg = data.debug_otp ? `${data.message}\n\n[DEBUG] Kode OTP: ${data.debug_otp}` : data.message;
-            alert(msg);
-            location.reload();
+            if (window.Swal) {
+                Swal.fire({ icon: 'success', title: 'Kode OTP siap digunakan', text: msg, confirmButtonText: 'Mengerti' });
+            } else { alert(msg); }
+            btn.innerText = 'Kirim Ulang OTP';
+            setTimeout(() => { btn.disabled = false; }, 30000);
         })
         .catch(e => {
-            alert("Gagal mengirim OTP.");
+            if (window.Swal) Swal.fire({ icon: 'error', title: 'Pengiriman OTP gagal', text: e.message || 'Silakan coba kembali.' });
+            else alert(e.message || "Gagal mengirim OTP.");
             btn.disabled = false;
+            btn.innerText = 'Kirim Kode OTP Pengesahan';
         });
     }
 </script>
 
 {{-- Modal Tolak --}}
-<div id="modal-tolak" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center;">
-    <div class="card" style="width: 100%; max-width: 500px; margin: 1rem;">
-        <div class="card-header" style="border-bottom: 1px solid var(--border-light); padding-bottom: 1rem;">
-            <h3 style="margin:0; font-size: 1.1rem; color: var(--text-danger);">Kembalikan Dokumen ke Verifikator</h3>
+<div id="modal-tolak" class="signature-return-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-tolak-title" aria-hidden="true">
+    <div class="signature-return-dialog">
+        <div class="signature-return-header">
+            <div class="signature-return-icon">!</div>
+            <div>
+                <h3 id="modal-tolak-title">Kembalikan Dokumen ke Verifikator</h3>
+                <p>Tinjau kembali dokumen sebelum dikirim untuk perbaikan.</p>
+            </div>
+            <button type="button" class="signature-return-close" aria-label="Tutup" onclick="closeReturnModal()">&times;</button>
         </div>
-        <form method="POST" action="{{ route('ttd.tolak', $document) }}">
+        <form method="POST" action="{{ route('ttd.tolak', $document) }}"
+              data-native-confirm="Dokumen akan dikembalikan ke verifikator. Lanjutkan tindakan ini?"
+              onsubmit="return window.confirm(this.dataset.nativeConfirm)">
             @csrf
-            <div style="padding: 1.5rem;">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                    Dokumen yang dikembalikan akan di-reset ke verifikator tingkat tertinggi untuk ditindaklanjuti.
+            <div class="signature-return-body">
+                <p class="signature-return-explanation">
+                    Dokumen akan dibuka kembali hanya pada level verifikasi tertinggi:
+                    <strong>{{ $returnTarget?->pluck('verifikator.name')->filter()->join(', ') ?: 'target tidak ditemukan' }}</strong>.
                 </p>
                 <div class="form-group">
                     <label class="form-label">Catatan Penolakan <span style="color:red">*</span></label>
                     <textarea name="alasan_tolak" class="form-control" rows="4" placeholder="Tuliskan catatan perbaikan atau alasan pengembalian (min. 10 karakter)..." required minlength="10"></textarea>
                 </div>
             </div>
-            <div style="padding: 1rem 1.5rem; background: var(--bg-body); border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 0.5rem; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
-                <button type="button" class="btn" style="background: white; border: 1px solid var(--border-light);" onclick="document.getElementById('modal-tolak').style.display='none'">Batal</button>
-                <button type="submit" class="btn" style="background: var(--text-danger); color: white;">Kembalikan Dokumen</button>
+            <div class="signature-return-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeReturnModal()">Batal</button>
+                <button type="submit" class="btn btn-danger">Kembalikan Dokumen</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    function openReturnModal() {
+        const modal = document.getElementById('modal-tolak');
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        modal.querySelector('textarea')?.focus();
+    }
+
+    function closeReturnModal() {
+        const modal = document.getElementById('modal-tolak');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    }
+</script>
 
 @endsection

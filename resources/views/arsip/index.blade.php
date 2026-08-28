@@ -9,7 +9,7 @@
 
 @section('content')
 
-<div class="page-header">
+<div class="page-header arsip-page-header">
     <h1 class="page-title">Portal Arsip Dokumen RS Nur Rohmah</h1>
     <p class="page-subtitle">Pencarian dan repositori seluruh dokumen resmi rumah sakit</p>
 </div>
@@ -86,7 +86,7 @@
                     </td>
                     <td>
                         @if($doc->signature)
-                        <span class="badge badge-green">TTE Sah (SHA-256)</span>
+                        <span class="badge badge-green">Pengesahan Internal (SHA-256)</span>
                         @else
                         <span class="badge badge-gray">Draft</span>
                         @endif

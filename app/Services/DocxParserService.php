@@ -153,7 +153,7 @@ class DocxParserService
             ?? \App\Models\User::role('penandatangan')->first()
             ?? $document->pengusul;
 
-        $nomorDraft = "[DRAFT - Belum Ditandatangani TTE]";
+        $nomorDraft = "[DRAFT - Belum Disahkan]";
         
         $nomorSurat = $document->nomor_surat ?? $nomorDraft;
         $tanggalDraft = $document->created_at ? $document->created_at->translatedFormat('d F Y') : now()->translatedFormat('d F Y');
@@ -161,7 +161,7 @@ class DocxParserService
         $tanggalTtd = $signature ? $signature->ditandatangani_at->translatedFormat('d F Y') : $tanggalDraft;
         $waktuTtd = $signature ? $signature->ditandatangani_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : ($document->created_at ? $document->created_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : now()->translatedFormat('d F Y \j\a\m H:i') . ' WIB');
         
-        $qrText = $signature ? "[ TTE SAH: " . substr($signature->qr_token, 0, 8) . " ]" : "[ DRAFT ]";
+        $qrText = $signature ? "[ PENGESAHAN INTERNAL: " . substr($signature->qr_token, 0, 8) . " ]" : "[ DRAFT ]";
 
         // Inject Watermark DRAFT diagonal dari pojok ke pojok jika dokumen belum di-TTE Direktur
         $isDraft = !in_array($document->status, [Document::STATUS_DITANDATANGANI, Document::STATUS_DIPUBLIKASIKAN]);
@@ -180,7 +180,7 @@ class DocxParserService
                 '</v:shapetype>' .
                 '<v:shape id="DraftWatermark" type="#_x0000_t136" style="position:absolute;margin-left:0;margin-top:0;width:520pt;height:220pt;z-index:-251658240;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin;rotation:315" fillcolor="#dc2626" stroked="f">' .
                 '<v:fill opacity="26214f"/>' .
-                '<v:textpath style="font-family:&quot;Arial&quot;;font-size:72pt;font-weight:bold" string="DRAFT - BELUM TTE"/>' .
+                '<v:textpath style="font-family:&quot;Arial&quot;;font-size:72pt;font-weight:bold" string="DRAFT - BELUM DISAHKAN"/>' .
                 '</v:shape>' .
                 '</w:pict>' .
                 '</w:r>' .
@@ -258,7 +258,7 @@ class DocxParserService
             ?? \App\Models\User::role('penandatangan')->first()
             ?? $document->pengusul;
 
-        $nomorDraft = "[DRAFT - Belum Ditandatangani TTE]";
+        $nomorDraft = "[DRAFT - Belum Disahkan]";
         
         $nomorSurat = $document->nomor_surat ?? $nomorDraft;
         $tanggalDraft = $document->created_at ? $document->created_at->translatedFormat('d F Y') : now()->translatedFormat('d F Y');
@@ -267,7 +267,7 @@ class DocxParserService
         $waktuTtd = $signature ? $signature->ditandatangani_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : ($document->created_at ? $document->created_at->translatedFormat('d F Y \j\a\m H:i') . ' WIB' : now()->translatedFormat('d F Y \j\a\m H:i') . ' WIB');
 
         // Generate QR Code HTML/Img
-        $qrHtml = '<div style="display:inline-block; padding:6px 12px; border:2px dashed #ef4444; border-radius:6px; background:#fef2f2; color:#dc2626; font-size:8.5pt; font-weight:700;">[ DRAFT - BELUM TTE ]</div>';
+        $qrHtml = '<div style="display:inline-block; padding:6px 12px; border:2px dashed #ef4444; border-radius:6px; background:#fef2f2; color:#dc2626; font-size:8.5pt; font-weight:700;">[ DRAFT - BELUM DISAHKAN ]</div>';
 
         if ($signature) {
             $verifyUrl = route('public.verify', $signature->qr_token);
@@ -282,7 +282,7 @@ class DocxParserService
                 $qrHtml = '<img src="' . $qrBase64 . '" style="max-width:100%; height:auto; width:85px; display:inline-block; margin:0 auto;" alt="Barcode TTE"/>';
             } catch (\Throwable $e) {
                 // Fallback
-                $qrHtml = '<div style="display:inline-block; padding:6px 10px; border:2px solid #16a34a; border-radius:6px; background:#f0fdf4; color:#16a34a; font-size:8pt; font-weight:bold;">[ TTE SAH - TOKEN: ' . substr($signature->qr_token, 0, 8) . ' ]</div>';
+                $qrHtml = '<div style="display:inline-block; padding:6px 10px; border:2px solid #16a34a; border-radius:6px; background:#f0fdf4; color:#16a34a; font-size:8pt; font-weight:bold;">[ PENGESAHAN INTERNAL - TOKEN: ' . substr($signature->qr_token, 0, 8) . ' ]</div>';
             }
         }
 

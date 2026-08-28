@@ -9,14 +9,14 @@
 
 @section('content')
 
-<div class="page-header" style="display:flex; align-items:center; justify-content:space-between">
+<div class="page-header dokumen-page-header" style="display:flex; align-items:center; justify-content:space-between">
     <div>
         <h1 class="page-title">Dokumen Saya</h1>
         <p class="page-subtitle">Daftar draft naskah dinas dan dokumen yang diajukan</p>
     </div>
     <a href="{{ route('dokumen.create') }}" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Buat Dokumen Baru
+        Buat Dokumen
     </a>
 </div>
 
@@ -34,7 +34,7 @@
             <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
             <option value="dalam_verifikasi" {{ request('status') == 'dalam_verifikasi' ? 'selected' : '' }}>Dalam Verifikasi</option>
             <option value="revisi" {{ request('status') == 'revisi' ? 'selected' : '' }}>Perlu Revisi</option>
-            <option value="menunggu_ttd" {{ request('status') == 'menunggu_ttd' ? 'selected' : '' }}>Menunggu TTD</option>
+            <option value="menunggu_ttd" {{ request('status') == 'menunggu_ttd' ? 'selected' : '' }}>Menunggu Pengesahan</option>
             <option value="ditandatangani" {{ request('status') == 'ditandatangani' ? 'selected' : '' }}>Ditandatangani</option>
         </select>
 
@@ -56,7 +56,7 @@
             </div>
             <div class="empty-state-title">Belum ada dokumen</div>
             <div class="empty-state-text">Tidak ada dokumen yang sesuai dengan kriteria pencarian.</div>
-            <a href="{{ route('dokumen.create') }}" class="btn btn-primary btn-sm">Buat Dokumen Baru</a>
+            <a href="{{ route('dokumen.create') }}" class="btn btn-primary btn-sm">Buat Dokumen</a>
         </div>
     @else
         <div class="table-wrapper">
@@ -87,7 +87,7 @@
                                 </div>
                             @else
                                 <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">
-                                    [DRAFT - Belum TTE]
+                                    [DRAFT - Belum Disahkan]
                                 </div>
                             @endif
                         </td>
@@ -100,7 +100,7 @@
                         <td>v{{ $doc->currentVersion->versi ?? 1 }}</td>
                         <td>{{ $doc->updated_at->diffForHumans() }}</td>
                         <td>
-                            <div style="display:flex; gap:6px">
+                                <div class="document-row-actions" style="display:flex; gap:6px">
                                 <a href="{{ route('dokumen.show', $doc) }}" class="btn btn-secondary btn-sm">
                                     Detail
                                 </a>

@@ -46,14 +46,14 @@
         <div class="stat-icon">📄</div>
         <div class="stat-body">
             <div class="stat-value">{{ $totalDokumen }}</div>
-            <div class="stat-label">Total Naskah Dinas</div>
+            <div class="stat-label">Total Dokumen</div>
         </div>
     </div>
     <div class="stat-card stat-card-green">
         <div class="stat-icon">✓</div>
         <div class="stat-body">
             <div class="stat-value">{{ $totalSelesai }}</div>
-            <div class="stat-label">Selesai & Sah (TTE)</div>
+            <div class="stat-label">Selesai & Disahkan Internal</div>
         </div>
     </div>
     <div class="stat-card stat-card-orange">
@@ -75,7 +75,7 @@
 {{-- Breakdown per Jenis Naskah --}}
 <div class="card" style="margin-bottom: var(--space-6)">
     <div class="card-header">
-        <span class="card-title">Sebaran Dokumen per Jenis Naskah Dinas</span>
+        <span class="card-title">Sebaran Dokumen berdasarkan Jenis</span>
     </div>
     <div class="table-wrapper">
         <table>

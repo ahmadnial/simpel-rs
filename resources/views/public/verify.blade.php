@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifikasi Keaslian TTE Naskah Dinas — SIMPEL-RS</title>
+    <title>Validasi Pengesahan Internal Naskah Dinas — SIMPEL-RS</title>
     @vite(['resources/css/app.css'])
     <style>
         body {
@@ -62,9 +62,9 @@
 <div class="verify-card">
     @if($signature)
         <div class="verify-header">
-            <div class="verify-badge success">✓</div>
-            <div class="verify-title" style="color:#16a34a">DOKUMEN RESMI SAH & TERVERIFIKASI</div>
-            <div class="verify-sub">Validasi Tanda Tangan Elektronik SIMPEL-RS</div>
+            <div class="verify-badge {{ $integrityValid ? 'success' : 'error' }}">{{ $integrityValid ? '✓' : '!' }}</div>
+            <div class="verify-title" style="color:{{ $integrityValid ? '#16a34a' : '#dc2626' }}">{{ $integrityValid ? 'PENGESAHAN INTERNAL VALID' : 'INTEGRITAS PDF TIDAK VALID' }}</div>
+            <div class="verify-sub">Rekam pengesahan elektronik internal SIMPEL-RS</div>
         </div>
 
         <div class="info-row">
@@ -85,17 +85,23 @@
         </div>
 
         <div class="info-row">
-            <div class="info-label">OLEH SIAPA DITANDATANGANI (PEJABAT TTE)</div>
+            <div class="info-label">PENANDATANGAN</div>
             <div class="info-val" style="color:var(--brand-700)">
                 👤 {{ $signature->penandatangan->name }}
                 <div style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-top:2px">
                     {{ $signature->penandatangan->jabatan ?? 'Pejabat Penandatangan' }}
                 </div>
+                @if(data_get($signature->metadata_tte, 'principal_name'))
+                    <div style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-top:4px">
+                        Bertindak sebagai {{ strtoupper(data_get($signature->metadata_tte, 'delegation_type')) }} untuk {{ data_get($signature->metadata_tte, 'principal_name') }}
+                        ({{ data_get($signature->metadata_tte, 'delegation_from') }} s.d. {{ data_get($signature->metadata_tte, 'delegation_until') }})
+                    </div>
+                @endif
             </div>
         </div>
 
         <div class="info-row">
-            <div class="info-label">KAPAN DITANDATANGANI (TIMESTAMP TTE)</div>
+            <div class="info-label">WAKTU PENGESAHAN</div>
             <div class="info-val">
                 🕒 {{ $signature->ditandatangani_at->translatedFormat('d F Y \j\a\m H:i:s') }} WIB
             </div>
@@ -109,7 +115,7 @@
         </div>
 
         <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-elevated); border-radius: var(--radius-md); text-align:center; font-size:0.78rem; color:var(--text-muted); border: 1px solid var(--border-subtle)">
-            Dokumen ini dijamin keaslian dan integritas isinya, diterbitkan secara resmi melalui Sistem Informasi Manajemen Persuratan Elektronik Rumah Sakit (SIMPEL-RS).
+            Hash di atas dihitung dari PDF final resmi yang disimpan SIMPEL-RS. Pengesahan ini merupakan persetujuan elektronik internal rumah sakit.
         </div>
     @else
         <div class="verify-header">
@@ -118,7 +124,7 @@
             <div class="verify-sub">Token verifikasi QR Code tidak valid atau tidak terdaftar di sistem.</div>
         </div>
         <div style="text-align:center; color:var(--text-muted); font-size:0.875rem">
-            Harap pastikan Anda memindai QR Code Barcode TTE resmi dari naskah dinas cetak/digital SIMPEL-RS.
+            Pastikan Anda memindai QR Code pengesahan dari naskah dinas cetak/digital SIMPEL-RS.
         </div>
     @endif
 </div>

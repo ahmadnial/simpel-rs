@@ -73,7 +73,7 @@
                     </td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="editUnit({{ json_encode($unit) }})">Edit</button>
-                        <form action="{{ route('admin.units.destroy', $unit) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus unit kerja ini?')">
+                        <form action="{{ route('admin.units.destroy', $unit) }}" method="POST" style="display:inline;" data-confirm="Hapus unit kerja ini?">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger btn-sm">Hapus</button>

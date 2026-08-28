@@ -61,10 +61,10 @@
                         </td>
                         <td>
                             @if($d->is_active && $d->pejabat_id === auth()->id())
-                                <form method="POST" action="{{ route('delegasi.destroy', $d) }}" style="display:inline">
+                                <form method="POST" action="{{ route('delegasi.destroy', $d) }}" style="display:inline" data-confirm="Nonaktifkan pelimpahan wewenang ini?">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Nonaktifkan delegasi ini?')">Nonaktifkan</button>
+                                    <button type="submit" class="btn btn-danger btn-sm">Nonaktifkan</button>
                                 </form>
                             @endif
                         </td>

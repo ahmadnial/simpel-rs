@@ -1,21 +1,21 @@
 @extends('layouts.app')
 
-@section('title', 'Antrian Tanda Tangan')
+@section('title', 'Antrian Pengesahan')
 
 @section('breadcrumb')
     <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-current">Antrian TTE</span>
+    <span class="breadcrumb-current">Antrian Pengesahan</span>
 @endsection
 
 @section('content')
 
-<div class="page-header">
-    <h1 class="page-title">Antrian Tanda Tangan Elektronik (TTE)</h1>
-    <p class="page-subtitle">Daftar naskah dinas yang telah lolos verifikasi dan siap Anda sahkan</p>
+<div class="page-header signature-queue-header">
+    <h1 class="page-title">Antrian Pengesahan Elektronik Internal</h1>
+    <p class="page-subtitle">Dokumen yang telah lolos verifikasi dan menunggu tanda tangan Anda</p>
 </div>
 
 {{-- Filter Panel --}}
-<div class="card" style="margin-bottom: var(--space-6); padding: var(--space-4); background: #f8fafc; border: 1px solid #e2e8f0;">
+<div class="card signature-filter-card" style="margin-bottom: var(--space-6); padding: var(--space-4); background: #f8fafc; border: 1px solid #e2e8f0;">
     <form method="GET" action="{{ route('ttd.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
         <div style="flex: 1; min-width: 180px;">
             <label style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px; display: block;">Klasifikasi / Jenis Naskah</label>
@@ -51,15 +51,15 @@
     </form>
 </div>
 
-<div class="card">
+<div class="card signature-queue-card">
     <div class="card-header">
-        <span class="card-title">Menunggu Tanda Tangan ({{ $antrian->total() }})</span>
+        <span class="card-title">Menunggu Pengesahan ({{ $antrian->total() }})</span>
     </div>
 
     @if($antrian->isEmpty())
         <div class="empty-state">
             <div class="empty-state-icon">🔏</div>
-            <div class="empty-state-title">Tidak ada antrian TTE</div>
+            <div class="empty-state-title">Tidak ada antrian pengesahan</div>
             <div class="empty-state-text">Saat ini tidak ada dokumen yang menunggu pengesahan Anda.</div>
         </div>
     @else
@@ -79,7 +79,7 @@
                     <tr>
                         <td style="font-weight:600; color:var(--text-primary)">
                             {{ $doc->judul }}
-                            <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">[DRAFT - Menunggu TTE Direktur]</div>
+                            <div style="font-size:0.72rem; color:#d97706; font-family:monospace; margin-top:2px">[DRAFT - Menunggu Pengesahan Internal]</div>
                         </td>
                         <td><span class="badge badge-purple">{{ $doc->documentType->nama }}</span></td>
                         <td>{{ $doc->pengusul->name }} &bull; {{ $doc->unit->nama }}</td>
@@ -87,7 +87,7 @@
                         <td>
                             <a href="{{ route('ttd.show', $doc) }}" class="btn btn-warning btn-sm">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/></svg>
-                                Prosedur TTE
+                                Proses Pengesahan
                             </a>
                         </td>
                     </tr>

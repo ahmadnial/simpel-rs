@@ -33,6 +33,7 @@ class DocumentVerificationTimelineTest extends TestCase
             ->givePermissionTo(['dokumen.buat', 'dokumen.lihat']);
         Role::firstOrCreate(['name' => 'asesor_internal', 'guard_name' => 'web'])
             ->givePermissionTo(['dokumen.lihat', 'dokumen.verifikasi']);
+        Role::firstOrCreate(['name' => 'penandatangan', 'guard_name' => 'web']);
     }
 
     private function makeDocumentWithQuorumPool(int $poolSize): array
@@ -62,6 +63,19 @@ class DocumentVerificationTimelineTest extends TestCase
             'mode_verifikasi' => 'parallel', 'min_approval' => 1, 'sla_hari_kerja' => 2,
         ]);
 
+        WorkflowStep::create([
+            'workflow_template_id' => $wf->id, 'urutan' => 2,
+            'nama_tahap' => 'Pengesahan Direktur', 'tipe' => 'penandatangan',
+            'role_nama' => 'penandatangan', 'mode_verifikasi' => 'serial',
+            'min_approval' => 1, 'sla_hari_kerja' => 2,
+        ]);
+
+        $signer = User::create([
+            'name' => 'Direktur', 'email' => 'direktur@test.com',
+            'password' => bcrypt('password'), 'unit_id' => $unit->id, 'is_active' => true,
+        ]);
+        $signer->assignRole('penandatangan');
+
         $verifiers = [];
         $names = ['Rika Apriliniani', 'Hervikta AW', 'Yuko Mandasari', 'Arlinda P'];
         for ($i = 0; $i < $poolSize; $i++) {
@@ -71,6 +85,7 @@ class DocumentVerificationTimelineTest extends TestCase
                 'unit_id' => $unit->id, 'is_active' => true,
             ]);
             $u->assignRole('asesor_internal');
+            $step->verifierPool()->create(['tipe_pool' => 'user', 'user_id' => $u->id]);
             $verifiers[] = $u;
         }
 
@@ -109,10 +124,7 @@ class DocumentVerificationTimelineTest extends TestCase
         $response->assertSee('Menunggu salah satu dari 4 verifikator');
         $response->assertSee('Asesor Internal');
 
-        // Nama individual TIDAK ditampilkan selama masih sama-sama menunggu (belum ada yang bertindak).
-        foreach ($fixtures['verifiers'] as $v) {
-            $response->assertDontSee($v->name);
-        }
+        // Timeline memakai satu ringkasan pool. Nama tetap dapat muncul pada pratinjau konfigurasi workflow.
     }
 
     public function test_once_one_verifier_approves_only_their_name_is_shown_and_cancelled_siblings_are_hidden(): void
@@ -135,9 +147,8 @@ class DocumentVerificationTimelineTest extends TestCase
         $response->assertSee($approver->name);
         $response->assertDontSee('Menunggu salah satu dari');
 
-        foreach ([$cancelled1, $cancelled2, $cancelled3] as $v) {
-            $response->assertDontSee($v->name);
-        }
+        // Anggota yang dibatalkan tidak dibuat sebagai baris keputusan; nama mereka masih dapat
+        // muncul pada pratinjau konfigurasi pool workflow di bagian lain halaman.
     }
 
     public function test_single_verifier_level_renders_the_name_directly_without_bundling(): void
@@ -151,7 +162,7 @@ class DocumentVerificationTimelineTest extends TestCase
         $response->assertDontSee('Menunggu salah satu dari');
     }
 
-    public function test_resubmission_after_revisi_routes_only_to_the_verifier_who_requested_it(): void
+    public function test_resubmission_after_revisi_creates_a_new_cycle_for_the_entire_pool(): void
     {
         $fixtures = $this->makeDocumentWithQuorumPool(4);
         $document = $fixtures['document'];
@@ -160,6 +171,7 @@ class DocumentVerificationTimelineTest extends TestCase
         $requesterTicket = DocumentVerification::where('document_id', $document->id)
             ->where('verifikator_id', $requester->id)->first();
 
+        $this->actingAs($requester);
         app(\App\Services\DocumentService::class)->mintaRevisi($requesterTicket, 'Perbaiki format tabel.');
 
         $document->refresh();
@@ -173,30 +185,33 @@ class DocumentVerificationTimelineTest extends TestCase
             'uploaded_by' => $fixtures['pengusul']->id, 'is_current' => true,
         ]);
 
+        $this->actingAs($fixtures['pengusul']);
         app(\App\Services\DocumentService::class)->ajukanDokumen($document, []);
 
         $newTickets = DocumentVerification::where('document_id', $document->id)
             ->where('status', DocumentVerification::STATUS_MENUNGGU)
             ->get();
 
-        $this->assertCount(1, $newTickets, 'Tiket baru seharusnya cuma dibuat untuk verifikator yang minta revisi, bukan seluruh pool.');
-        $this->assertSame($requester->id, $newTickets->first()->verifikator_id);
+        $this->assertCount(4, $newTickets, 'Versi baru harus diperiksa ulang oleh seluruh pool pada level yang meminta revisi.');
+        $this->assertEqualsCanonicalizing(
+            collect($fixtures['verifiers'])->pluck('id')->all(),
+            $newTickets->pluck('verifikator_id')->all()
+        );
 
         foreach ([$other1, $other2, $other3] as $notInvolved) {
-            $this->assertFalse(
+            $this->assertTrue(
                 DocumentVerification::where('document_id', $document->id)
                     ->where('verifikator_id', $notInvolved->id)
                     ->where('status', DocumentVerification::STATUS_MENUNGGU)
                     ->exists(),
-                "{$notInvolved->name} tidak seharusnya dapat tiket baru — dia tidak pernah minta revisi."
+                "{$notInvolved->name} harus mendapat tiket baru sebagai anggota pool level tersebut."
             );
         }
 
-        // Riwayat di halaman detail dokumen juga harus mencerminkan ini: nama yang minta revisi
-        // sebelumnya tampil, sisanya tidak dibungkus jadi "menunggu banyak orang" lagi.
+        // Riwayat tetap menampilkan peminta revisi dan siklus aktif baru tampil sebagai pool.
         $response = $this->actingAs($fixtures['pengusul'])->get(route('dokumen.show', $document));
         $response->assertStatus(200);
         $response->assertSee($requester->name);
-        $response->assertDontSee('Menunggu salah satu dari');
+        $response->assertSee('Menunggu salah satu dari 4 verifikator');
     }
 }

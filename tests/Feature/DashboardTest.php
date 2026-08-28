@@ -103,7 +103,7 @@ class DashboardTest extends TestCase
         $response = $this->actingAs($signerUser)->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('Menunggu Tindakan Saya');
+        $response->assertSee('Perlu Tindakan Saya');
         $response->assertSee('Dokumen TTD 1');
         $response->assertSee('Dokumen TTD 2');
         

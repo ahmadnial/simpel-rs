@@ -9,6 +9,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @livewireStyles
     @stack('styles')
 </head>
@@ -21,19 +22,7 @@
 
         {{-- Brand --}}
         <div class="sidebar-brand">
-            <div class="sidebar-logo">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10 9 9 9 8 9"/>
-                </svg>
-            </div>
-            <div class="sidebar-brand-text">
-                <div class="sidebar-brand-name">SIMPEL-RS</div>
-                <div class="sidebar-brand-sub">Persuratan Elektronik</div>
-            </div>
+            <img src="{{ asset('images/brand/simpel-rs-wordmark-v1.png') }}" alt="SIMPEL-RS" class="sidebar-brand-logo">
         </div>
 
         {{-- Navigation --}}
@@ -88,7 +77,20 @@
                     <path d="M2 2l7.586 7.586"/>
                     <circle cx="11" cy="11" r="2"/>
                 </svg>
-                Antrian TTD
+                Antrian Pengesahan
+                @php
+                    $badgeUser = auth()->user();
+                    $badgeSignerRoles = $badgeUser->getRoleNames()->toArray();
+                    if ($badgeDelegation = $badgeUser->activeDelegation()) {
+                        $badgeSignerRoles = array_unique(array_merge($badgeSignerRoles, $badgeDelegation->pejabat?->getRoleNames()->toArray() ?? []));
+                    }
+                    $antrianTtdBadge = \App\Models\Document::where('status', \App\Models\Document::STATUS_MENUNGGU_TTD)
+                        ->whereHas('workflowTemplate.steps', fn ($q) => $q->where('tipe', 'penandatangan')->whereIn('role_nama', $badgeSignerRoles))
+                        ->count();
+                @endphp
+                @if($antrianTtdBadge > 0)
+                    <span class="nav-badge">{{ $antrianTtdBadge > 99 ? '99+' : $antrianTtdBadge }}</span>
+                @endif
             </a>
             @endcan
 
@@ -156,7 +158,7 @@
                 📋 Klasifikasi Naskah
             </a>
             <a href="{{ route('admin.workflows.index') }}" class="nav-item {{ request()->routeIs('admin.workflows.*') ? 'active' : '' }}" style="padding-left: 2rem; font-size: 0.85rem;">
-                ⚙️ Template Workflow
+                ⚙️ Template Alur Persetujuan
             </a>
             @endrole
 
@@ -200,6 +202,11 @@
                 </nav>
             </div>
             <div class="topbar-right">
+                <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Aktifkan mode gelap" title="Mode tampilan">
+                    <svg class="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+                    <svg class="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <span class="theme-toggle-label">Mode gelap</span>
+                </button>
                 {{-- Notifikasi --}}
                 <div class="dropdown" style="position:relative">
                     <button class="notif-btn" id="notif-btn" aria-label="Notifikasi">
@@ -211,7 +218,7 @@
                     </button>
 
                     <div class="dropdown-menu" id="notif-menu" style="display:none; width:360px; right:0; left:auto; top:calc(100% + 8px); padding:0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15); border:1px solid #e2e8f0; overflow:hidden; z-index:1100;">
-                        <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+                        <div class="notif-menu-header" style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
                             <div style="font-weight:700; font-size:0.875rem; color:var(--text-primary);">Pemberitahuan</div>
                             <button type="button" id="btn-mark-all-read" style="background:none; border:none; color:var(--brand-600); font-size:0.75rem; font-weight:600; cursor:pointer;">
                                 Tandai semua dibaca
@@ -219,7 +226,7 @@
                         </div>
 
                         {{-- Chrome Notification Permission Banner --}}
-                        <div id="chrome-notif-banner" style="padding:8px 12px; background:#eff6ff; border-bottom:1px solid #dbeafe; display:none; align-items:center; justify-content:space-between; font-size:0.75rem; color:#1e40af;">
+                        <div id="chrome-notif-banner" class="chrome-notif-banner" style="padding:8px 12px; background:#eff6ff; border-bottom:1px solid #dbeafe; display:none; align-items:center; justify-content:space-between; font-size:0.75rem; color:#1e40af;">
                             <span>🔔 Aktifkan notifikasi desktop Chrome</span>
                             <button type="button" id="btn-enable-chrome-notif" style="background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:600; cursor:pointer;">Aktifkan</button>
                         </div>
@@ -289,6 +296,40 @@
 @livewireScripts
 @stack('scripts')
 <script>
+    const storedTheme = localStorage.getItem('simpel-theme');
+    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.body.classList.add('dark-mode');
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        const syncThemeLabel = () => {
+            const dark = document.body.classList.contains('dark-mode');
+            themeToggle.setAttribute('aria-label', dark ? 'Aktifkan mode terang' : 'Aktifkan mode gelap');
+            themeToggle.title = dark ? 'Gunakan mode terang' : 'Gunakan mode gelap';
+        };
+        syncThemeLabel();
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('simpel-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            syncThemeLabel();
+        });
+    }
+
+    const toast = window.Swal ? Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3600, timerProgressBar: true, background: '#ffffff', color: '#1e293b' }) : null;
+    @if(session('success')) toast?.fire({ icon: 'success', title: @json(session('success')) }); @endif
+    @if(session('error')) toast?.fire({ icon: 'error', title: @json(session('error')) }); @endif
+    document.querySelectorAll('form[data-confirm]').forEach(form => form.addEventListener('submit', event => {
+        if (form.dataset.confirmed === '1') return;
+        event.preventDefault();
+        // SweetAlert hides the application shell from assistive technology while
+        // it is open. Move focus out of the shell first so the focused submit
+        // button does not remain inside an aria-hidden ancestor.
+        if (document.activeElement instanceof HTMLElement && form.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        const proceed = () => { form.dataset.confirmed = '1'; form.submit(); };
+        if (!window.Swal) { if (window.confirm(form.dataset.confirm)) proceed(); return; }
+        Swal.fire({ icon: 'warning', title: 'Konfirmasi tindakan', text: form.dataset.confirm, showCancelButton: true, confirmButtonText: 'Lanjutkan', cancelButtonText: 'Batal', reverseButtons: true }).then(result => { if (result.isConfirmed) proceed(); });
+    }));
+
     // User menu dropdown
     const menuBtn = document.getElementById('user-menu-btn');
     const menu = document.getElementById('user-menu');
@@ -324,6 +365,9 @@
 
     let knownUnreadIds = new Set();
     let initialLoadDone = false;
+    let notifLastFetchedAt = 0;
+    let notifFetchInProgress = false;
+    const NOTIF_CACHE_MS = 30000;
 
     // Toggle Notif Dropdown
     if (notifBtn && notifMenu) {
@@ -331,7 +375,7 @@
             e.stopPropagation();
             if (menu) menu.style.display = 'none';
             notifMenu.style.display = notifMenu.style.display === 'none' ? 'block' : 'none';
-            fetchNotifications();
+            if (notifMenu.style.display === 'block') fetchNotifications();
         });
         document.addEventListener('click', (e) => {
             if (notifMenu && !notifMenu.contains(e.target) && !notifBtn.contains(e.target)) {
@@ -357,7 +401,10 @@
     }
 
     // Fetch Notifications function
-    function fetchNotifications() {
+    function fetchNotifications(force = false) {
+        const now = Date.now();
+        if (!force && (notifFetchInProgress || now - notifLastFetchedAt < NOTIF_CACHE_MS)) return;
+        notifFetchInProgress = true;
         fetch('/notifications', {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -366,11 +413,18 @@
         })
         .then(res => res.json())
         .then(data => {
+            // Endpoint notifikasi harus tetap aman saat respons kosong/tidak sesuai
+            // format (mis. sesi habis atau server mengembalikan payload parsial).
+            const items = Array.isArray(data?.notifications) ? data.notifications : [];
             updateBadge(data.unread_count);
-            renderNotificationList(data.notifications);
-            checkAndTriggerDesktopNotif(data.notifications);
+            renderNotificationList(items);
+            checkAndTriggerDesktopNotif(items);
         })
-        .catch(err => console.error('Error fetching notifications:', err));
+        .catch(err => console.error('Error fetching notifications:', err))
+        .finally(() => {
+            notifLastFetchedAt = Date.now();
+            notifFetchInProgress = false;
+        });
     }
 
     function updateBadge(count) {
@@ -406,14 +460,14 @@
             const icon = iconMap[item.type] || '🔔';
 
             html += `
-                <div onclick="handleNotifClick('${item.id}', '${item.url}')" style="padding:12px 16px; border-bottom:1px solid #f1f5f9; background:${bg}; cursor:pointer; display:flex; gap:12px; align-items:flex-start; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${bg}'">
+                <div class="notification-row ${isUnread ? 'is-unread' : ''}" onclick="handleNotifClick('${item.id}', '${item.url}')">
                     <span style="font-size:1.2rem; line-height:1">${icon}</span>
                     <div style="flex:1;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-                            <strong style="font-size:0.8rem; color:${isUnread ? '#0369a1' : '#334155'}; font-weight:${isUnread ? '700' : '600'}">${item.title}</strong>
-                            <span style="font-size:0.7rem; color:#94a3b8">${item.created_at}</span>
+                            <strong class="notification-title">${item.title}</strong>
+                            <span class="notification-time">${item.created_at}</span>
                         </div>
-                        <div style="font-size:0.78rem; color:#475569; line-height:1.4">${item.message}</div>
+                        <div class="notification-message">${item.message}</div>
                     </div>
                 </div>
             `;
@@ -447,7 +501,7 @@
                 }
             })
             .then(() => {
-                fetchNotifications();
+                fetchNotifications(true);
             });
         });
     }
@@ -455,6 +509,7 @@
     // Trigger Chrome Desktop Notification for new unread items
     function checkAndTriggerDesktopNotif(items) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!Array.isArray(items)) return;
 
         items.forEach(item => {
             if (!item.read_at && !knownUnreadIds.has(item.id)) {
@@ -475,10 +530,8 @@
         initialLoadDone = true;
     }
 
-    // Initial fetch + Poll every 15 seconds
-    fetchNotifications();
-    setInterval(fetchNotifications, 15000);
+    // Notifikasi dimuat on-demand saat menu dibuka. Tidak ada polling otomatis
+    // agar setiap halaman tidak terus-menerus membebani server/database.
 </script>
 </body>
 </html>
-

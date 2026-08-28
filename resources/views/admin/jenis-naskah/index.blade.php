@@ -75,11 +75,11 @@
                     </td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="editType({{ json_encode($dt) }})">Edit</button>
-                        <form action="{{ route('admin.jenis-naskah.reset-nomor', $dt) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin mereset nomor urut untuk klasifikasi ini ke awal ({{ $dt->mulai_nomor ?? 1 }})? Ini akan mereset counter untuk tahun berjalan.')">
+                    <form action="{{ route('admin.jenis-naskah.reset-nomor', $dt) }}" method="POST" style="display:inline;" data-confirm="Reset nomor urut klasifikasi ini ke awal untuk tahun berjalan?">
                             @csrf
                             <button type="submit" class="btn btn-warning btn-sm" style="background:#f59e0b; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Reset Nomor</button>
                         </form>
-                        <form action="{{ route('admin.jenis-naskah.destroy', $dt) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus jenis naskah ini?')">
+                        <form action="{{ route('admin.jenis-naskah.destroy', $dt) }}" method="POST" style="display:inline;" data-confirm="Hapus klasifikasi naskah ini?">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger btn-sm">Hapus</button>

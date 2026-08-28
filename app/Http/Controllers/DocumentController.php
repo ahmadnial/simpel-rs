@@ -8,10 +8,13 @@ use App\Models\User;
 use App\Models\WorkflowTemplate;
 use App\Services\DocxParserService;
 use App\Services\DocumentService;
+use App\Services\DocumentPdfService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -19,7 +22,7 @@ class DocumentController extends Controller
 {
     protected DocumentService $documentService;
 
-    public function __construct(DocumentService $documentService)
+    public function __construct(DocumentService $documentService, private readonly DocumentPdfService $pdfService)
     {
         $this->documentService = $documentService;
     }
@@ -82,7 +85,7 @@ class DocumentController extends Controller
             'document_type_id'  => 'required|exists:document_types,id',
             'perihal'           => 'nullable|string|max:255',
             'keterangan'        => 'nullable|string',
-            'file_dokumen'      => 'required|file|mimes:docx,doc,pdf|max:10240',
+            'file_dokumen'      => 'required|file|mimes:docx|max:10240',
             'submit_mode'       => 'nullable|in:ajukan,internal',
             'verifikator_ids'   => 'nullable|array',
             'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
@@ -92,31 +95,41 @@ class DocumentController extends Controller
             'is_rahasia'        => 'nullable|boolean',
         ]);
 
-        $document = $this->documentService->uploadDraft(
-            [
-                'judul'            => $validated['judul'],
-                'document_type_id' => $validated['document_type_id'],
-                'unit_id'          => auth()->user()->unit_id,
-                'perihal'          => $validated['perihal'] ?? null,
-                'keterangan'       => $validated['keterangan'] ?? null,
-                'is_rahasia'       => $request->boolean('is_rahasia'),
-            ],
-            $request->file('file_dokumen')
-        );
-
         $verifikatorIds = $validated['verifikator_ids'] ?? [];
         $wantsAjukan = ($validated['submit_mode'] ?? 'ajukan') === 'ajukan';
+        if ($wantsAjukan && empty($verifikatorIds) && !$request->boolean('ajukan_langsung')) {
+            throw ValidationException::withMessages([
+                'submit_mode' => 'Dokumen belum disimpan karena alur verifikasi atau verifikator tahap pertama belum tersedia.',
+            ]);
+        }
 
-        if ($wantsAjukan && (!empty($verifikatorIds) || $request->boolean('ajukan_langsung'))) {
-            $this->documentService->ajukanDokumen($document, $verifikatorIds);
-            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen berhasil dibuat dan diajukan ke verifikasi.');
+        $document = null;
+        try {
+            DB::transaction(function () use ($validated, $request, $verifikatorIds, $wantsAjukan, &$document) {
+                $document = $this->documentService->uploadDraft([
+                    'judul'            => $validated['judul'],
+                    'document_type_id' => $validated['document_type_id'],
+                    'unit_id'          => auth()->user()->unit_id,
+                    'perihal'          => $validated['perihal'] ?? null,
+                    'keterangan'       => $validated['keterangan'] ?? null,
+                    'is_rahasia'       => $request->boolean('is_rahasia'),
+                ], $request->file('file_dokumen'));
+
+                if ($wantsAjukan) {
+                    $this->documentService->ajukanDokumen($document, $verifikatorIds);
+                }
+
+                return $document;
+            });
+        } catch (\Throwable $e) {
+            if ($document?->id) {
+                Storage::disk('local')->deleteDirectory("documents/{$document->id}");
+            }
+            throw $e;
         }
 
         if ($wantsAjukan) {
-            // Pengusul memilih "Ajukan ke Verifikator" tapi jenis naskah ini belum punya
-            // Template Workflow aktif — dokumen tetap tersimpan sebagai draft, bukan diam-diam
-            // "berhasil" seolah sudah diajukan.
-            return redirect()->route('dokumen.show', $document)->with('error', 'Dokumen tersimpan sebagai draft, tapi belum bisa diajukan: jenis naskah ini belum punya alur verifikasi. Hubungi Admin.');
+            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen berhasil dibuat dan diajukan ke verifikasi.');
         }
 
         return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen tersimpan sebagai Arsip Internal Unit.');
@@ -411,6 +424,8 @@ class DocumentController extends Controller
 
     public function preview(Document $document, $versionId = null)
     {
+        abort_unless($document->isAccessibleBy(auth()->user()), 403, 'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.');
+
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
         if (!$version) {
             $version = $document->versions()->first();
@@ -431,6 +446,8 @@ class DocumentController extends Controller
 
     public function previewPdf(Document $document, $versionId = null)
     {
+        abort_unless($document->isAccessibleBy(auth()->user()), 403, 'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.');
+
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
         if (!$version) {
             $version = $document->versions()->first();
@@ -441,7 +458,9 @@ class DocumentController extends Controller
 
         $path = $this->documentService->ensureDocxFileExists($document, $version);
         $processedDocxPath = (new \App\Services\DocxParserService())->processDocxTemplate($path, $document);
-        $pdfPath = $this->convertDocxToPdf($processedDocxPath, $document, $version);
+        $pdfPath = $document->signature && $version->id === $document->signature->document_version_id && $document->signature->file_signed_path
+            ? Storage::disk('local')->path($document->signature->file_signed_path)
+            : $this->pdfService->render($processedDocxPath, $document, $version);
 
         return response()->file($pdfPath, [
             'Content-Type'        => 'application/pdf',
@@ -559,7 +578,7 @@ class DocumentController extends Controller
         Gate::authorize('update', $document);
 
         $request->validate([
-            'file_dokumen' => 'required|file|mimes:docx,doc,pdf|max:10240',
+            'file_dokumen' => 'required|file|mimes:docx|max:10240',
             'catatan'      => 'nullable|string|max:500',
         ]);
 
@@ -634,6 +653,10 @@ class DocumentController extends Controller
             abort(444, 'File dokumen tidak ditemukan.');
         }
 
+        if ($document->signature && $version->id !== $document->signature->document_version_id) {
+            abort(403, 'Versi historis bukan naskah resmi yang disahkan. Unduh versi pengesahan yang tercatat.');
+        }
+
         $path = $this->documentService->ensureDocxFileExists($document, $version);
 
         // Process DOCX template variables & Barcode QR Code TTE inside native XML
@@ -641,7 +664,9 @@ class DocumentController extends Controller
         $processedDocxPath = $parser->processDocxTemplate($path, $document);
 
         // Convert processed DOCX to PDF using LibreOffice Headless (100% presisi)
-        $pdfPath = $this->convertDocxToPdf($processedDocxPath, $document, $version);
+        $pdfPath = $document->signature && $version->id === $document->signature->document_version_id && $document->signature->file_signed_path
+            ? Storage::disk('local')->path($document->signature->file_signed_path)
+            : $this->pdfService->render($processedDocxPath, $document, $version);
 
         $suffix = $document->signature ? '_TTE' : '_DRAFT';
         $safeFilename = Str::slug($document->nomor_surat ?? $document->judul) . $suffix . '.pdf';

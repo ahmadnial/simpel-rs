@@ -1,23 +1,23 @@
 @extends('layouts.app')
 
-@section('title', 'Master Template Workflow Verifikasi')
+@section('title', 'Master Alur Persetujuan')
 
 @section('breadcrumb')
     <span class="breadcrumb-separator">/</span>
     <a href="{{ route('admin.index') }}" style="color:inherit; text-decoration:none;">Admin</a>
     <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-current">Workflow Verifikasi</span>
+    <span class="breadcrumb-current">Alur Persetujuan</span>
 @endsection
 
 @section('content')
 
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-        <h1 class="page-title">Master Template Workflow & Alur Verifikasi</h1>
+        <h1 class="page-title">Master Template Alur Persetujuan</h1>
         <p class="page-subtitle">Atur skema rantai persetujuan (approval pipeline) berdasarkan jenis dokumen & unit pengusul</p>
     </div>
     <button class="btn btn-primary" onclick="document.getElementById('modalAddWorkflow').style.display='flex'">
-        + Tambah Template Workflow
+        + Tambah Template Alur
     </button>
 </div>
 
@@ -36,7 +36,7 @@
 {{-- Filter & Search --}}
 <div class="card" style="margin-bottom: var(--space-6); padding: var(--space-4); background: #f8fafc;">
     <form method="GET" action="{{ route('admin.workflows.index') }}" style="display:flex; gap:12px;">
-        <input type="text" name="search" class="form-control" placeholder="Cari nama workflow..." value="{{ request('search') }}" style="flex:1;">
+        <input type="text" name="search" class="form-control" placeholder="Cari nama alur persetujuan..." value="{{ request('search') }}" style="flex:1;">
         <button type="submit" class="btn btn-primary">Cari</button>
         @if(request('search'))
             <a href="{{ route('admin.workflows.index') }}" class="btn btn-secondary">Reset</a>
@@ -49,7 +49,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Nama Workflow</th>
+                    <th>Nama Alur Persetujuan</th>
                     <th>Jenis Naskah</th>
                     <th>Spesifik Unit</th>
                     <th>Jumlah Tahap (Steps)</th>
@@ -82,7 +82,7 @@
                     <td>
                         <a href="{{ route('admin.workflows.steps', $wf) }}" class="btn btn-primary btn-sm">Kelola Tahapan</a>
                         <button class="btn btn-secondary btn-sm" onclick="editWorkflow({{ json_encode($wf) }})">Edit</button>
-                        <form action="{{ route('admin.workflows.destroy', $wf) }}" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menghapus template workflow ini?')">
+                        <form action="{{ route('admin.workflows.destroy', $wf) }}" method="POST" style="display:inline;" data-confirm="Hapus template alur persetujuan ini?">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
@@ -91,7 +91,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">Belum ada data template workflow.</td>
+                    <td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">Belum ada template alur persetujuan.</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -100,15 +100,15 @@
     <div style="margin-top:15px;">{{ $workflows->withQueryString()->links() }}</div>
 </div>
 
-{{-- Modal Add Workflow --}}
+{{-- Dialog tambah alur persetujuan --}}
 <div id="modalAddWorkflow" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; width:100%; max-width:550px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
-        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Template Workflow Baru</h3>
+        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Template Alur Persetujuan</h3>
         <form method="POST" action="{{ route('admin.workflows.store') }}">
             @csrf
             <div style="margin-bottom:12px;">
-                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Nama Template Workflow *</label>
-                <input type="text" name="nama" class="form-control" placeholder="Contoh: Workflow Standar Surat Keputusan" required>
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Nama Template Alur *</label>
+                <input type="text" name="nama" class="form-control" placeholder="Contoh: Alur Standar Surat Keputusan" required>
             </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
@@ -132,7 +132,7 @@
                 <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kosongkan semua = berlaku untuk semua unit/instalasi/tim/komite (default).</div>
             </div>
             <div style="margin-bottom:12px;">
-                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Workflow</label>
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Alur</label>
                 <textarea name="deskripsi" class="form-control" rows="2" placeholder="Penjelasan alur verifikasi..."></textarea>
             </div>
             <div style="display:flex; gap:16px; margin-bottom:16px;">
@@ -140,26 +140,26 @@
                     <input type="checkbox" name="is_default" value="1" checked> Jadikan Template Utama
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
-                    <input type="checkbox" name="is_active" value="1" checked> Aktifkan Workflow
+                    <input type="checkbox" name="is_active" value="1" checked> Aktifkan Alur
                 </label>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:8px;">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalAddWorkflow').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-primary">Simpan Workflow</button>
+                <button type="submit" class="btn btn-primary">Simpan Alur</button>
             </div>
         </form>
     </div>
 </div>
 
-{{-- Modal Edit Workflow --}}
+{{-- Dialog ubah alur persetujuan --}}
 <div id="modalEditWorkflow" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; width:100%; max-width:550px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
-        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Edit Template Workflow</h3>
+        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Ubah Template Alur Persetujuan</h3>
         <form id="formEditWorkflow" method="POST">
             @csrf
             @method('PUT')
             <div style="margin-bottom:12px;">
-                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Nama Template Workflow *</label>
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Nama Template Alur *</label>
                 <input type="text" id="edit_wf_nama" name="nama" class="form-control" required>
             </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
@@ -184,7 +184,7 @@
                 <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kosongkan semua = berlaku untuk semua unit/instalasi/tim/komite (default).</div>
             </div>
             <div style="margin-bottom:12px;">
-                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Workflow</label>
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Deskripsi Alur</label>
                 <textarea id="edit_wf_deskripsi" name="deskripsi" class="form-control" rows="2"></textarea>
             </div>
             <div style="display:flex; gap:16px; margin-bottom:16px;">
@@ -192,7 +192,7 @@
                     <input type="checkbox" id="edit_wf_is_default" name="is_default" value="1"> Jadikan Template Utama
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
-                    <input type="checkbox" id="edit_wf_is_active" name="is_active" value="1"> Aktifkan Workflow
+                    <input type="checkbox" id="edit_wf_is_active" name="is_active" value="1"> Aktifkan Alur
                 </label>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:8px;">

@@ -61,7 +61,7 @@
 
     @if(!$signature)
     <div class="watermark-draft">
-        DRAFT &bull; BELUM TTE
+        DRAFT &bull; BELUM DISAHKAN
     </div>
     @endif
 
@@ -72,10 +72,10 @@
 
     @if($signature)
     <div class="signature-footer-banner">
-        🔏 <strong>DOKUMEN RESMI TERVERIFIKASI TTE (SIMPEL-RS)</strong><br/>
-        Penandatangan: <strong>{{ $signature->penandatangan->name }}</strong> ({{ $signature->penandatangan->jabatan ?? 'Pejabat' }}) &bull;
-        Waktu TTE: {{ $signature->ditandatangani_at->translatedFormat('d F Y H:i:s') }} WIB<br/>
-        Hash (SHA-256): <code style="font-family:monospace">{{ $signature->hash_dokumen }}</code>
+        🔏 <strong>DOKUMEN DISAHKAN SECARA ELEKTRONIK INTERNAL (SIMPEL-RS)</strong><br/>
+        Pelaksana: <strong>{{ $signature->penandatangan->name }}</strong> ({{ $signature->penandatangan->jabatan ?? 'Pejabat' }}) &bull;
+        Waktu: {{ $signature->ditandatangani_at->translatedFormat('d F Y H:i:s') }} WIB<br/>
+        Pindai QR pada naskah untuk melihat hash SHA-256 PDF final dan rekam pengesahannya.
     </div>
     @endif
 

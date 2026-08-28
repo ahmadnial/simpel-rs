@@ -76,7 +76,7 @@
                 <hr style="border:none; border-top:1px dashed #e2e8f0; margin:0">
 
                 <div>
-                    <div style="color:var(--text-muted); font-size:0.75rem; font-weight:600; text-transform:uppercase; margin-bottom:4px;">PENANDATANGAN (TTE)</div>
+                    <div style="color:var(--text-muted); font-size:0.75rem; font-weight:600; text-transform:uppercase; margin-bottom:4px;">PENANDATANGAN</div>
                     @if($document->signature)
                         <div style="display:flex; align-items:center; gap:8px;">
                             <div style="width:32px; height:32px; border-radius:50%; background:var(--brand-100); color:var(--brand-700); display:flex; align-items:center; justify-content:center; font-weight:700;">
@@ -88,7 +88,7 @@
                             </div>
                         </div>
                     @else
-                        <span style="color:var(--text-muted)">Belum ditandatangani secara elektronik.</span>
+                        <span style="color:var(--text-muted)">Belum disahkan secara elektronik.</span>
                     @endif
                 </div>
             </div>

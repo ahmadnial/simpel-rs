@@ -48,7 +48,7 @@ class WorkflowController extends Controller
         // Isolasi tetap per jenis naskah (document_type), bukan per unit: satu template
         // default berlaku untuk semua unit yang tidak dibatasi cakupannya.
         if ($validated['is_default']) {
-            WorkflowTemplate::where('document_type_id', $validated['document_type_id'])->update(['is_default' => false]);
+            $this->clearCompetingDefaults($validated['document_type_id'], $unitIds);
         }
 
         $workflow = WorkflowTemplate::create($validated);
@@ -75,9 +75,7 @@ class WorkflowController extends Controller
         unset($validated['unit_ids']);
 
         if ($validated['is_default']) {
-            WorkflowTemplate::where('document_type_id', $validated['document_type_id'])
-                ->where('id', '!=', $workflow->id)
-                ->update(['is_default' => false]);
+            $this->clearCompetingDefaults($validated['document_type_id'], $unitIds, $workflow->id);
         }
 
         $workflow->update($validated);
@@ -111,8 +109,11 @@ class WorkflowController extends Controller
         $validated = $request->validate([
             'nama_tahap'      => 'required|string',
             'tipe'            => 'required|in:verifikasi,penandatangan',
-            'urutan'          => 'required|integer',
-            'sla_hari_kerja'  => 'required|integer',
+            'urutan'          => [
+                'required', 'integer', 'min:1',
+                Rule::unique('workflow_steps', 'urutan')->where('workflow_template_id', $workflow->id),
+            ],
+            'sla_hari_kerja'  => 'required|integer|min:1|max:365',
             'role_nama'       => [
                 Rule::requiredIf(function () use ($request) {
                     // Tahap 1 mode serial boleh kosong role_nama-nya (pengusul yang pilih manual
@@ -131,12 +132,26 @@ class WorkflowController extends Controller
                 'nullable', 'string',
             ],
             'mode_verifikasi' => 'required|in:serial,parallel',
-            'min_approval'    => 'nullable|integer',
+            'min_approval'    => 'nullable|integer|min:1',
             'verifier_users'  => 'nullable|array',
+            'verifier_users.*'=> 'integer|exists:users,id',
             'verifier_roles'  => 'nullable|array',
+            'verifier_roles.*'=> 'string|exists:roles,name',
         ], [
             'role_nama.required' => 'Nama Role wajib diisi untuk tahap ini — tidak ada mekanisme pemilihan verifikator manual selain di tahap pertama.',
         ]);
+
+        if ($validated['tipe'] === 'penandatangan' && $workflow->steps()->where('tipe', 'penandatangan')->exists()) {
+            return back()->withErrors(['tipe' => 'Satu workflow hanya boleh memiliki satu tahap penandatangan.'])->withInput();
+        }
+
+        if ($validated['tipe'] === 'verifikasi' && $workflow->steps()->where('tipe', 'penandatangan')->where('urutan', '<', $validated['urutan'])->exists()) {
+            return back()->withErrors(['urutan' => 'Tahap verifikasi tidak boleh ditempatkan setelah penandatangan.'])->withInput();
+        }
+
+        if ($validated['tipe'] === 'penandatangan' && $workflow->steps()->where('urutan', '>', $validated['urutan'])->exists()) {
+            return back()->withErrors(['urutan' => 'Penandatangan wajib menjadi tahap terakhir.'])->withInput();
+        }
 
         // Mode parallel-quorum wajib punya minimal satu anggota pool (user atau role), kalau
         // kosong DocumentService::createVerificationsForStep() akan gagal total saat dokumen
@@ -148,6 +163,17 @@ class WorkflowController extends Controller
             return back()->withErrors([
                 'verifier_users' => 'Mode Parallel/Quorum wajib punya minimal 1 anggota pool (pilih user atau role).',
             ])->withInput();
+        }
+
+        if ($validated['mode_verifikasi'] === 'parallel') {
+            $poolUserCount = collect($validated['verifier_users'] ?? [])->unique()->count();
+            $poolRoleUsers = \App\Models\User::where('is_active', true)
+                ->whereHas('roles', fn ($q) => $q->whereIn('name', array_unique($validated['verifier_roles'] ?? [])))
+                ->count();
+            $poolSize = $poolUserCount + $poolRoleUsers;
+            if (($validated['min_approval'] ?? 1) > $poolSize) {
+                return back()->withErrors(['min_approval' => "Minimum persetujuan tidak boleh melebihi jumlah pool aktif ({$poolSize})."])->withInput();
+            }
         }
 
         $step = $workflow->steps()->create($validated);
@@ -173,5 +199,19 @@ class WorkflowController extends Controller
         $step->verifierPool()->delete();
         $step->delete();
         return back()->with('success', 'Tahapan berhasil dihapus.');
+    }
+
+    private function clearCompetingDefaults(int $documentTypeId, array $unitIds, ?int $exceptId = null): void
+    {
+        $query = WorkflowTemplate::where('document_type_id', $documentTypeId)
+            ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId));
+
+        if (empty($unitIds)) {
+            $query->whereDoesntHave('units');
+        } else {
+            $query->whereHas('units', fn ($q) => $q->whereIn('units.id', $unitIds));
+        }
+
+        $query->update(['is_default' => false]);
     }
 }

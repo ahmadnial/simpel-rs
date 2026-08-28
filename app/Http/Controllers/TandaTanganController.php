@@ -30,12 +30,9 @@ class TandaTanganController extends Controller
         $antrianQuery = Document::where('status', Document::STATUS_MENUNGGU_TTD)
             ->with(['documentType', 'unit', 'pengusul', 'currentVersion']);
 
-        // Filter role penandatangan kecuali super_admin
-        if (!$user->hasRole('super_admin')) {
-            $antrianQuery->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
-                $q->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles);
-            });
-        }
+        $antrianQuery->whereHas('workflowTemplate.steps', function ($q) use ($signerRoles) {
+            $q->where('tipe', 'penandatangan')->whereIn('role_nama', $signerRoles);
+        });
 
         // Filter Jenis Naskah / Klasifikasi Dokumen
         if ($request->filled('document_type_id')) {
@@ -72,41 +69,30 @@ class TandaTanganController extends Controller
     {
         $user = auth()->user();
 
-        // Roles yang dimiliki (termasuk delegasi Plt/Plh)
-        $signerRoles = $user->getRoleNames()->toArray();
-        if ($delegated = $user->activeDelegation()) {
-            if ($delegated->pejabat) {
-                $signerRoles = array_unique(array_merge($signerRoles, $delegated->pejabat->getRoleNames()->toArray()));
-            }
-        }
-
-        $isAuthorizedSigner = $user->hasRole('super_admin') || 
-            ($document->workflowTemplate?->steps()
-                ->where('tipe', 'penandatangan')
-                ->whereIn('role_nama', $signerRoles)
-                ->exists() ?? false);
-
-        abort_unless(
-            $document->status === Document::STATUS_MENUNGGU_TTD 
-            && ($user->hasPermissionTo('dokumen.tanda_tangan') || $user->hasRole('super_admin'))
-            && $isAuthorizedSigner,
-            403,
-            'Dokumen tidak dalam antrian tanda tangan Anda atau Anda tidak memiliki wewenang.'
-        );
+        $this->documentService->assertCanSign($document, $user);
 
         $document->load([
             'documentType', 'unit', 'pengusul',
             'currentVersion', 'verifications.verifikator'
         ]);
 
-        return view('tanda-tangan.show', compact('document'));
+        $currentVersionId = $document->currentVersion?->id;
+        $returnTarget = $document->verifications
+            ->where('document_version_id', $currentVersionId)
+            ->where('status', \App\Models\DocumentVerification::STATUS_DISETUJUI)
+            ->sortByDesc('level')
+            ->groupBy('level')
+            ->first();
+
+        return view('tanda-tangan.show', compact('document', 'returnTarget'));
     }
 
-    public function kirimOtp(Request $request)
+    public function kirimOtp(Request $request, Document $document)
     {
         $user = auth()->user();
+        $this->documentService->assertCanSign($document, $user);
         $expiryMinutes = config('app.otp_expiry_minutes', 5);
-        $otp = $user->generateOtp();
+        $otp = $user->generateOtp($document);
 
         $user->notify(new \App\Notifications\OtpTandaTangan($otp, $expiryMinutes));
 
@@ -133,7 +119,7 @@ class TandaTanganController extends Controller
 
         try {
             $this->documentService->tandaTangani($document, $request->otp);
-            return redirect()->route('ttd.index')->with('success', "Dokumen '{$document->judul}' berhasil ditandatangani secara elektronik (TTE).");
+            return redirect()->route('ttd.index')->with('success', "Dokumen '{$document->judul}' berhasil disahkan secara elektronik di SIMPEL-RS.");
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }

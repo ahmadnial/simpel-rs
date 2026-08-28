@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentNumberingCollisionTest extends TestCase
 {
@@ -66,7 +67,6 @@ class DocumentNumberingCollisionTest extends TestCase
         $signer = User::create([
             'name' => 'Direktur', 'email' => 'direktur@test.com', 'jabatan' => 'Direktur',
             'password' => bcrypt('password'), 'unit_id' => $unit->id, 'is_active' => true,
-            'otp_code' => '123456', 'otp_expires_at' => now()->addMinutes(5),
         ]);
         $signer->assignRole('penandatangan');
 
@@ -95,13 +95,20 @@ class DocumentNumberingCollisionTest extends TestCase
         $service = app(DocumentService::class);
 
         $this->actingAs($signer);
-        $signedA = $service->tandaTangani($documentA, '123456');
+        $otpA = $signer->generateOtp($documentA);
+        $signedA = $service->tandaTangani($documentA, $otpA);
         $this->assertSame('001/SK-Dir/RSNR/VIII/2026', $signedA->nomor_surat);
+        $signatureA = $signedA->signature;
+        $this->assertNotNull($signatureA->file_signed_path);
+        $this->assertTrue(Storage::disk('local')->exists($signatureA->file_signed_path));
+        $this->assertSame(
+            $signatureA->hash_dokumen,
+            hash_file('sha256', Storage::disk('local')->path($signatureA->file_signed_path)),
+            'Hash pengesahan harus dihitung dari PDF final immutable, bukan DOCX sumber.'
+        );
 
-        // Reset OTP (dipakai sekali) supaya bisa dipakai lagi untuk dokumen B pada tes ini.
-        $signer->update(['otp_code' => '123456', 'otp_expires_at' => now()->addMinutes(5)]);
-
-        $signedB = $service->tandaTangani($documentB, '123456');
+        $otpB = $signer->generateOtp($documentB);
+        $signedB = $service->tandaTangani($documentB, $otpB);
 
         // Nomor urut type B sendiri juga mulai dari 1 (counter terpisah per jenis naskah), jadi
         // hasil naif-nya SAMA PERSIS dengan nomor dokumen A ("001/SK-Dir/..."). Jaring pengaman di
