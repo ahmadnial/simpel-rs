@@ -141,17 +141,57 @@
             <span class="card-title">Riwayat Verifikasi Dokumen</span>
         </div>
         <div class="timeline">
-            @foreach($verification->document->verifications as $v)
-            <div class="timeline-item">
-                <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $v->level }}</div>
-                <div class="timeline-content">
-                    <div class="timeline-title">{{ $v->verifikator->name }}</div>
-                    <div class="timeline-meta">Status: <strong>{{ ucfirst($v->status) }}</strong></div>
-                    @if($v->catatan)
-                        <div class="timeline-note">"{{ $v->catatan }}"</div>
-                    @endif
+            {{-- Dikelompokkan per level, sama seperti di halaman detail dokumen — kalau satu
+                 tahap punya pool verifikator >1 orang yang masih sama-sama menunggu, dibungkus
+                 jadi 1 baris ringkas, bukan 1 baris identik per orang. Tiket yang otomatis
+                 dibatalkan (kalah cepat) disembunyikan; begitu ada yang benar-benar bertindak,
+                 namanya tampil sendiri. --}}
+            @foreach($verification->document->verifications->groupBy('level') as $level => $levelGroup)
+                @php
+                    $decided = $levelGroup->reject(fn ($v) => $v->isMenunggu() || $v->isDibatalkan());
+                    $pending = $levelGroup->filter(fn ($v) => $v->isMenunggu());
+                @endphp
+
+                @foreach($decided as $v)
+                <div class="timeline-item">
+                    <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">{{ $v->verifikator->name }}</div>
+                        <div class="timeline-meta">Status: <strong>{{ ucfirst($v->status) }}</strong></div>
+                        @if($v->catatan)
+                            <div class="timeline-note">"{{ $v->catatan }}"</div>
+                        @endif
+                    </div>
                 </div>
-            </div>
+                @endforeach
+
+                @if($pending->count() === 1)
+                    @php $v = $pending->first(); @endphp
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">{{ $v->verifikator->name }}</div>
+                            <div class="timeline-meta">Status: <strong>Menunggu</strong></div>
+                        </div>
+                    </div>
+                @elseif($pending->count() > 1)
+                    @php
+                        $pendingSubs = $pending->map(fn ($v) => $v->verifikator->jabatan ?: $v->verifikator->unit?->nama)->filter()->unique();
+                        $pendingCommonSub = $pendingSubs->count() === 1 ? $pendingSubs->first() : null;
+                    @endphp
+                    <div class="timeline-item">
+                        <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">
+                                Menunggu Verifikasi
+                                @if($pendingCommonSub)
+                                    <span style="font-weight:500; color:var(--text-muted)">&middot; {{ $pendingCommonSub }}</span>
+                                @endif
+                            </div>
+                            <div class="timeline-meta">Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
+                        </div>
+                    </div>
+                @endif
             @endforeach
         </div>
     </div>

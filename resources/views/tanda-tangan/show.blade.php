@@ -97,9 +97,15 @@
                 </span>
             </div>
             <div id="riwayat-panel" style="padding: var(--space-4); max-height: 400px; overflow-y: auto;">
-                @if($document->verifications->count() > 0)
+                @php
+                    // Tiket 'batal' cuma sisa pool quorum yang kalah cepat begitu rekannya lebih
+                    // dulu approve (mis. 3 dari 4 Asesor Internal) — di tahap tanda tangan ini
+                    // semua verifikasi sudah kelar, jadi tiket batal itu murni noise riwayat.
+                    $resolvedVerifications = $document->verifications->reject(fn ($v) => $v->isDibatalkan());
+                @endphp
+                @if($resolvedVerifications->count() > 0)
                     <div style="display:flex; flex-direction:column; gap: var(--space-3)">
-                    @foreach($document->verifications->sortByDesc('level') as $verif)
+                    @foreach($resolvedVerifications->sortByDesc('level') as $verif)
                         <div style="padding: 10px; background: var(--bg-body); border-radius: var(--radius-sm); border-left: 3px solid {{ $verif->status == 'disetujui' ? 'var(--brand-500)' : 'var(--text-muted)' }}">
                             <div style="font-size: 0.85rem; font-weight: 600;">Tahap {{ $verif->level }}: {{ $verif->verifikator->name ?? 'Verifikator' }}</div>
                             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">

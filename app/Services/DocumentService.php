@@ -292,7 +292,25 @@ class DocumentService
         if (!$step) return;
         $verifiers = [];
 
-        if ($step->isParallelQuorum()) {
+        // Kalau tahap ini SEBELUMNYA pernah ada yang secara eksplisit minta revisi (berarti ini
+        // pengajuan ulang setelah revisi, bukan pengajuan pertama kali), rute otomatis balik HANYA
+        // ke verifikator yang minta revisi itu — bukan broadcast ulang ke seluruh pool/role.
+        // Alasannya: dialah yang paling paham konteks revisi yang diminta, dan anggota pool lain
+        // yang belum pernah lihat dokumen ini tidak perlu tiba-tiba dapat tiket verifikasi.
+        // Kalau orang itu sudah tidak aktif, fallback ke logic normal di bawah (pool/role/manual).
+        $revisionRequesters = DocumentVerification::where('document_id', $document->id)
+            ->where('workflow_step_id', $step->id)
+            ->where('level', $level)
+            ->where('status', DocumentVerification::STATUS_REVISI)
+            ->with('verifikator')
+            ->get()
+            ->pluck('verifikator')
+            ->filter(fn ($u) => $u && $u->is_active)
+            ->unique('id');
+
+        if ($revisionRequesters->isNotEmpty()) {
+            $verifiers = $revisionRequesters->all();
+        } elseif ($step->isParallelQuorum()) {
             $pools = $step->verifierPool;
             foreach ($pools as $pool) {
                 if ($pool->tipe_pool === 'user' && $pool->user_id) {
@@ -710,9 +728,21 @@ class DocumentService
         $unit  = $document->unit;
         $tahun = (int) now()->format('Y');
 
-        $nomorUrut = NumberingSequence::getNextNomor($type, $tahun);
+        // Format Nomor sudah divalidasi unik antar Jenis Naskah sejak Admin > Jenis Naskah (lihat
+        // DocumentTypeController), jadi collision seharusnya tidak terjadi lagi. Loop-check ini
+        // cuma jaring pengaman untuk data lama (nomor_surat yang pernah dimasukkan manual/di luar
+        // alur ini) — supaya kalau tetap bentrok, pengguna dapat pesan jelas, bukan error SQL
+        // mentah di tengah proses tanda tangan.
+        for ($percobaan = 0; $percobaan < 5; $percobaan++) {
+            $nomorUrut = NumberingSequence::getNextNomor($type, $tahun);
+            $nomor = $type->generateNomor($unit, $nomorUrut, now());
 
-        return $type->generateNomor($unit, $nomorUrut, now());
+            if (!Document::where('nomor_surat', $nomor)->exists()) {
+                return $nomor;
+            }
+        }
+
+        abort(422, "Gagal membuat nomor surat unik untuk jenis naskah '{$type->nama}' setelah beberapa percobaan — kemungkinan Format Nomor jenis naskah ini tumpang tindih dengan jenis naskah lain. Hubungi Admin untuk memeriksa Format Nomor di menu Admin &gt; Jenis Naskah.");
     }
 
     /**

@@ -34,10 +34,18 @@ class DocumentTypeController extends Controller
             'nama' => 'required|string|max:255',
             'singkatan' => 'required|string|max:50',
             'deskripsi' => 'nullable|string',
-            'format_nomor' => 'required|string|max:255',
+            // unique: penomoran urut per jenis naskah dihitung TERPISAH (lihat NumberingSequence),
+            // jadi 2 jenis naskah dengan format_nomor identik akan sama-sama mulai dari nomor 1 dan
+            // DIJAMIN bentrok (unique constraint documents.nomor_surat) begitu keduanya dipakai —
+            // pernah kejadian nyata: "Kebijakan" & "Program" berbagi format sama dengan "Surat
+            // Keputusan" dan gagal di-TTE dengan error SQL mentah. Dicegah di sini, bukan
+            // ditangkap belakangan saat proses tanda tangan.
+            'format_nomor' => 'required|string|max:255|unique:document_types,format_nomor',
             'mulai_nomor' => 'required|integer|min:1',
             'is_active' => 'boolean',
             'urutan' => 'nullable|integer',
+        ], [
+            'format_nomor.unique' => 'Format Nomor ini sudah dipakai Jenis Naskah lain — akan menghasilkan nomor surat yang sama persis dan bentrok saat dokumen ditandatangani. Tambahkan penanda pembeda (mis. "/Keb", "/Prog").',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
@@ -55,10 +63,12 @@ class DocumentTypeController extends Controller
             'nama' => 'required|string|max:255',
             'singkatan' => 'required|string|max:50',
             'deskripsi' => 'nullable|string',
-            'format_nomor' => 'required|string|max:255',
+            'format_nomor' => 'required|string|max:255|unique:document_types,format_nomor,' . $jenisNaskah->id,
             'mulai_nomor' => 'required|integer|min:1',
             'is_active' => 'boolean',
             'urutan' => 'nullable|integer',
+        ], [
+            'format_nomor.unique' => 'Format Nomor ini sudah dipakai Jenis Naskah lain — akan menghasilkan nomor surat yang sama persis dan bentrok saat dokumen ditandatangani. Tambahkan penanda pembeda (mis. "/Keb", "/Prog").',
         ]);
 
         $validated['is_active'] = $request->has('is_active');

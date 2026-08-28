@@ -3,17 +3,17 @@
 @section('title', 'Buat Dokumen Baru')
 
 @section('breadcrumb')
-    <span class="breadcrumb-separator">/</span>
-    <a href="{{ route('dokumen.index') }}" style="color:var(--text-muted)">Dokumen Saya</a>
-    <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-current">Buat Baru</span>
+<span class="breadcrumb-separator">/</span>
+<a href="{{ route('dokumen.index') }}" style="color:var(--text-muted)">Dokumen Saya</a>
+<span class="breadcrumb-separator">/</span>
+<span class="breadcrumb-current">Buat Baru</span>
 @endsection
 
 @section('content')
 
 <div class="page-header" style="max-width: 1280px; margin: 0 auto var(--space-8)">
-    <h1 class="page-title">Buat Naskah Dinas Baru</h1>
-    <p class="page-subtitle">Unggah draft .docx/.pdf, lihat pratinjau secara langsung, lalu pilih alur verifikasi yang sesuai</p>
+    <h1 class="page-title">Buat Dokumen Baru</h1>
+    <p class="page-subtitle">Unggah draft .docx, lihat pratinjau secara langsung, lalu pilih alur verifikasi yang sesuai</p>
 </div>
 
 <div class="upload-page-grid">
@@ -31,13 +31,13 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="document_type_id" class="form-label">Jenis Naskah Dinas <span style="color:#ef4444">*</span></label>
+                    <label for="document_type_id" class="form-label">Jenis Dokumen <span style="color:#ef4444">*</span></label>
                     <select name="document_type_id" id="document_type_id" class="form-control" required>
                         <option value="">-- Pilih Jenis Naskah --</option>
                         @foreach($documentTypes as $type)
-                            <option value="{{ $type->id }}" {{ old('document_type_id') == $type->id ? 'selected' : '' }}>
-                                [{{ $type->singkatan }}] {{ $type->nama }} &mdash; (Format: {{ $type->format_nomor }})
-                            </option>
+                        <option value="{{ $type->id }}" {{ old('document_type_id') == $type->id ? 'selected' : '' }}>
+                            [{{ $type->singkatan }}] {{ $type->nama }} &mdash; (Format: {{ $type->format_nomor }})
+                        </option>
                         @endforeach
                     </select>
                     @error('document_type_id') <div class="form-error">{{ $message }}</div> @enderror
@@ -117,7 +117,7 @@
                     <div id="verifikator-picker-wrap">
                         <select name="verifikator_ids[]" id="verifikator_ids" class="form-control" multiple data-tomselect data-placeholder="Cari & pilih verifikator...">
                             @foreach($verifikators as $v)
-                                <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }}) &mdash; {{ $v->unit?->nama }}</option>
+                            <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }}) &mdash; {{ $v->unit?->nama }}</option>
                             @endforeach
                         </select>
                         <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih siapa yang akan memeriksa dokumen ini terlebih dahulu.</small>

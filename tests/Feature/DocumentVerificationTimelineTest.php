@@ -150,4 +150,53 @@ class DocumentVerificationTimelineTest extends TestCase
         $response->assertSee($fixtures['verifiers'][0]->name);
         $response->assertDontSee('Menunggu salah satu dari');
     }
+
+    public function test_resubmission_after_revisi_routes_only_to_the_verifier_who_requested_it(): void
+    {
+        $fixtures = $this->makeDocumentWithQuorumPool(4);
+        $document = $fixtures['document'];
+        [$requester, $other1, $other2, $other3] = $fixtures['verifiers'];
+
+        $requesterTicket = DocumentVerification::where('document_id', $document->id)
+            ->where('verifikator_id', $requester->id)->first();
+
+        app(\App\Services\DocumentService::class)->mintaRevisi($requesterTicket, 'Perbaiki format tabel.');
+
+        $document->refresh();
+        $this->assertSame(Document::STATUS_REVISI, $document->status);
+
+        // Simulasikan pengusul mengunggah versi perbaikan (tanpa lewat upload file sungguhan).
+        $document->versions()->update(['is_current' => false]);
+        DocumentVersion::create([
+            'document_id' => $document->id, 'versi' => 2,
+            'file_path' => 'documents/test-v2.docx', 'file_name' => 'test-v2.docx',
+            'uploaded_by' => $fixtures['pengusul']->id, 'is_current' => true,
+        ]);
+
+        app(\App\Services\DocumentService::class)->ajukanDokumen($document, []);
+
+        $newTickets = DocumentVerification::where('document_id', $document->id)
+            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+            ->get();
+
+        $this->assertCount(1, $newTickets, 'Tiket baru seharusnya cuma dibuat untuk verifikator yang minta revisi, bukan seluruh pool.');
+        $this->assertSame($requester->id, $newTickets->first()->verifikator_id);
+
+        foreach ([$other1, $other2, $other3] as $notInvolved) {
+            $this->assertFalse(
+                DocumentVerification::where('document_id', $document->id)
+                    ->where('verifikator_id', $notInvolved->id)
+                    ->where('status', DocumentVerification::STATUS_MENUNGGU)
+                    ->exists(),
+                "{$notInvolved->name} tidak seharusnya dapat tiket baru — dia tidak pernah minta revisi."
+            );
+        }
+
+        // Riwayat di halaman detail dokumen juga harus mencerminkan ini: nama yang minta revisi
+        // sebelumnya tampil, sisanya tidak dibungkus jadi "menunggu banyak orang" lagi.
+        $response = $this->actingAs($fixtures['pengusul'])->get(route('dokumen.show', $document));
+        $response->assertStatus(200);
+        $response->assertSee($requester->name);
+        $response->assertDontSee('Menunggu salah satu dari');
+    }
 }
