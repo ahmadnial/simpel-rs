@@ -532,6 +532,34 @@
 
     // Notifikasi dimuat on-demand saat menu dibuka. Tidak ada polling otomatis
     // agar setiap halaman tidak terus-menerus membebani server/database.
+
+    // Form verifikasi dan editor dokumen bisa terbuka cukup lama tanpa request
+    // lain ke Laravel. Perbarui sesi tiap lima menit selama tab terlihat agar
+    // token CSRF tidak kedaluwarsa di tengah pekerjaan. Kegagalan jaringan tidak
+    // dianggap logout; hanya respons redirect/unauthorized yang mengarahkan user
+    // kembali ke login.
+    const SESSION_KEEP_ALIVE_MS = 5 * 60 * 1000;
+    const sessionKeepAliveUrl = @json(route('session.keep-alive'));
+
+    function keepSessionAlive() {
+        if (document.visibilityState !== 'visible') return;
+
+        fetch(sessionKeepAliveUrl, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        }).then(response => {
+            if (response.redirected || response.status === 401 || response.status === 419) {
+                window.location.assign(response.url);
+            }
+        }).catch(() => {
+            // Jangan mengeluarkan pengguna karena gangguan jaringan sementara.
+        });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') keepSessionAlive();
+    });
+    window.setInterval(keepSessionAlive, SESSION_KEEP_ALIVE_MS);
 </script>
 </body>
 </html>

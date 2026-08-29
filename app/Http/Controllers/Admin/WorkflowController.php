@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Models\WorkflowTemplate;
+use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Unit;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class WorkflowController extends Controller
 {
@@ -106,12 +108,48 @@ class WorkflowController extends Controller
 
     public function storeStep(Request $request, WorkflowTemplate $workflow)
     {
+        $validated = $this->validateStep($request, $workflow);
+
+        $step = $workflow->steps()->create($this->stepAttributes($validated));
+        $this->syncVerifierPool($step, $validated);
+
+        return back()->with('success', 'Tahapan berhasil ditambahkan.');
+    }
+
+    public function updateStep(Request $request, \App\Models\WorkflowStep $step)
+    {
+        $workflow = $step->template;
+        abort_unless($workflow, 404);
+
+        // Step tidak menyimpan snapshot konfigurasi untuk dokumen yang sedang berjalan.
+        // Mengubahnya saat ada dokumen aktif bisa mengubah penerima/tata cara tahap
+        // berikutnya di tengah proses. Batasi perubahan sampai tidak ada proses aktif.
+        if ($this->workflowHasActiveDocuments($workflow)) {
+            return back()->with('error', 'Tahapan tidak dapat diubah selama masih ada dokumen aktif pada workflow ini. Selesaikan atau batalkan proses aktif terlebih dahulu.');
+        }
+
+        $validated = $this->validateStep($request, $workflow, $step);
+
+        $step->update($this->stepAttributes($validated));
+        $this->syncVerifierPool($step, $validated);
+
+        return redirect()->route('admin.workflows.steps', $workflow)
+            ->with('success', 'Tahapan berhasil diperbarui. Perubahan berlaku untuk pengajuan berikutnya.');
+    }
+
+    private function validateStep(Request $request, WorkflowTemplate $workflow, ?\App\Models\WorkflowStep $editingStep = null): array
+    {
+        $otherSteps = $workflow->steps()
+            ->when($editingStep, fn ($query) => $query->whereKeyNot($editingStep->id));
+
         $validated = $request->validate([
             'nama_tahap'      => 'required|string',
             'tipe'            => 'required|in:verifikasi,penandatangan',
             'urutan'          => [
                 'required', 'integer', 'min:1',
-                Rule::unique('workflow_steps', 'urutan')->where('workflow_template_id', $workflow->id),
+                Rule::unique('workflow_steps', 'urutan')
+                    ->where('workflow_template_id', $workflow->id)
+                    ->ignore($editingStep?->id),
             ],
             'sla_hari_kerja'  => 'required|integer|min:1|max:365',
             'role_nama'       => [
@@ -129,28 +167,32 @@ class WorkflowController extends Controller
 
                     return $request->input('mode_verifikasi') === 'serial' && (int) $request->input('urutan') > 1;
                 }),
-                'nullable', 'string',
+                'nullable', 'string', Rule::exists('roles', 'name'),
             ],
             'mode_verifikasi' => 'required|in:serial,parallel',
             'min_approval'    => 'nullable|integer|min:1',
             'verifier_users'  => 'nullable|array',
-            'verifier_users.*'=> 'integer|exists:users,id',
+            'verifier_users.*'=> ['integer', Rule::exists('users', 'id')->where('is_active', true)],
             'verifier_roles'  => 'nullable|array',
             'verifier_roles.*'=> 'string|exists:roles,name',
         ], [
             'role_nama.required' => 'Nama Role wajib diisi untuk tahap ini — tidak ada mekanisme pemilihan verifikator manual selain di tahap pertama.',
         ]);
 
-        if ($validated['tipe'] === 'penandatangan' && $workflow->steps()->where('tipe', 'penandatangan')->exists()) {
-            return back()->withErrors(['tipe' => 'Satu workflow hanya boleh memiliki satu tahap penandatangan.'])->withInput();
+        if ($validated['tipe'] === 'penandatangan' && $validated['mode_verifikasi'] !== 'serial') {
+            throw ValidationException::withMessages(['mode_verifikasi' => 'Tahap penandatangan harus menggunakan mode Serial/Tunggal.']);
         }
 
-        if ($validated['tipe'] === 'verifikasi' && $workflow->steps()->where('tipe', 'penandatangan')->where('urutan', '<', $validated['urutan'])->exists()) {
-            return back()->withErrors(['urutan' => 'Tahap verifikasi tidak boleh ditempatkan setelah penandatangan.'])->withInput();
+        if ($validated['tipe'] === 'penandatangan' && (clone $otherSteps)->where('tipe', 'penandatangan')->exists()) {
+            throw ValidationException::withMessages(['tipe' => 'Satu workflow hanya boleh memiliki satu tahap penandatangan.']);
         }
 
-        if ($validated['tipe'] === 'penandatangan' && $workflow->steps()->where('urutan', '>', $validated['urutan'])->exists()) {
-            return back()->withErrors(['urutan' => 'Penandatangan wajib menjadi tahap terakhir.'])->withInput();
+        if ($validated['tipe'] === 'verifikasi' && (clone $otherSteps)->where('tipe', 'penandatangan')->where('urutan', '<', $validated['urutan'])->exists()) {
+            throw ValidationException::withMessages(['urutan' => 'Tahap verifikasi tidak boleh ditempatkan setelah penandatangan.']);
+        }
+
+        if ($validated['tipe'] === 'penandatangan' && (clone $otherSteps)->where('urutan', '>', $validated['urutan'])->exists()) {
+            throw ValidationException::withMessages(['urutan' => 'Penandatangan wajib menjadi tahap terakhir.']);
         }
 
         // Mode parallel-quorum wajib punya minimal satu anggota pool (user atau role), kalau
@@ -160,45 +202,97 @@ class WorkflowController extends Controller
             && empty($validated['verifier_users'])
             && empty($validated['verifier_roles'])
         ) {
-            return back()->withErrors([
+            throw ValidationException::withMessages([
                 'verifier_users' => 'Mode Parallel/Quorum wajib punya minimal 1 anggota pool (pilih user atau role).',
-            ])->withInput();
+            ]);
         }
 
         if ($validated['mode_verifikasi'] === 'parallel') {
-            $poolUserCount = collect($validated['verifier_users'] ?? [])->unique()->count();
-            $poolRoleUsers = \App\Models\User::where('is_active', true)
-                ->whereHas('roles', fn ($q) => $q->whereIn('name', array_unique($validated['verifier_roles'] ?? [])))
-                ->count();
-            $poolSize = $poolUserCount + $poolRoleUsers;
+            // User yang dipilih langsung dan juga berada dalam role pool hanya mendapat
+            // satu tiket. Hitung penerima unik agar quorum tidak bisa disimpan lebih
+            // besar dari jumlah orang yang benar-benar akan menerima tiket.
+            $poolSize = $this->resolvedPoolUserCount($validated);
             if (($validated['min_approval'] ?? 1) > $poolSize) {
-                return back()->withErrors(['min_approval' => "Minimum persetujuan tidak boleh melebihi jumlah pool aktif ({$poolSize})."])->withInput();
+                throw ValidationException::withMessages(['min_approval' => "Minimum persetujuan tidak boleh melebihi jumlah pool aktif ({$poolSize})."]);
             }
         }
 
-        $step = $workflow->steps()->create($validated);
+        return $validated;
+    }
 
-        if ($validated['mode_verifikasi'] === 'parallel') {
-            if (!empty($validated['verifier_users'])) {
-                foreach ($validated['verifier_users'] as $uid) {
-                    $step->verifierPool()->create(['tipe_pool' => 'user', 'user_id' => $uid]);
-                }
-            }
-            if (!empty($validated['verifier_roles'])) {
-                foreach ($validated['verifier_roles'] as $rName) {
-                    $step->verifierPool()->create(['tipe_pool' => 'role', 'role_nama' => $rName]);
-                }
-            }
+    private function stepAttributes(array $validated): array
+    {
+        return [
+            'nama_tahap' => $validated['nama_tahap'],
+            'tipe' => $validated['tipe'],
+            'urutan' => $validated['urutan'],
+            'sla_hari_kerja' => $validated['sla_hari_kerja'],
+            'mode_verifikasi' => $validated['mode_verifikasi'],
+            'min_approval' => $validated['mode_verifikasi'] === 'parallel' ? ($validated['min_approval'] ?? 1) : 1,
+            'role_nama' => $validated['mode_verifikasi'] === 'serial' ? ($validated['role_nama'] ?? null) : null,
+        ];
+    }
+
+    private function syncVerifierPool(\App\Models\WorkflowStep $step, array $validated): void
+    {
+        $step->verifierPool()->delete();
+        if ($validated['mode_verifikasi'] !== 'parallel') {
+            return;
         }
 
-        return back()->with('success', 'Tahapan berhasil ditambahkan.');
+        foreach (collect($validated['verifier_users'] ?? [])->unique() as $userId) {
+            $step->verifierPool()->create(['tipe_pool' => 'user', 'user_id' => $userId]);
+        }
+        foreach (collect($validated['verifier_roles'] ?? [])->unique() as $roleName) {
+            $step->verifierPool()->create(['tipe_pool' => 'role', 'role_nama' => $roleName]);
+        }
+    }
+
+    private function resolvedPoolUserCount(array $validated): int
+    {
+        $userIds = collect($validated['verifier_users'] ?? [])->unique()->values();
+        $roleNames = collect($validated['verifier_roles'] ?? [])->unique()->values();
+
+        return \App\Models\User::where('is_active', true)
+            ->where(function ($query) use ($userIds, $roleNames) {
+                if ($userIds->isNotEmpty()) {
+                    $query->whereIn('id', $userIds);
+                }
+                if ($roleNames->isNotEmpty()) {
+                    $query->orWhereHas('roles', fn ($roles) => $roles->whereIn('name', $roleNames));
+                }
+            })
+            ->count();
     }
 
     public function destroyStep(\App\Models\WorkflowStep $step)
     {
+        if ($step->verifications()->exists()) {
+            return back()->with('error', 'Tahapan tidak dapat dihapus karena sudah memiliki riwayat verifikasi dokumen.');
+        }
+
+        if ($this->workflowHasActiveDocuments($step->template)) {
+            return back()->with('error', 'Tahapan tidak dapat dihapus selama masih ada dokumen aktif pada workflow ini.');
+        }
+
         $step->verifierPool()->delete();
         $step->delete();
         return back()->with('success', 'Tahapan berhasil dihapus.');
+    }
+
+    private function workflowHasActiveDocuments(?WorkflowTemplate $workflow): bool
+    {
+        if (!$workflow) {
+            return false;
+        }
+
+        return $workflow->documents()->whereIn('status', [
+            Document::STATUS_DIAJUKAN,
+            Document::STATUS_VERIFIKASI,
+            Document::STATUS_REVISI,
+            Document::STATUS_MENUNGGU_TTD,
+            Document::STATUS_DITOLAK_TTD,
+        ])->exists();
     }
 
     private function clearCompetingDefaults(int $documentTypeId, array $unitIds, ?int $exceptId = null): void

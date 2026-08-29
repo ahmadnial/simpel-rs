@@ -20,6 +20,10 @@ class DocumentSignature extends Model
     protected function casts(): array
     {
         return [
+            'document_id'       => 'integer',
+            'document_version_id' => 'integer',
+            'penandatangan_id'  => 'integer',
+            'delegasi_id'       => 'integer',
             'ditandatangani_at' => 'datetime',
             'metadata_tte'      => 'array',
         ];

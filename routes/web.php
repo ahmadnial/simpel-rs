@@ -34,6 +34,15 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->midd
 // ==========================================
 Route::middleware(['auth'])->group(function () {
 
+    // Halaman editor/form dapat dibiarkan terbuka cukup lama tanpa request lain.
+    // Endpoint ringan ini dipanggil periodik oleh layout untuk mempertahankan
+    // sesi dan token CSRF selama pengguna masih membuka aplikasi.
+    Route::get('/session/keep-alive', function (\Illuminate\Http\Request $request) {
+        $request->session()->put('_last_keep_alive_at', now()->timestamp);
+
+        return response()->json(['ok' => true]);
+    })->name('session.keep-alive');
+
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -120,6 +129,7 @@ Route::middleware(['auth'])->group(function () {
         
         Route::get('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'steps'])->name('workflows.steps');
         Route::post('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'storeStep'])->name('workflows.steps.store');
+        Route::put('workflows/steps/{step}', [\App\Http\Controllers\Admin\WorkflowController::class, 'updateStep'])->name('workflows.steps.update');
         Route::delete('workflows/steps/{step}', [\App\Http\Controllers\Admin\WorkflowController::class, 'destroyStep'])->name('workflows.steps.destroy');
     });
 

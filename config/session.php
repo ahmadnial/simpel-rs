@@ -32,7 +32,12 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // Pengguna kerap menelaah dokumen cukup lama sebelum mengirim formulir.
+    // Dua jam membuat token CSRF pada halaman yang masih terbuka kedaluwarsa dan
+    // Laravel membalasnya dengan 419. Default delapan jam mencakup satu hari kerja;
+    // instalasi tetap dapat menetapkan kebijakan yang lebih ketat melalui
+    // SESSION_LIFETIME di environment.
+    'lifetime' => (int) env('SESSION_LIFETIME', 480),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

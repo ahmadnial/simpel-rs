@@ -19,6 +19,9 @@ class Delegation extends Model
     protected function casts(): array
     {
         return [
+            'pejabat_id'     => 'integer',
+            'delegasi_id'    => 'integer',
+            'dibuat_oleh'    => 'integer',
             'berlaku_dari'    => 'date',
             'berlaku_sampai'  => 'date',
             'is_active'       => 'boolean',

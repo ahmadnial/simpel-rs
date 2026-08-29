@@ -16,6 +16,14 @@ class WorkflowStepVerifier extends Model
         'user_id',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'workflow_step_id' => 'integer',
+            'user_id' => 'integer',
+        ];
+    }
+
     public function step()
     {
         return $this->belongsTo(WorkflowStep::class, 'workflow_step_id');

@@ -18,7 +18,12 @@ class DocumentVersion extends Model
 
     protected function casts(): array
     {
-        return ['is_current' => 'boolean', 'versi' => 'integer'];
+        return [
+            'document_id' => 'integer',
+            'uploaded_by' => 'integer',
+            'is_current' => 'boolean',
+            'versi' => 'integer',
+        ];
     }
 
     public function document()

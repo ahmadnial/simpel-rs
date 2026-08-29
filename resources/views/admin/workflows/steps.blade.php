@@ -18,7 +18,7 @@
         <h1 class="page-title">Tahapan Alur: {{ $workflow->nama }}</h1>
         <p class="page-subtitle">Atur skema rantai persetujuan untuk template ini.</p>
     </div>
-    <button class="btn btn-primary" onclick="document.getElementById('modalAddStep').style.display='flex'">
+    <button class="btn btn-primary" onclick="openAddStep()">
         + Tambah Tahapan
     </button>
 </div>
@@ -26,6 +26,12 @@
 @if(session('success'))
     <div style="padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; color: #166534; border-radius: 8px; margin-bottom: 20px;">
         {{ session('success') }}
+    </div>
+@endif
+
+@if($errors->any())
+    <div style="padding: 12px 16px; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
+        {{ $errors->first() }}
     </div>
 @endif
 
@@ -75,6 +81,24 @@
                     </td>
                     <td>{{ $step->sla_hari_kerja }} Hari</td>
                     <td>
+                        @php
+                            // Simpan payload sebagai data attribute. @json() tidak dapat
+                            // mem-parsing array multi-baris di dalam atribut Blade secara
+                            // andal, yang sebelumnya memicu ParseError saat halaman dirender.
+                            $stepEditData = [
+                                'id' => $step->id,
+                                'nama_tahap' => $step->nama_tahap,
+                                'urutan' => $step->urutan,
+                                'tipe' => $step->tipe,
+                                'sla_hari_kerja' => $step->sla_hari_kerja,
+                                'mode_verifikasi' => $step->mode_verifikasi,
+                                'min_approval' => $step->min_approval,
+                                'role_nama' => $step->role_nama,
+                                'verifier_users' => $step->verifierPool->where('tipe_pool', 'user')->pluck('user_id')->values()->all(),
+                                'verifier_roles' => $step->verifierPool->where('tipe_pool', 'role')->pluck('role_nama')->values()->all(),
+                            ];
+                        @endphp
+                        <button type="button" class="btn btn-secondary btn-sm" data-step='@json($stepEditData)' onclick="editStep(JSON.parse(this.dataset.step))">Edit</button>
                         <form action="{{ route('admin.workflows.steps.destroy', $step) }}" method="POST" style="display:inline;" data-confirm="Hapus tahapan ini dari alur persetujuan?">
                             @csrf
                             @method('DELETE')
@@ -95,32 +119,33 @@
 {{-- Modal Add Step --}}
 <div id="modalAddStep" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; width:100%; max-width:650px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
-        <h3 style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Tahapan Alur</h3>
-        <form method="POST" action="{{ route('admin.workflows.steps.store', $workflow) }}">
+        <h3 id="modalStepTitle" style="margin-top:0; font-size:1.2rem; font-weight:700;">Tambah Tahapan Alur</h3>
+        <form id="formStep" method="POST" action="{{ route('admin.workflows.steps.store', $workflow) }}">
             @csrf
+            <input type="hidden" name="_method" id="stepMethod" value="POST">
             
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:2;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Nama Tahapan *</label>
-                    <input type="text" name="nama_tahap" class="form-control" placeholder="Contoh: Verifikasi Kepala Instalasi / Ketua Komite" required>
+                    <input type="text" name="nama_tahap" id="stepNamaTahap" class="form-control" placeholder="Contoh: Verifikasi Kepala Instalasi / Ketua Komite" required>
                 </div>
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Urutan *</label>
-                    <input type="number" name="urutan" class="form-control" value="{{ $workflow->steps->count() + 1 }}" required>
+                    <input type="number" name="urutan" id="stepUrutan" class="form-control" value="{{ $workflow->steps->count() + 1 }}" min="1" required>
                 </div>
             </div>
 
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Tipe *</label>
-                    <select name="tipe" class="form-control" required>
+                    <select name="tipe" id="stepTipe" class="form-control" required>
                         <option value="verifikasi">Verifikasi</option>
                         <option value="penandatangan">Penandatangan</option>
                     </select>
                 </div>
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">SLA (Hari) *</label>
-                    <input type="number" name="sla_hari_kerja" class="form-control" value="2" required>
+                    <input type="number" name="sla_hari_kerja" id="stepSla" class="form-control" value="2" min="1" max="365" required>
                 </div>
             </div>
 
@@ -139,7 +164,7 @@
             {{-- Mode Serial Settings --}}
             <div id="settings_serial" style="margin-bottom:12px;">
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Role Spesifik (Serial)</label>
-                <select name="role_nama" class="form-control">
+                <select name="role_nama" id="stepRole" class="form-control">
                     <option value="">-- Ditentukan oleh Pengusul --</option>
                     @foreach($roles as $r)
                         <option value="{{ $r->name }}">{{ $r->name }}</option>
@@ -179,7 +204,7 @@
 
             <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalAddStep').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-primary">Simpan Tahapan</button>
+                <button type="submit" id="stepSubmit" class="btn btn-primary">Simpan Tahapan</button>
             </div>
         </form>
     </div>
@@ -195,6 +220,46 @@
             document.getElementById('settings_parallel').style.display = 'none';
             document.getElementById('settings_serial').style.display = 'block';
         }
+    }
+
+    function openAddStep() {
+        const form = document.getElementById('formStep');
+        form.reset();
+        form.action = '{{ route('admin.workflows.steps.store', $workflow) }}';
+        document.getElementById('stepMethod').value = 'POST';
+        document.getElementById('stepUrutan').value = {{ $workflow->steps->count() + 1 }};
+        document.getElementById('stepSla').value = 2;
+        document.getElementById('min_approval').value = 1;
+        document.getElementById('modalStepTitle').textContent = 'Tambah Tahapan Alur';
+        document.getElementById('stepSubmit').textContent = 'Simpan Tahapan';
+        toggleMode();
+        document.getElementById('modalAddStep').style.display = 'flex';
+    }
+
+    function editStep(step) {
+        document.getElementById('modalStepTitle').textContent = 'Edit Tahapan Alur';
+        document.getElementById('formStep').action = '{{ url('admin/workflows/steps') }}/' + step.id;
+        document.getElementById('stepMethod').value = 'PUT';
+        document.getElementById('stepNamaTahap').value = step.nama_tahap;
+        document.getElementById('stepUrutan').value = step.urutan;
+        document.getElementById('stepTipe').value = step.tipe;
+        document.getElementById('stepSla').value = step.sla_hari_kerja;
+        document.getElementById('mode_verifikasi').value = step.mode_verifikasi;
+        document.getElementById('min_approval').value = step.min_approval || 1;
+        document.getElementById('stepRole').value = step.role_nama || '';
+
+        const users = (step.verifier_users || []).map(String);
+        document.querySelectorAll('input[name="verifier_users[]"]').forEach(input => {
+            input.checked = users.includes(input.value);
+        });
+        const roles = step.verifier_roles || [];
+        document.querySelectorAll('input[name="verifier_roles[]"]').forEach(input => {
+            input.checked = roles.includes(input.value);
+        });
+
+        toggleMode();
+        document.getElementById('stepSubmit').textContent = 'Simpan Perubahan';
+        document.getElementById('modalAddStep').style.display = 'flex';
     }
 </script>
 

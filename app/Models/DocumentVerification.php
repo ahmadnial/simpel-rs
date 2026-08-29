@@ -27,6 +27,13 @@ class DocumentVerification extends Model
     protected function casts(): array
     {
         return [
+            // SQL Server mengembalikan kolom unsignedBigInteger (numeric) sebagai
+            // string. Normalisasi FK ini penting karena otorisasi membandingkan
+            // identitas secara ketat untuk mencegah pengambilalihan tiket.
+            'document_id'         => 'integer',
+            'document_version_id' => 'integer',
+            'workflow_step_id'    => 'integer',
+            'verifikator_id'      => 'integer',
             'batas_waktu'  => 'datetime',
             'direspon_at'  => 'datetime',
             'direset_at'   => 'datetime',

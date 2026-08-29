@@ -37,6 +37,11 @@ class Document extends Model
     protected function casts(): array
     {
         return [
+            'document_type_id'    => 'integer',
+            'unit_id'             => 'integer',
+            'pengusul_id'         => 'integer',
+            'workflow_template_id'=> 'integer',
+            'pengganti_document_id' => 'integer',
             'is_rahasia'         => 'boolean',
             'diajukan_at'        => 'datetime',
             'ditandatangani_at'  => 'datetime',
