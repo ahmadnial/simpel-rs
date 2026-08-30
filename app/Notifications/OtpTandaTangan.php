@@ -13,6 +13,9 @@ class OtpTandaTangan extends Notification
     public function __construct(
         public string $otp,
         public int $expiryMinutes,
+        public string $challengeId = 'legacy',
+        public ?string $documentTitle = null,
+        public ?string $documentNumber = null,
     ) {
     }
 
@@ -24,11 +27,14 @@ class OtpTandaTangan extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Kode OTP Tanda Tangan Elektronik SIMPEL-RS')
+            ->subject('Permintaan Tanda Tangan Internal SIMPEL-RS')
             ->greeting("Halo {$notifiable->name},")
-            ->line('Berikut kode OTP untuk pengesahan elektronik internal naskah dinas:')
+            ->line('Kode berikut hanya berlaku untuk permintaan tanda tangan internal yang Anda mulai sendiri:')
             ->line("**{$this->otp}**")
-            ->line("Kode berlaku selama {$this->expiryMinutes} menit dan hanya untuk satu kali proses tanda tangan.")
+            ->line("Request ID: {$this->challengeId}")
+            ->when($this->documentNumber, fn (MailMessage $mail) => $mail->line("Nomor dokumen: {$this->documentNumber}"))
+            ->when($this->documentTitle, fn (MailMessage $mail) => $mail->line("Judul dokumen: {$this->documentTitle}"))
+            ->line("Kode berlaku selama {$this->expiryMinutes} menit dan hanya untuk transaksi, versi, serta sesi ini.")
             ->line('Jangan bagikan kode ini kepada siapa pun, termasuk pihak yang mengaku dari tim IT.');
     }
 

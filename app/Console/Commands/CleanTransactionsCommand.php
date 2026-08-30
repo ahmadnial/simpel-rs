@@ -18,6 +18,12 @@ class CleanTransactionsCommand extends Command
 
     public function handle(): int
     {
+        if (!app()->environment(['local', 'testing'])) {
+            $this->error('Perintah data:clean-transactions hanya diizinkan pada environment local/testing.');
+
+            return Command::FAILURE;
+        }
+
         $this->info('=====================================================');
         $this->info(' PEMBERSIHAN DATA TRANSAKSI & DOKUMEN (SIMPEL-RS)');
         $this->info('=====================================================');
@@ -40,12 +46,22 @@ class CleanTransactionsCommand extends Command
 
         DB::beginTransaction();
         try {
+            foreach ([
+                'evidence_status_events', 'evidence_storage_copies', 'audit_checkpoints', 'audit_chain_events', 'audit_chain_streams',
+                'document_signatures', 'signing_outbox_messages', 'signature_evidence', 'signing_ceremonies',
+                'signature_otp_challenges',
+            ] as $table) {
+                if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                    DB::table($table)->delete();
+                }
+            }
+
             // Hapus tabel transaksi secara berurutan sesuai relasi Foreign Key
             $this->line('1. Menghapus data distribusi dokumen...');
             DB::table('document_distributions')->delete();
 
             $this->line('2. Menghapus data tanda tangan elektronik (TTE)...');
-            DB::table('document_signatures')->delete();
+            // Tabel signature/evidence v2 sudah dibersihkan lebih dahulu untuk menjaga urutan FK.
 
             $this->line('3. Menghapus data verifikasi dokumen...');
             DB::table('document_verifications')->delete();

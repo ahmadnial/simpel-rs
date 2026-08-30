@@ -1,0 +1,32 @@
+services:
+  openbao:
+    image: openbao/openbao:2.5.4
+    container_name: simpel-tte-openbao
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - ./openbao.hcl:/openbao/config/openbao.hcl:ro
+      - openbao-data:/openbao/data
+    command: server
+
+  minio:
+    build:
+      context: .
+      dockerfile: Dockerfile.minio
+    image: simpel-rs/minio:RELEASE.2025-10-15T17-29-55Z
+    container_name: simpel-tte-minio
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    env_file: stack.env
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  openbao-data:
+  minio-data:

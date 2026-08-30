@@ -40,19 +40,29 @@
             </div>
 
             <div style="display:flex; flex-direction:column; gap: var(--space-4); align-items:center; padding: var(--space-6) 0">
-                <button type="button" class="btn btn-warning btn-lg" onclick="mintaOtp()" id="btn-minta-otp">
+                <button type="button" class="btn btn-warning btn-lg" onclick="mintaOtp()" id="btn-minta-otp" @disabled(!$ceremony)>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     Kirim Kode OTP Pengesahan
                 </button>
-                <div style="font-size:0.78rem; color:var(--text-muted)">Kode otentikasi 6-digit berlaku selama 5 menit.</div>
+                <div style="font-size:0.78rem; color:var(--text-muted)">Kode otentikasi 8 digit berlaku selama 3 menit dan terikat pada dokumen, versi, serta sesi ini.</div>
+                @unless($ceremony)
+                    <div style="width:100%; padding:1rem; border:1px solid var(--border-warning); border-radius:var(--radius-md)">
+                        <p style="font-size:0.82rem; margin-bottom:0.75rem">Konfirmasi ulang password diperlukan sebelum PDF final kandidat dan OTP disiapkan.</p>
+                        <form method="POST" action="{{ route('ttd.reauthenticate', $document) }}" style="display:flex; gap:0.5rem">
+                            @csrf
+                            <input type="password" name="password" class="form-control" autocomplete="current-password" required placeholder="Password saat ini">
+                            <button class="btn btn-primary" type="submit">Konfirmasi</button>
+                        </form>
+                    </div>
+                @endunless
             </div>
 
             <form method="POST" action="{{ route('ttd.tandatangani', $document) }}" id="form-tte" style="margin-top: var(--space-4)">
                 @csrf
                 <div class="form-group">
-                    <label for="otp" class="form-label" style="text-align:center">Masukkan 6-Digit Kode OTP</label>
+                    <label for="otp" class="form-label" style="text-align:center">Masukkan 8 Digit Kode OTP</label>
                     <div class="otp-input-group">
-                        <input type="text" name="otp" id="otp" class="form-control" style="font-size:1.5rem; text-align:center; letter-spacing:8px; font-weight:700" maxlength="6" placeholder="000000" required>
+                        <input type="text" name="otp" id="otp" class="form-control" style="font-size:1.5rem; text-align:center; letter-spacing:8px; font-weight:700" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="one-time-code" placeholder="00000000" required>
                     </div>
                 </div>
                 <div style="display:flex; gap: var(--space-4);">
@@ -70,9 +80,15 @@
             <div class="card-header">
                 <span class="card-title">Pratinjau Lembar Dokumen</span>
             </div>
-            <div class="docx-paper-wrapper">
-                <x-naskah-preview :document="$document" />
-            </div>
+            @if($ceremony)
+                <div style="padding:0.75rem; background:var(--bg-elevated); border-radius:var(--radius-md); margin-bottom:1rem; font-size:0.8rem">
+                    Nomor kandidat: <strong>{{ $ceremony->reserved_number }}</strong><br>
+                    SHA-256: <code style="word-break:break-all">{{ $ceremony->candidate_pdf_hash }}</code>
+                </div>
+                <iframe src="{{ route('ttd.candidate', [$document, $ceremony]) }}" title="PDF final kandidat" style="width:100%; min-height:720px; border:1px solid var(--border-subtle); border-radius:var(--radius-md)"></iframe>
+            @else
+                <div style="padding:2rem; text-align:center; color:var(--text-muted)">Konfirmasi ulang password untuk membuka PDF final kandidat byte-identik.</div>
+            @endif
         </div>
 
     </div>
@@ -150,17 +166,39 @@
             method: "POST",
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Accept": "application/json"
             }
         })
         .then(async r => {
-            const data = await r.json();
+            const contentType = r.headers.get('content-type') || '';
+            const body = await r.text();
+            let data;
+
+            try {
+                data = body ? JSON.parse(body) : {};
+            } catch (_) {
+                throw new Error(
+                    contentType.includes('text/html')
+                        ? 'Sesi atau halaman signing sudah tidak valid. Muat ulang halaman lalu coba kembali.'
+                        : `Server mengembalikan respons tidak valid (HTTP ${r.status}). Silakan coba kembali.`
+                );
+            }
+
             if (!r.ok || !data.success) throw new Error(data.message || 'OTP gagal dikirim.');
             return data;
         })
         .then(data => {
-            // debug_otp hanya ada di response saat APP_DEBUG=true (local/testing)
-            const msg = data.debug_otp ? `${data.message}\n\n[DEBUG] Kode OTP: ${data.debug_otp}` : data.message;
+            if (data.otp) {
+                // Mode local/testing: gunakan kode persis dari challenge yang baru dibuat.
+                const otpInput = document.getElementById('otp');
+                if (otpInput) {
+                    otpInput.value = data.otp;
+                    otpInput.focus();
+                }
+            }
+            const otpLine = data.otp ? `\nKode OTP: ${data.otp}` : '';
+            const msg = `${data.message}${otpLine}\nTujuan: ${data.destination}\nRequest ID: ${data.challenge_id}\nFingerprint PDF: ${data.pdf_fingerprint}`;
             if (window.Swal) {
                 Swal.fire({ icon: 'success', title: 'Kode OTP siap digunakan', text: msg, confirmButtonText: 'Mengerti' });
             } else { alert(msg); }

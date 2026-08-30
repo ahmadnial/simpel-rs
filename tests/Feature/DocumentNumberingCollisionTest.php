@@ -15,10 +15,12 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\RequestsSigningOtp;
 
 class DocumentNumberingCollisionTest extends TestCase
 {
     use RefreshDatabase;
+    use RequestsSigningOtp;
 
     protected function setUp(): void
     {
@@ -95,8 +97,8 @@ class DocumentNumberingCollisionTest extends TestCase
         $service = app(DocumentService::class);
 
         $this->actingAs($signer);
-        $otpA = $signer->generateOtp($documentA);
-        $signedA = $service->tandaTangani($documentA, $otpA);
+        $otpA = $this->requestSigningOtp($signer, $documentA, 'numbering-session-a');
+        $signedA = $service->tandaTangani($documentA, $otpA['otp'], $otpA['session_id']);
         $this->assertSame('001/SK-Dir/RSNR/VIII/2026', $signedA->nomor_surat);
         $signatureA = $signedA->signature;
         $this->assertNotNull($signatureA->file_signed_path);
@@ -107,8 +109,8 @@ class DocumentNumberingCollisionTest extends TestCase
             'Hash pengesahan harus dihitung dari PDF final immutable, bukan DOCX sumber.'
         );
 
-        $otpB = $signer->generateOtp($documentB);
-        $signedB = $service->tandaTangani($documentB, $otpB);
+        $otpB = $this->requestSigningOtp($signer, $documentB, 'numbering-session-b');
+        $signedB = $service->tandaTangani($documentB, $otpB['otp'], $otpB['session_id']);
 
         // Nomor urut type B sendiri juga mulai dari 1 (counter terpisah per jenis naskah), jadi
         // hasil naif-nya SAMA PERSIS dengan nomor dokumen A ("001/SK-Dir/..."). Jaring pengaman di

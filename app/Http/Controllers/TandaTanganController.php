@@ -3,15 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Models\SigningCeremony;
 use App\Services\DocumentService;
+use App\Services\SigningOtpService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class TandaTanganController extends Controller
 {
     protected DocumentService $documentService;
 
-    public function __construct(DocumentService $documentService)
-    {
+    public function __construct(
+        DocumentService $documentService,
+        private readonly SigningOtpService $signingOtpService,
+    ) {
         $this->documentService = $documentService;
     }
 
@@ -65,7 +71,7 @@ class TandaTanganController extends Controller
         return view('tanda-tangan.index', compact('antrian', 'documentTypes', 'units'));
     }
 
-    public function show(Document $document)
+    public function show(Request $request, Document $document)
     {
         $user = auth()->user();
 
@@ -84,28 +90,67 @@ class TandaTanganController extends Controller
             ->groupBy('level')
             ->first();
 
-        return view('tanda-tangan.show', compact('document', 'returnTarget'));
+        $ceremony = null;
+        $reauthenticationAge = $this->reauthenticationAge($request);
+        if ($reauthenticationAge !== null && $reauthenticationAge <= config('tte.otp.reauthentication_max_age_seconds')) {
+            $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
+            $ceremony = SigningCeremony::where('uuid', $context['signing_ceremony_id'])->firstOrFail();
+        }
+
+        return view('tanda-tangan.show', compact('document', 'returnTarget', 'ceremony', 'reauthenticationAge'));
+    }
+
+    public function reauthenticate(Request $request, Document $document)
+    {
+        $this->documentService->assertCanSign($document, $request->user());
+        $request->validate(['password' => ['required', 'string']]);
+        abort_unless(Hash::check($request->string('password')->toString(), $request->user()->password), 422, 'Password tidak benar.');
+        $request->session()->put('auth_password_confirmed_at', now()->timestamp);
+
+        return redirect()->route('ttd.show', $document)->with('success', 'Identitas dikonfirmasi ulang. Periksa PDF final kandidat sebelum meminta OTP.');
+    }
+
+    public function candidatePdf(Document $document, SigningCeremony $ceremony)
+    {
+        $this->documentService->assertCanSign($document, auth()->user());
+        abort_unless($ceremony->document_id === (int) $document->id && $ceremony->intended_actor_id === (int) auth()->id(), 403);
+        abort_unless(in_array($ceremony->state, [SigningCeremony::STATE_AWAITING_USER_SIGNATURE, SigningCeremony::STATE_USER_SIGNED], true), 409);
+        abort_unless($ceremony->candidate_pdf_path && Storage::disk('local')->exists($ceremony->candidate_pdf_path), 404);
+
+        return response()->file(Storage::disk('local')->path($ceremony->candidate_pdf_path), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="final-candidate.pdf"',
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Document-SHA256' => $ceremony->candidate_pdf_hash,
+        ]);
     }
 
     public function kirimOtp(Request $request, Document $document)
     {
         $user = auth()->user();
         $this->documentService->assertCanSign($document, $user);
-        $expiryMinutes = config('app.otp_expiry_minutes', 5);
-        $otp = $user->generateOtp($document);
-
-        $user->notify(new \App\Notifications\OtpTandaTangan($otp, $expiryMinutes));
+        $reauthenticationAge = $this->reauthenticationAge($request);
+        abort_if($reauthenticationAge === null || $reauthenticationAge > config('tte.otp.reauthentication_max_age_seconds'), 423, 'Konfirmasi ulang password diperlukan sebelum meminta OTP.');
+        $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
+        $context['correlation_id'] = (string) \Illuminate\Support\Str::uuid();
+        $context['source_ip'] = $request->ip();
+        $context['user_agent'] = $request->userAgent();
+        $challenge = $this->signingOtpService->request($user, $document, $context);
+        $expiryMinutes = (int) ceil(config('tte.otp.ttl_seconds') / 60);
 
         $response = [
             'success' => true,
-            'message' => "OTP berhasil dikirim ke email terdaftar Anda (berlaku {$expiryMinutes} menit).",
+            'message' => $challenge->getAttribute('display_otp')
+                ? "OTP ditampilkan hanya untuk lingkungan lokal (berlaku {$expiryMinutes} menit)."
+                : "OTP berhasil dikirim ke email terdaftar Anda (berlaku {$expiryMinutes} menit).",
+            'challenge_id' => substr($challenge->uuid, 0, 8),
+            'destination' => $challenge->masked_destination,
+            'pdf_fingerprint' => strtoupper(implode('-', str_split(substr($challenge->pdf_hash, 0, 12), 4))),
+            'expires_at' => $challenge->expires_at->utc()->toIso8601String(),
         ];
-
-        // Kode OTP asli sebelumnya selalu dikembalikan di response & session flash,
-        // sehingga tidak berfungsi sebagai faktor otentikasi kedua yang sesungguhnya.
-        // Sekarang hanya disertakan saat APP_DEBUG=true (local/testing), tidak pernah di produksi.
-        if (config('app.debug')) {
-            $response['debug_otp'] = $otp;
+        if ($challenge->getAttribute('display_otp')) {
+            $response['otp'] = $challenge->getAttribute('display_otp');
         }
 
         return response()->json($response);
@@ -114,15 +159,24 @@ class TandaTanganController extends Controller
     public function tandatangani(Request $request, Document $document)
     {
         $request->validate([
-            'otp' => 'required|string|size:6',
+            'otp' => 'required|digits:8',
         ]);
 
         try {
-            $this->documentService->tandaTangani($document, $request->otp);
+            $reauthenticationAge = $this->reauthenticationAge($request);
+            abort_if($reauthenticationAge === null || $reauthenticationAge > config('tte.otp.reauthentication_max_age_seconds'), 423, 'Konfirmasi ulang password diperlukan sebelum tanda tangan.');
+            $this->documentService->tandaTangani($document, $request->otp, $request->session()->getId(), $reauthenticationAge);
             return redirect()->route('ttd.index')->with('success', "Dokumen '{$document->judul}' berhasil disahkan secara elektronik di SIMPEL-RS.");
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    private function reauthenticationAge(Request $request): ?int
+    {
+        $confirmedAt = $request->session()->get('auth_password_confirmed_at');
+
+        return is_numeric($confirmedAt) ? max(0, now()->timestamp - (int) $confirmedAt) : null;
     }
 
     public function tolak(Request $request, Document $document)

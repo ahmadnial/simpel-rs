@@ -41,6 +41,11 @@ class DocumentVersion extends Model
         return $this->hasMany(DocumentVerification::class);
     }
 
+    public function signatureOtpChallenges()
+    {
+        return $this->hasMany(SignatureOtpChallenge::class);
+    }
+
     public function getFileSizeHumanAttribute(): string
     {
         $bytes = $this->file_size ?? 0;

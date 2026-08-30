@@ -15,6 +15,7 @@ class DocumentSignature extends Model
         'document_id', 'document_version_id', 'penandatangan_id',
         'delegasi_id', 'metode_tte', 'hash_dokumen', 'qr_token',
         'file_signed_path', 'metadata_tte', 'ditandatangani_at',
+        'signature_evidence_id', 'otp_challenge_id', 'assurance_profile',
     ];
 
     protected function casts(): array
@@ -24,6 +25,8 @@ class DocumentSignature extends Model
             'document_version_id' => 'integer',
             'penandatangan_id'  => 'integer',
             'delegasi_id'       => 'integer',
+            'signature_evidence_id' => 'integer',
+            'otp_challenge_id' => 'integer',
             'ditandatangani_at' => 'datetime',
             'metadata_tte'      => 'array',
         ];
@@ -52,6 +55,16 @@ class DocumentSignature extends Model
     public function principal()
     {
         return $this->belongsTo(User::class, 'delegasi_id');
+    }
+
+    public function evidence()
+    {
+        return $this->belongsTo(SignatureEvidence::class, 'signature_evidence_id');
+    }
+
+    public function otpChallenge()
+    {
+        return $this->belongsTo(SignatureOtpChallenge::class);
     }
 
     public function getVerifikasiUrlAttribute(): string

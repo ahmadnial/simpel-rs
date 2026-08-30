@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
 use App\Models\User;
 use App\Models\Unit;
-use Spatie\Permission\Models\Role;
+use App\Services\SigningOtpService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -67,8 +67,10 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Akun Pengguna berhasil ditambahkan.');
     }
 
-    public function update(Request $request, User $user)
+    public function update(Request $request, User $user, SigningOtpService $signingOtpService)
     {
+        $originalEmail = $user->email;
+        $originalRoles = $user->getRoleNames()->sort()->values()->all();
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
@@ -93,6 +95,14 @@ class UserController extends Controller
 
         if ($request->has('roles')) {
             $user->syncRoles($request->roles ?? []);
+        }
+
+        $securityContextChanged = $originalEmail !== $user->fresh()->email
+            || $request->filled('password')
+            || $originalRoles !== $user->fresh()->getRoleNames()->sort()->values()->all()
+            || $user->wasChanged('is_active');
+        if ($securityContextChanged) {
+            $signingOtpService->revokeActive($user, reason: 'account_or_role_changed');
         }
 
         return redirect()->route('admin.users.index')->with('success', 'Akun Pengguna berhasil diperbarui.');

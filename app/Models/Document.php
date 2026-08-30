@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use App\Models\Traits\FixesSqlServerDates;
 
 class Document extends Model
@@ -25,7 +26,7 @@ class Document extends Model
     const STATUS_DITOLAK_TTD    = 'ditolak_penandatangan';
 
     protected $fillable = [
-        'judul', 'document_type_id', 'unit_id', 'pengusul_id',
+        'uuid', 'judul', 'document_type_id', 'unit_id', 'pengusul_id',
         'workflow_template_id', 'status', 'current_step',
         'nomor_surat', 'tanggal_surat', 'perihal', 'keterangan',
         'is_rahasia', 'visibility_scope', 'diajukan_at', 'ditandatangani_at',
@@ -52,6 +53,13 @@ class Document extends Model
             'tanggal_surat'      => 'date',
             'current_step'       => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Document $document): void {
+            $document->uuid ??= (string) Str::uuid();
+        });
     }
 
     public function documentType()
@@ -97,6 +105,21 @@ class Document extends Model
     public function signature()
     {
         return $this->hasOne(DocumentSignature::class)->latestOfMany();
+    }
+
+    public function signatureOtpChallenges()
+    {
+        return $this->hasMany(SignatureOtpChallenge::class);
+    }
+
+    public function signingCeremonies()
+    {
+        return $this->hasMany(SigningCeremony::class);
+    }
+
+    public function signatureEvidence()
+    {
+        return $this->hasMany(SignatureEvidence::class);
     }
 
     public function distributions()

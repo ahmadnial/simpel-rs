@@ -52,6 +52,11 @@ class User extends Authenticatable
         return $this->hasMany(DocumentSignature::class, 'penandatangan_id');
     }
 
+    public function signatureOtpChallenges()
+    {
+        return $this->hasMany(SignatureOtpChallenge::class);
+    }
+
     public function delegationsAsOwner()
     {
         return $this->hasMany(Delegation::class, 'pejabat_id');
@@ -70,28 +75,6 @@ class User extends Authenticatable
             ->where('berlaku_sampai', '>=', now()->toDateString())
             ->latest()
             ->first();
-    }
-
-    // Generate OTP
-    public function generateOtp(Document $document): string
-    {
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $this->update([
-            'otp_code'       => null,
-            'otp_hash'       => password_hash($otp, PASSWORD_DEFAULT),
-            'otp_document_id'=> $document->id,
-            'otp_expires_at' => now()->addMinutes(config('app.otp_expiry_minutes', 5)),
-        ]);
-        return $otp;
-    }
-
-    public function isOtpValid(string $otp, Document $document): bool
-    {
-        return $this->otp_hash
-            && password_verify($otp, $this->otp_hash)
-            && (int) $this->otp_document_id === (int) $document->id
-            && $this->otp_expires_at
-            && now()->lt($this->otp_expires_at);
     }
 
     public function getAvatarUrlAttribute(): string

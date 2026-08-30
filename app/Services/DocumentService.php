@@ -2,12 +2,19 @@
 
 namespace App\Services;
 
+use App\Contracts\EvidenceSigner;
+use App\Contracts\ImmutableEvidenceStore;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentSignature;
 use App\Models\DocumentVerification;
 use App\Models\DocumentVersion;
 use App\Models\NumberingSequence;
+use App\Models\SignatureEvidence;
+use App\Models\EvidenceStorageCopy;
+use App\Models\SigningCeremony;
+use App\Models\SigningOutboxMessage;
+use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use Illuminate\Http\UploadedFile;
@@ -19,8 +26,18 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class DocumentService
 {
-    public function __construct(private readonly DocumentPdfService $pdfService)
-    {
+    public function __construct(
+        private readonly DocumentPdfService $pdfService,
+        private readonly SigningOtpService $signingOtpService,
+        private readonly CanonicalJson $canonicalJson,
+        private readonly EvidenceSigner $evidenceSigner,
+        private readonly EvidenceBundleService $evidenceBundleService,
+        private readonly EvidenceVerificationService $evidenceVerificationService,
+        private readonly AuditChainWriter $auditChainWriter,
+        private readonly AuditCheckpointService $auditCheckpointService,
+        private readonly EvidenceStorageService $evidenceStorageService,
+        private readonly ImmutableEvidenceStore $immutableEvidenceStore,
+    ) {
     }
 
     /**
@@ -568,85 +585,603 @@ class DocumentService
     /**
      * Tanda tangan elektronik internal (hash SHA-256 + QR Code).
      */
-    public function tandaTangani(Document $document, string $otpInput): Document
+    public function tandaTangani(Document $document, string $otpInput, ?string $sessionId = null, int $reauthenticationAgeSeconds = 0): Document
     {
-        return DB::transaction(function () use ($document, $otpInput) {
-            $user = auth()->user();
-            $document = Document::with(['currentVersion', 'workflowTemplate'])->lockForUpdate()->findOrFail($document->id);
+        $user = auth()->user();
+        $sessionId ??= session()->getId();
+        $document = $document->fresh(['currentVersion', 'workflowTemplate']);
+        $this->assertCanSign($document, $user);
+        $otpContext = $this->prepareOtpContext($document, $user, $sessionId, $reauthenticationAgeSeconds);
+        $otpReceipt = $this->signingOtpService->verifyAndConsume($user, $document, $otpInput, $otpContext);
 
-            abort_unless($document->status === Document::STATUS_MENUNGGU_TTD, 403, 'Dokumen tidak dalam status menunggu tanda tangan.');
-            $this->assertAuthorizedSigner($document, $user);
-            abort_unless($user->isOtpValid($otpInput, $document), 422, 'OTP tidak valid, sudah kedaluwarsa, atau diterbitkan untuk dokumen lain.');
+        $ceremony = SigningCeremony::where('uuid', $otpContext['signing_ceremony_id'])->firstOrFail();
 
-            $currentVersion = $document->currentVersion;
-            abort_unless($currentVersion, 422, 'Versi aktif dokumen tidak ditemukan.');
-            abort_if(DocumentSignature::where('document_id', $document->id)->exists(), 409, 'Dokumen ini sudah memiliki pengesahan.');
-            $filePath = $this->ensureDocxFileExists($document, $currentVersion);
+        return $this->finalizeConsumedCeremony($ceremony, $otpReceipt, $user);
+    }
 
-            $qrToken = Str::uuid()->toString();
+    /**
+     * Membentuk konteks server-side untuk challenge OTP v2 dari byte PDF kandidat.
+     * Canonical manifest penuh diperkenalkan pada Paket C; draft ini sengaja minimal
+     * namun deterministik dan sudah mengikat snapshot utama transaksi.
+     *
+     * @return array{document_version_id:int,pdf_hash:string,manifest_draft_hash:string,session_id:string,action:string,reauthentication_age_seconds:int,signing_ceremony_id:string}
+     */
+    public function prepareOtpContext(Document $document, User $user, string $sessionId, int $reauthenticationAgeSeconds = 0): array
+    {
+        abort_if($sessionId === '', 422, 'Sesi signing tidak tersedia.');
+        $document = $document->fresh(['currentVersion', 'workflowTemplate', 'unit']);
+        $this->assertCanSign($document, $user);
+        $version = $document->currentVersion;
+        abort_unless($version, 422, 'Versi aktif dokumen tidak ditemukan.');
 
-            // Buat nomor surat (atomic)
-            $nomor = $this->generateNomorSurat($document);
+        $sessionHash = hash('sha256', $sessionId);
+        $activeKey = hash('sha256', implode('|', [$document->id, $version->id, $user->id, config('tte.otp.action')]));
+        $idempotencyKey = hash('sha256', $activeKey.'|'.$sessionHash);
+        $ceremony = DB::transaction(function () use ($document, $version, $user, $sessionHash, $activeKey, $idempotencyKey, $reauthenticationAgeSeconds) {
+            $lockedDocument = Document::with(['currentVersion', 'documentType', 'unit'])->lockForUpdate()->findOrFail($document->id);
+            abort_unless($lockedDocument->status === Document::STATUS_MENUNGGU_TTD, 403, 'Dokumen tidak dalam status menunggu tanda tangan.');
+            abort_unless((int) $lockedDocument->currentVersion?->id === (int) $version->id, 409, 'Versi dokumen berubah saat ceremony disiapkan.');
 
-            // Simpan record TTE
-            $signature = DocumentSignature::create([
-                'document_id'         => $document->id,
-                'document_version_id' => $currentVersion->id,
-                'penandatangan_id'    => $user->id,
-                'delegasi_id'         => $user->activeDelegation()?->pejabat_id,
-                'metode_tte'          => 'internal',
-                'hash_dokumen'        => str_repeat('0', 64),
-                'qr_token'            => $qrToken,
-                'ditandatangani_at'   => now(),
-                'metadata_tte'        => [
-                    'actor_name'           => $user->name,
-                    'actor_user_id'        => $user->id,
-                    'signer_role'          => $user->jabatan ?? $user->getRoleNames()->first() ?? 'Penandatangan',
-                    'principal_name'       => $user->activeDelegation()?->pejabat?->name,
-                    'principal_user_id'    => $user->activeDelegation()?->pejabat_id,
-                    'delegation_record_id' => $user->activeDelegation()?->id,
-                    'delegation_type'      => $user->activeDelegation()?->tipe,
-                    'delegation_from'      => $user->activeDelegation()?->berlaku_dari?->toDateString(),
-                    'delegation_until'     => $user->activeDelegation()?->berlaku_sampai?->toDateString(),
-                    'signed_at'            => now()->toIso8601String(),
-                ],
+            $existing = SigningCeremony::where('idempotency_key', $idempotencyKey)->lockForUpdate()->first();
+            if ($existing
+                && in_array($existing->state, [SigningCeremony::STATE_PREPARING, SigningCeremony::STATE_AWAITING_USER_SIGNATURE], true)
+                && $existing->expires_at->isFuture()) {
+                return $existing;
+            }
+
+            abort_if($existing && $existing->state === SigningCeremony::STATE_USER_SIGNED, 409, 'Ceremony sebelumnya sedang menunggu finalisasi.');
+            abort_if($existing && $existing->state === SigningCeremony::STATE_SEALED, 409, 'Ceremony sebelumnya sudah diselesaikan.');
+
+            SigningCeremony::where('active_key', $activeKey)->lockForUpdate()->get()->each->update([
+                'state' => SigningCeremony::STATE_FAILED,
+                'active_key' => null,
+                'failed_at' => now(),
+                'failure_reason' => 'session_lineage_changed',
             ]);
 
-            $document->update([
-                'status'           => Document::STATUS_DITANDATANGANI,
-                'nomor_surat'      => $nomor,
-                'tanggal_surat'    => now()->toDateString(),
-                'hash_final'       => null,
-                'ditandatangani_at'=> now(),
+            // idempotency_key bersifat unik untuk satu lineage sesi. Ceremony yang
+            // gagal atau kedaluwarsa harus dihidupkan kembali, bukan di-insert lagi:
+            // SQL Server akan (dengan benar) menolak insert kedua untuk key yang sama.
+            if ($existing) {
+                $existing->update([
+                    'document_id' => $lockedDocument->id,
+                    'document_version_id' => $version->id,
+                    'intended_actor_id' => $user->id,
+                    'intended_role' => $user->jabatan ?? $user->getRoleNames()->first() ?? 'penandatangan',
+                    'delegation_id' => $user->activeDelegation()?->id,
+                    'otp_challenge_id' => null,
+                    'session_id_hash' => $sessionHash,
+                    'nonce_hash' => hash('sha256', random_bytes(32)),
+                    'manifest_draft_hash' => null,
+                    'candidate_pdf_hash' => null,
+                    'candidate_pdf_size' => null,
+                    'candidate_pdf_path' => null,
+                    'reserved_number' => $this->generateNomorSurat($lockedDocument),
+                    'qr_token' => (string) Str::uuid(),
+                    'state' => SigningCeremony::STATE_PREPARING,
+                    'active_key' => $activeKey,
+                    'reauthenticated_at' => now()->subSeconds($reauthenticationAgeSeconds),
+                    'authorization_result' => true,
+                    'expires_at' => now()->addMinutes(15),
+                    'prepared_at' => null,
+                    'consumed_at' => null,
+                    'failed_at' => null,
+                    'sealed_at' => null,
+                    'failure_reason' => null,
+                ]);
+
+                return $existing->fresh();
+            }
+
+            return SigningCeremony::create([
+                'uuid' => (string) Str::uuid(),
+                'evidence_uuid' => (string) Str::uuid(),
+                'document_id' => $lockedDocument->id,
+                'document_version_id' => $version->id,
+                'intended_actor_id' => $user->id,
+                'intended_role' => $user->jabatan ?? $user->getRoleNames()->first() ?? 'penandatangan',
+                'delegation_id' => $user->activeDelegation()?->id,
+                'session_id_hash' => $sessionHash,
+                'nonce_hash' => hash('sha256', random_bytes(32)),
+                'reserved_number' => $this->generateNomorSurat($lockedDocument),
+                'qr_token' => (string) Str::uuid(),
+                'state' => SigningCeremony::STATE_PREPARING,
+                'active_key' => $activeKey,
+                'idempotency_key' => $idempotencyKey,
+                'reauthenticated_at' => now()->subSeconds($reauthenticationAgeSeconds),
+                'authorization_result' => true,
+                'expires_at' => now()->addMinutes(15),
+            ]);
+        }, 3);
+
+        if ($ceremony->state === SigningCeremony::STATE_PREPARING) {
+            try {
+                $ceremony = $this->renderAndLockCandidate($ceremony, $document, $version, $user);
+            } catch (\Throwable $exception) {
+                $ceremony->update([
+                    'state' => SigningCeremony::STATE_FAILED,
+                    'active_key' => null,
+                    'failed_at' => now(),
+                    'failure_reason' => 'candidate_render_failed',
+                ]);
+                throw $exception;
+            }
+        }
+
+        return [
+            'document_version_id' => (int) $version->id,
+            'pdf_hash' => $ceremony->candidate_pdf_hash,
+            'manifest_draft_hash' => $ceremony->manifest_draft_hash,
+            'session_id' => $sessionId,
+            'action' => (string) config('tte.otp.action'),
+            'reauthentication_age_seconds' => $reauthenticationAgeSeconds,
+            'signing_ceremony_id' => $ceremony->uuid,
+        ];
+    }
+
+    private function renderAndLockCandidate(SigningCeremony $ceremony, Document $document, DocumentVersion $version, User $user): SigningCeremony
+    {
+        $document->loadMissing(['documentType', 'unit', 'pengusul', 'workflowTemplate', 'currentVersion']);
+        $sourcePath = $this->ensureDocxFileExists($document, $version);
+        $candidateDocument = $document->replicate();
+        $candidateDocument->setAttribute('id', $document->id);
+        $candidateDocument->exists = true;
+        $candidateDocument->nomor_surat = $ceremony->reserved_number;
+        $candidateDocument->tanggal_surat = $ceremony->created_at->toDateString();
+        $candidateDocument->status = Document::STATUS_DITANDATANGANI;
+        $candidateDocument->ditandatangani_at = $ceremony->created_at;
+        foreach (['documentType', 'unit', 'pengusul', 'workflowTemplate', 'currentVersion'] as $relation) {
+            $candidateDocument->setRelation($relation, $document->getRelation($relation));
+        }
+
+        $delegation = $user->activeDelegation();
+        $visualSignature = new DocumentSignature([
+            'document_id' => $document->id,
+            'document_version_id' => $version->id,
+            'penandatangan_id' => $user->id,
+            'delegasi_id' => $delegation?->pejabat_id,
+            'metode_tte' => 'internal_otp',
+            'hash_dokumen' => str_repeat('0', 64),
+            'qr_token' => $ceremony->qr_token,
+            'ditandatangani_at' => $ceremony->created_at,
+            'metadata_tte' => $this->signerMetadata($user, $delegation, $ceremony->created_at),
+        ]);
+        $visualSignature->setRelation('penandatangan', $user);
+        $candidateDocument->setRelation('signature', $visualSignature);
+
+        $processedDocx = (new DocxParserService)->processDocxTemplate($sourcePath, $candidateDocument);
+        $renderedPdf = $this->pdfService->render($processedDocx, $candidateDocument, $version);
+        abort_unless(is_file($renderedPdf) && filesize($renderedPdf) > 0, 500, 'PDF final kandidat gagal dibuat.');
+
+        $candidatePath = "signing-candidates/{$ceremony->uuid}.pdf";
+        Storage::disk('local')->put($candidatePath, file_get_contents($renderedPdf));
+        $storedPath = Storage::disk('local')->path($candidatePath);
+        abort_unless(is_file($storedPath) && filesize($storedPath) > 0, 500, 'PDF final kandidat gagal disimpan.');
+        $pdfHash = hash_file('sha256', $storedPath);
+        $pdfSize = filesize($storedPath);
+
+        $draft = $this->manifestBase($ceremony, $document, $version, $user, $pdfHash, $pdfSize);
+        $draft['manifest_stage'] = 'otp_challenge_draft';
+        $draftBytes = $this->canonicalJson->encode($draft);
+
+        return DB::transaction(function () use ($ceremony, $candidatePath, $pdfHash, $pdfSize, $draftBytes) {
+            $locked = SigningCeremony::lockForUpdate()->findOrFail($ceremony->id);
+            if ($locked->state === SigningCeremony::STATE_AWAITING_USER_SIGNATURE) {
+                return $locked;
+            }
+            abort_unless($locked->state === SigningCeremony::STATE_PREPARING, 409, 'Ceremony tidak lagi dapat menerima PDF kandidat.');
+            $locked->update([
+                'candidate_pdf_path' => $candidatePath,
+                'candidate_pdf_hash' => $pdfHash,
+                'candidate_pdf_size' => $pdfSize,
+                'manifest_draft_hash' => hash('sha256', $draftBytes),
+                'state' => SigningCeremony::STATE_AWAITING_USER_SIGNATURE,
+                'prepared_at' => now(),
             ]);
 
-            $document = $document->fresh(['signature.penandatangan', 'pengusul', 'currentVersion']);
-            $processedDocx = (new DocxParserService())->processDocxTemplate($filePath, $document);
-            $renderedPdf = $this->pdfService->render($processedDocx, $document, $currentVersion);
-            $official = $this->pdfService->persistOfficial($document, $currentVersion, $renderedPdf, $qrToken);
+            return $locked->fresh();
+        }, 3);
+    }
 
-            $signature->update([
+    private function finalizeConsumedCeremony(SigningCeremony $ceremony, \App\Models\SignatureOtpChallenge $receipt, User $user): Document
+    {
+        $transition = DB::transaction(function () use ($ceremony, $receipt, $user) {
+            $locked = SigningCeremony::lockForUpdate()->findOrFail($ceremony->id);
+            if ($locked->state === SigningCeremony::STATE_SEALED) {
+                return $locked;
+            }
+            abort_unless($locked->state === SigningCeremony::STATE_AWAITING_USER_SIGNATURE, 409, 'Ceremony tidak berada pada state yang dapat difinalisasi.');
+            abort_unless($locked->intended_actor_id === (int) $user->id, 403, 'Aktor ceremony tidak cocok.');
+            abort_unless($receipt->state === \App\Models\SignatureOtpChallenge::STATE_CONSUMED, 409, 'Receipt OTP belum dikonsumsi.');
+            abort_unless($receipt->signing_ceremony_id === $locked->uuid, 409, 'Receipt OTP tidak terikat pada ceremony ini.');
+            $locked->update([
+                'state' => SigningCeremony::STATE_USER_SIGNED,
+                'active_key' => null,
+                'otp_challenge_id' => $receipt->id,
+                'consumed_at' => $receipt->consumed_at,
+            ]);
+            SigningOutboxMessage::firstOrCreate(
+                ['idempotency_key' => hash('sha256', 'finalize|'.$locked->uuid)],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'signing_ceremony_id' => $locked->id,
+                    'type' => 'finalize_signature_evidence',
+                    'payload' => ['ceremony_uuid' => $locked->uuid, 'otp_challenge_uuid' => $receipt->uuid],
+                    'state' => 'pending',
+                    'available_at' => now(),
+                ]
+            );
+
+            return $locked->fresh();
+        }, 3);
+
+        if ($transition->state === SigningCeremony::STATE_SEALED) {
+            return Document::findOrFail($transition->document_id);
+        }
+
+        return $this->completeFinalization($transition, $receipt, $user);
+    }
+
+    public function resumeFinalization(SigningCeremony $ceremony): Document
+    {
+        $ceremony = $ceremony->fresh(['otpChallenge', 'intendedActor']);
+        if ($ceremony->state === SigningCeremony::STATE_SEALED) {
+            return Document::findOrFail($ceremony->document_id);
+        }
+        abort_unless($ceremony->state === SigningCeremony::STATE_USER_SIGNED, 409, 'Ceremony tidak menunggu rekonsiliasi finalisasi.');
+        abort_unless($ceremony->otpChallenge && $ceremony->intendedActor, 409, 'Receipt atau aktor ceremony tidak ditemukan.');
+
+        return $this->completeFinalization($ceremony, $ceremony->otpChallenge, $ceremony->intendedActor);
+    }
+
+    private function completeFinalization(SigningCeremony $ceremony, \App\Models\SignatureOtpChallenge $receipt, User $user): Document
+    {
+        $ceremony->loadMissing('delegation.pejabat');
+        $document = Document::with(['currentVersion', 'documentType', 'unit', 'pengusul', 'workflowTemplate.steps', 'verifications.verifikator'])->findOrFail($ceremony->document_id);
+        $version = $document->currentVersion;
+        abort_unless($version && $version->id === $ceremony->document_version_id, 409, 'Versi aktif berubah sebelum finalisasi.');
+        $this->assertCanSign($document, $user);
+        if ($ceremony->delegation_id) {
+            abort_unless(
+                $ceremony->delegation
+                && $ceremony->delegation->delegasi_id === (int) $user->id
+                && $ceremony->delegation->isCurrentlyActive(),
+                409,
+                'Delegasi ceremony tidak lagi berlaku.'
+            );
+        }
+        abort_unless(Storage::disk('local')->exists($ceremony->candidate_pdf_path), 500, 'PDF kandidat ceremony hilang.');
+        $candidatePath = Storage::disk('local')->path($ceremony->candidate_pdf_path);
+        abort_unless(hash_equals($ceremony->candidate_pdf_hash, hash_file('sha256', $candidatePath)), 500, 'Hash PDF kandidat berubah.');
+
+        $official = $this->pdfService->persistOfficial($document, $version, $candidatePath, $ceremony->qr_token);
+        abort_unless(hash_equals($ceremony->candidate_pdf_hash, $official['hash']) && $ceremony->candidate_pdf_size === (int) $official['size'], 500, 'Verifikasi write PDF resmi gagal.');
+
+        // Waktu seal berasal dari consume receipt agar retry menghasilkan bytes yang identik.
+        $sealedAt = $receipt->consumed_at->utc();
+        $auditEvent = $this->auditChainWriter->append(
+            'document_signing_user_confirmed',
+            [
+                'ceremony_uuid' => $ceremony->uuid,
+                'document_uuid' => $document->uuid,
+                'evidence_uuid' => $ceremony->evidence_uuid,
+                'otp_receipt_uuid' => $receipt->uuid,
+                'pdf_hash' => $official['hash'],
+            ],
+            $user->id,
+            Document::class,
+            (string) $document->id,
+            idempotencyKey: "signing-user-confirmed|{$ceremony->uuid}",
+        );
+        $checkpoint = $this->auditCheckpointService->create();
+        $activeKey = $this->evidenceSigner->activeKey();
+        $manifest = $this->manifestBase($ceremony, $document, $version, $user, $official['hash'], (int) $official['size']);
+        $manifest['manifest_stage'] = 'final';
+        $manifest['institution_seal'] = [
+            'algorithm' => $activeKey->algorithm,
+            'key_fingerprint' => $activeKey->fingerprint,
+            'key_id' => $activeKey->keyId,
+            'meaning' => 'SIMPEL-RS institutional integrity seal; not a personal PSrE certificate',
+        ];
+        $manifest['otp_receipt'] = $this->otpReceiptSnapshot($receipt, $sealedAt);
+        $manifest['audit_receipt'] = [
+            'checkpoint_hash' => $checkpoint->checkpoint_hash,
+            'checkpoint_id' => $checkpoint->uuid,
+            'event_hash' => $auditEvent->event_hash,
+            'event_sequence' => $auditEvent->sequence,
+            'stream_id' => $auditEvent->stream_id,
+        ];
+        $storageDescriptor = $this->immutableEvidenceStore->descriptor();
+        $manifest['immutable_storage_plan'] = [
+            'bucket_logical_id' => $storageDescriptor['bucket'],
+            'object_prefix' => "evidence/{$ceremony->evidence_uuid}/",
+            'provider' => $storageDescriptor['provider'],
+            'retention_mode' => $storageDescriptor['retention_mode'],
+        ];
+        $manifest['sealed_at_utc'] = $this->utc($sealedAt);
+        $canonicalManifest = $this->canonicalJson->encode($manifest);
+        $manifestHash = hash('sha256', $canonicalManifest);
+        $institutionSignature = $this->evidenceSigner->sign($canonicalManifest);
+        abort_unless(
+            hash_equals($activeKey->keyId, $institutionSignature->key->keyId)
+            && hash_equals($activeKey->fingerprint, $institutionSignature->key->fingerprint),
+            500,
+            'Signing key berubah selama operasi seal.'
+        );
+        $bundle = $this->evidenceBundleService->build(
+            $ceremony->evidence_uuid,
+            Storage::disk('local')->path($official['path']),
+            $canonicalManifest,
+            $manifest['otp_receipt'],
+            $institutionSignature,
+        );
+        $bundleVerification = $this->evidenceVerificationService->verifyBundle(
+            Storage::disk('local')->path($bundle['path']),
+            $institutionSignature->key->toArray(),
+        );
+        abort_unless($bundleVerification['valid'], 500, 'Evidence bundle gagal verifikasi mandiri setelah dibuat.');
+        $signatureJson = $this->canonicalJson->encode([
+            'algorithm' => $institutionSignature->key->algorithm,
+            'key_fingerprint' => $institutionSignature->key->fingerprint,
+            'key_id' => $institutionSignature->key->keyId,
+            'manifest_hash' => $manifestHash,
+            'signature' => $institutionSignature->signature,
+        ]);
+        $storageReceipts = $this->evidenceStorageService->storeAndVerify($ceremony->evidence_uuid, [
+            'document.pdf' => file_get_contents(Storage::disk('local')->path($official['path'])),
+            'evidence-manifest.json' => $canonicalManifest,
+            'institution-signature.json' => $signatureJson,
+            'otp-receipt.json' => $this->canonicalJson->encode($manifest['otp_receipt']),
+            'public-key.json' => $this->canonicalJson->encode($institutionSignature->key->toArray()),
+            'evidence-bundle.zip' => file_get_contents(Storage::disk('local')->path($bundle['path'])),
+        ]);
+        $documentSnapshot = $manifest['document_snapshot'];
+        $signerSnapshot = $manifest['signer_snapshot'];
+        $workflowSnapshot = $manifest['workflow_snapshot'];
+        $delegationSnapshot = $manifest['delegation_snapshot'];
+        $otpSnapshot = $manifest['otp_receipt'];
+
+        $sealedDocument = DB::transaction(function () use ($ceremony, $receipt, $user, $document, $version, $official, $sealedAt, $canonicalManifest, $manifestHash, $documentSnapshot, $signerSnapshot, $workflowSnapshot, $delegationSnapshot, $otpSnapshot, $institutionSignature, $bundle, $storageReceipts) {
+            $lockedDocument = Document::lockForUpdate()->findOrFail($document->id);
+            $lockedCeremony = SigningCeremony::lockForUpdate()->findOrFail($ceremony->id);
+            if ($existing = SignatureEvidence::where('signing_ceremony_id', $lockedCeremony->id)->first()) {
+                return $lockedDocument;
+            }
+            abort_unless($lockedDocument->status === Document::STATUS_MENUNGGU_TTD, 409, 'Status dokumen berubah sebelum finalisasi.');
+            abort_unless($lockedCeremony->state === SigningCeremony::STATE_USER_SIGNED, 409, 'State ceremony berubah sebelum finalisasi.');
+            abort_if(DocumentSignature::where('document_id', $lockedDocument->id)->exists(), 409, 'Dokumen ini sudah memiliki pengesahan.');
+
+            $evidence = SignatureEvidence::create([
+                'uuid' => $lockedCeremony->evidence_uuid,
+                'schema_version' => '2.0',
+                'assurance_profile' => config('tte.profile'),
+                'document_id' => $lockedDocument->id,
+                'document_version_id' => $version->id,
+                'signing_ceremony_id' => $lockedCeremony->id,
+                'otp_challenge_id' => $receipt->id,
+                'pdf_hash' => $official['hash'],
+                'pdf_size' => $official['size'],
+                'pdf_path' => $official['path'],
+                'canonical_manifest' => $canonicalManifest,
+                'manifest_hash' => $manifestHash,
+                'document_snapshot' => $documentSnapshot,
+                'signer_snapshot' => $signerSnapshot,
+                'workflow_snapshot' => $workflowSnapshot,
+                'delegation_snapshot' => $delegationSnapshot,
+                'otp_receipt' => $otpSnapshot,
+                'signature_algorithm' => $institutionSignature->key->algorithm,
+                'signing_key_id' => $institutionSignature->key->keyId,
+                'signing_key_fingerprint' => $institutionSignature->key->fingerprint,
+                'institution_signature' => $institutionSignature->signature,
+                'bundle_path' => $bundle['path'],
+                'bundle_hash' => $bundle['hash'],
+                'bundle_size' => $bundle['size'],
+                'state' => 'immutable_verified',
+                'sealed_at' => $sealedAt,
+            ]);
+            foreach ($storageReceipts as $artifactType => $storageReceipt) {
+                EvidenceStorageCopy::create([
+                    'signature_evidence_id' => $evidence->id,
+                    'evidence_uuid' => $evidence->uuid,
+                    'artifact_type' => $artifactType,
+                    'storage_provider' => $storageReceipt->provider,
+                    'bucket_logical_id' => $storageReceipt->bucket,
+                    'object_key' => $storageReceipt->objectKey,
+                    'object_version_id' => $storageReceipt->versionId,
+                    'checksum' => $storageReceipt->checksum,
+                    'size' => $storageReceipt->size,
+                    'retention_mode' => $storageReceipt->retentionMode,
+                    'retention_until' => $storageReceipt->retentionUntil,
+                    'verified_at' => $storageReceipt->verifiedAt,
+                    'state' => 'verified_after_write',
+                ]);
+            }
+
+            $delegation = $lockedCeremony->delegation_id ? \App\Models\Delegation::find($lockedCeremony->delegation_id) : null;
+            DocumentSignature::create([
+                'document_id' => $lockedDocument->id,
+                'document_version_id' => $version->id,
+                'penandatangan_id' => $user->id,
+                'delegasi_id' => $delegation?->pejabat_id,
+                'metode_tte' => 'internal_otp',
                 'hash_dokumen' => $official['hash'],
+                'qr_token' => $lockedCeremony->qr_token,
                 'file_signed_path' => $official['path'],
+                'metadata_tte' => $this->signerMetadata($user, $delegation, $sealedAt),
+                'ditandatangani_at' => $receipt->consumed_at,
+                'signature_evidence_id' => $evidence->id,
+                'otp_challenge_id' => $receipt->id,
+                'assurance_profile' => config('tte.profile'),
             ]);
-            $currentVersion->update(['file_pdf_path' => $official['path']]);
-            $document->update(['hash_final' => $official['hash']]);
+            $version->update(['file_pdf_path' => $official['path']]);
+            $lockedDocument->update([
+                'status' => Document::STATUS_DITANDATANGANI,
+                'nomor_surat' => $lockedCeremony->reserved_number,
+                'tanggal_surat' => $sealedAt->toDateString(),
+                'hash_final' => $official['hash'],
+                'ditandatangani_at' => $receipt->consumed_at,
+            ]);
+            $lockedCeremony->update([
+                'state' => SigningCeremony::STATE_SEALED,
+                'sealed_at' => $sealedAt,
+                'failure_reason' => null,
+            ]);
+            SigningOutboxMessage::where('signing_ceremony_id', $lockedCeremony->id)
+                ->where('type', 'finalize_signature_evidence')
+                ->update(['state' => 'processed', 'processed_at' => $sealedAt]);
+            $this->signingOtpService->markSealed($receipt);
+            AuditLog::catat('tanda_tangan', "Dokumen ditandatangani, nomor: {$lockedCeremony->reserved_number}", $lockedDocument, [], ['nomor_surat' => $lockedCeremony->reserved_number, 'evidence_uuid' => $evidence->uuid]);
 
-            // Invalidate OTP setelah digunakan
-            $user->update(['otp_code' => null, 'otp_hash' => null, 'otp_document_id' => null, 'otp_expires_at' => null]);
+            return $lockedDocument->fresh();
+        }, 3);
 
-            AuditLog::catat('tanda_tangan', "Dokumen ditandatangani, nomor: {$nomor}", $document, [], ['nomor_surat' => $nomor]);
-
-            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
-                $document,
+        try {
+            $sealedDocument->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $sealedDocument,
                 'ditandatangani',
                 'Dokumen Berhasil Disahkan',
-                "Dokumen '{$document->judul}' telah disahkan secara elektronik di SIMPEL-RS dengan Nomor: {$nomor}",
-                route('dokumen.show', $document)
+                "Dokumen '{$sealedDocument->judul}' telah disahkan secara elektronik di SIMPEL-RS dengan Nomor: {$sealedDocument->nomor_surat}",
+                route('dokumen.show', $sealedDocument)
             ));
+        } catch (\Throwable) {
+            // Bukti yang sudah tersegel tidak boleh dibatalkan hanya karena notifikasi pasca-signing gagal.
+        }
 
-            return $document->fresh();
-        });
+        return $sealedDocument;
+    }
+
+    private function manifestBase(SigningCeremony $ceremony, Document $document, DocumentVersion $version, User $user, string $pdfHash, int $pdfSize): array
+    {
+        $document->loadMissing(['documentType', 'unit', 'workflowTemplate.steps', 'verifications.verifikator']);
+        $workflowSteps = $document->workflowTemplate?->steps->sortBy('urutan')->values()->map(fn ($step) => [
+            'mode' => $step->mode_verifikasi,
+            'name' => $step->nama_tahap,
+            'order' => (int) $step->urutan,
+            'role' => $step->role_nama,
+            'type' => $step->tipe,
+        ])->all() ?? [];
+        $approvals = $document->verifications->sortBy(fn ($verification) => sprintf('%05d-%020d', $verification->level, $verification->id))->values()->map(fn ($verification) => [
+            'actor_id' => (int) $verification->verifikator_id,
+            'actor_name' => $verification->verifikator?->name,
+            'decision' => $verification->status,
+            'level' => (int) $verification->level,
+            'time_utc' => $verification->updated_at ? $this->utc($verification->updated_at) : null,
+        ])->all();
+        $workflowSnapshot = [
+            'approvals' => $approvals,
+            'steps' => $workflowSteps,
+            'template_id' => (int) $document->workflow_template_id,
+        ];
+        $workflowSnapshot['snapshot_hash'] = hash('sha256', $this->canonicalJson->encode($workflowSnapshot));
+        $ceremony->loadMissing('delegation.pejabat');
+        $delegation = $ceremony->delegation;
+
+        return [
+            'assurance_profile' => (string) config('tte.profile'),
+            'ceremony_id' => $ceremony->uuid,
+            'delegation_snapshot' => $delegation ? [
+                'delegate_id' => (int) $delegation->delegasi_id,
+                'from' => $delegation->berlaku_dari->toDateString(),
+                'principal_id' => (int) $delegation->pejabat_id,
+                'principal_name' => $delegation->pejabat?->name,
+                'record_id' => (int) $delegation->id,
+                'to' => $delegation->berlaku_sampai->toDateString(),
+                'type' => $delegation->tipe,
+            ] : null,
+            'document_snapshot' => [
+                'classification' => $document->documentType?->nama,
+                'document_id' => (int) $document->id,
+                'document_uuid' => $document->uuid,
+                'effective_date' => $ceremony->created_at->toDateString(),
+                'number' => $ceremony->reserved_number,
+                'title' => $document->judul,
+                'unit_id' => (int) $document->unit_id,
+                'unit_name' => $document->unit?->nama,
+                'version_id' => (int) $version->id,
+                'version_number' => (int) $version->versi,
+            ],
+            'evidence_id' => $ceremony->evidence_uuid,
+            'file' => ['mime_type' => 'application/pdf', 'sha256' => $pdfHash, 'size' => $pdfSize],
+            'schema_version' => '2.0',
+            'signer_snapshot' => [
+                'email_destination_masked' => $this->maskEmail($user->email),
+                'name' => $user->name,
+                'nip' => $user->nip,
+                'organization_role' => $user->jabatan,
+                'signing_role' => $ceremony->intended_role,
+                'unit_id' => $user->unit_id ? (int) $user->unit_id : null,
+                'user_id' => (int) $user->id,
+            ],
+            'time_sources' => [
+                'application_utc' => $this->utc($ceremony->created_at),
+                'database_utc' => $this->databaseUtc(),
+                'trust_level' => 'internal_only',
+            ],
+            'workflow_snapshot' => $workflowSnapshot,
+        ];
+    }
+
+    private function otpReceiptSnapshot(\App\Models\SignatureOtpChallenge $receipt, $sealedAt): array
+    {
+        return [
+            'action' => $receipt->action,
+            'attempt_count' => (int) $receipt->attempt_count,
+            'challenge_id' => $receipt->uuid,
+            'consumed_at_utc' => $this->utc($receipt->consumed_at),
+            'destination_hash' => $receipt->destination_hash,
+            'document_id' => (int) $receipt->document_id,
+            'document_version_id' => (int) $receipt->document_version_id,
+            'expires_at_utc' => $this->utc($receipt->expires_at),
+            'manifest_draft_hash' => $receipt->manifest_draft_hash,
+            'masked_destination' => $receipt->masked_destination,
+            'method' => 'otp_email_internal',
+            'nonce_hash' => $receipt->nonce_hash,
+            'pdf_hash' => $receipt->pdf_hash,
+            'policy_version' => $receipt->policy_version,
+            'requested_at_utc' => $this->utc($receipt->requested_at),
+            'resend_generation' => (int) $receipt->resend_generation,
+            'sealed_at_utc' => $this->utc($sealedAt),
+            'sent_at_utc' => $this->utc($receipt->sent_at),
+            'session_id_hash' => $receipt->session_id_hash,
+            'user_id' => (int) $receipt->user_id,
+            'verified_at_utc' => $this->utc($receipt->verified_at),
+        ];
+    }
+
+    private function signerMetadata(User $user, $delegation, $signedAt): array
+    {
+        return [
+            'actor_name' => $user->name,
+            'actor_user_id' => $user->id,
+            'signer_role' => $user->jabatan ?? $user->getRoleNames()->first() ?? 'Penandatangan',
+            'principal_name' => $delegation?->pejabat?->name,
+            'principal_user_id' => $delegation?->pejabat_id,
+            'delegation_record_id' => $delegation?->id,
+            'delegation_type' => $delegation?->tipe,
+            'delegation_from' => $delegation?->berlaku_dari?->toDateString(),
+            'delegation_until' => $delegation?->berlaku_sampai?->toDateString(),
+            'signed_at' => $this->utc($signedAt),
+        ];
+    }
+
+    private function utc($date): string
+    {
+        return $date->copy()->utc()->format('Y-m-d\TH:i:s\Z');
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = explode('@', strtolower(trim($email)), 2);
+        $visible = mb_substr($local, 0, min(2, mb_strlen($local)));
+
+        return $visible.str_repeat('*', max(3, mb_strlen($local) - mb_strlen($visible))).'@'.$domain;
+    }
+
+    private function databaseUtc(): string
+    {
+        $row = DB::selectOne('SELECT CURRENT_TIMESTAMP AS database_utc');
+
+        return \Illuminate\Support\Carbon::parse($row->database_utc)->utc()->format('Y-m-d\TH:i:s\Z');
     }
 
     /**

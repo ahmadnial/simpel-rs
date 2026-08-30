@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Delegation;
 use App\Models\User;
+use App\Services\SigningOtpService;
 use Illuminate\Http\Request;
 
 class DelegasiController extends Controller
@@ -25,7 +26,7 @@ class DelegasiController extends Controller
         return view('delegasi.index', compact('delegations', 'eligibleUsers'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, SigningOtpService $signingOtpService)
     {
         $validated = $request->validate([
             'delegasi_id'    => 'required|exists:users,id|different:pejabat_id',
@@ -45,15 +46,17 @@ class DelegasiController extends Controller
             'is_active'      => true,
             'dibuat_oleh'    => auth()->id(),
         ]);
+        $signingOtpService->revokeActive((int) $validated['delegasi_id'], reason: 'delegation_changed');
 
         return back()->with('success', 'Delegasi wewenang berhasil ditambahkan.');
     }
 
-    public function destroy(Delegation $delegation)
+    public function destroy(Delegation $delegation, SigningOtpService $signingOtpService)
     {
         abort_unless($delegation->pejabat_id === auth()->id() || auth()->user()->hasRole('super_admin'), 403);
 
         $delegation->update(['is_active' => false]);
+        $signingOtpService->revokeActive($delegation->delegasi_id, reason: 'delegation_changed');
 
         return back()->with('success', 'Delegasi berhasil dinonaktifkan.');
     }

@@ -16,10 +16,12 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
+use Tests\Support\RequestsSigningOtp;
 
 class WorkflowSecurityTest extends TestCase
 {
     use RefreshDatabase;
+    use RequestsSigningOtp;
 
     protected function setUp(): void
     {
@@ -92,7 +94,8 @@ class WorkflowSecurityTest extends TestCase
         $admin->assignRole('super_admin');
 
         $this->actingAs($admin)
-            ->post(route('ttd.tandatangani', $fixture['document']), ['otp' => '123456'])
+            ->withSession(['auth_password_confirmed_at' => now()->timestamp])
+            ->post(route('ttd.tandatangani', $fixture['document']), ['otp' => '12345678'])
             ->assertSessionHas('error');
 
         $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
@@ -103,10 +106,10 @@ class WorkflowSecurityTest extends TestCase
         $fixture = $this->signingFixture();
         $other = $this->makeDocument($fixture['unit'], $fixture['type'], $fixture['workflow'], $fixture['proposer'], Document::STATUS_MENUNGGU_TTD, 2);
         $this->actingAs($fixture['signer']);
-        $otp = $fixture['signer']->generateOtp($fixture['document']);
+        $otp = $this->requestSigningOtp($fixture['signer'], $fixture['document']);
 
         try {
-            app(DocumentService::class)->tandaTangani($other, $otp);
+            app(DocumentService::class)->tandaTangani($other, $otp['otp'], $otp['session_id']);
             $this->fail('OTP dokumen lain seharusnya ditolak.');
         } catch (HttpException $e) {
             $this->assertSame(422, $e->getStatusCode());

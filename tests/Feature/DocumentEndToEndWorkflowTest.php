@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Document;
 use App\Models\DocumentSignature;
+use App\Models\SignatureOtpChallenge;
+use App\Models\SignatureEvidence;
+use App\Models\SigningCeremony;
 use App\Models\DocumentType;
 use App\Models\DocumentVerification;
 use App\Models\DocumentVersion;
@@ -17,10 +20,12 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
+use Tests\Support\RequestsSigningOtp;
 
 class DocumentEndToEndWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+    use RequestsSigningOtp;
 
     public function test_document_can_complete_pedoman_workflow_from_submission_through_internal_signature(): void
     {
@@ -102,7 +107,8 @@ class DocumentEndToEndWorkflowTest extends TestCase
         $this->assertSame(3, $document->current_step);
 
         $this->actingAs($signer);
-        $signed = $service->tandaTangani($document, $signer->generateOtp($document));
+        $otpRequest = $this->requestSigningOtp($signer, $document);
+        $signed = $service->tandaTangani($document, $otpRequest['otp'], $otpRequest['session_id']);
 
         $this->assertSame(Document::STATUS_DITANDATANGANI, $signed->status);
         $this->assertNotEmpty($signed->nomor_surat);
@@ -110,6 +116,29 @@ class DocumentEndToEndWorkflowTest extends TestCase
         $this->assertSame($signer->id, $signature->penandatangan_id);
         $this->assertTrue(Storage::disk('local')->exists($signature->file_signed_path));
         $this->assertSame($signature->hash_dokumen, hash_file('sha256', Storage::disk('local')->path($signature->file_signed_path)));
+        $receipt = SignatureOtpChallenge::where('document_id', $document->id)->firstOrFail();
+        $this->assertNotNull($receipt->requested_at);
+        $this->assertNotNull($receipt->sent_at);
+        $this->assertNotNull($receipt->verified_at);
+        $this->assertNotNull($receipt->consumed_at);
+        $this->assertNotNull($receipt->sealed_at);
+        $ceremony = SigningCeremony::where('document_id', $document->id)->firstOrFail();
+        $evidence = SignatureEvidence::where('document_id', $document->id)->firstOrFail();
+        $this->assertSame(SigningCeremony::STATE_SEALED, $ceremony->state);
+        $this->assertSame('immutable_verified', $evidence->state);
+        $this->assertCount(6, $evidence->storageCopies);
+        $this->assertSame($signature->hash_dokumen, $evidence->pdf_hash);
+        $this->assertSame($ceremony->candidate_pdf_hash, $evidence->pdf_hash);
+        $this->assertSame($evidence->manifest_hash, hash('sha256', $evidence->canonical_manifest));
+        $this->assertSame($evidence->uuid, json_decode($evidence->canonical_manifest, true, flags: JSON_THROW_ON_ERROR)['evidence_id']);
+        $this->assertStringNotContainsString($receipt->otp_verifier, $evidence->canonical_manifest);
+        $this->assertNotSame(str_repeat('0', 64), $signature->hash_dokumen);
+        try {
+            $evidence->update(['canonical_manifest' => '{}']);
+            $this->fail('Canonical manifest evidence tidak boleh diubah.');
+        } catch (\LogicException $exception) {
+            $this->assertStringContainsString('immutable', $exception->getMessage());
+        }
     }
 
     private function user(string $name, string $email, Unit $unit, string $role): User

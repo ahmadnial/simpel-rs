@@ -40,6 +40,7 @@
 
         .verify-badge.success { background: #f0fdf4; color: #16a34a; border: 2px solid #22c55e; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.2); }
         .verify-badge.error { background: #fef2f2; color: #dc2626; border: 2px solid #ef4444; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2); }
+        .verify-badge.warning { background: #fffbeb; color: #d97706; border: 2px solid #f59e0b; }
 
         .verify-title { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
         .verify-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
@@ -61,10 +62,39 @@
 
 <div class="verify-card">
     @if($signature)
+        @php
+            $fileStatus = $fileVerification['status'] ?? 'not_checked';
+            $administrativeStatus = $verification['administrative_status'] ?? 'valid';
+            $overallMatch = $fileStatus === 'match' && ($verification['valid'] ?? false) && $administrativeStatus === 'valid';
+            $headerClass = $fileStatus === 'not_checked' ? 'warning' : ($overallMatch ? 'success' : 'error');
+            $headerTitle = match($fileStatus) {
+                'match' => $administrativeStatus !== 'valid' ? 'FILE COCOK — STATUS ADMINISTRATIF '.strtoupper($administrativeStatus) : ($overallMatch ? 'FILE COCOK & SEGEL VALID' : 'FILE COCOK, BUKTI LAIN BERMASALAH'),
+                'mismatch' => 'FILE TIDAK COCOK DENGAN EVIDENCE',
+                default => 'RECORD RESMI DITEMUKAN — FILE BELUM DIBANDINGKAN',
+            };
+        @endphp
         <div class="verify-header">
-            <div class="verify-badge {{ $integrityValid ? 'success' : 'error' }}">{{ $integrityValid ? '✓' : '!' }}</div>
-            <div class="verify-title" style="color:{{ $integrityValid ? '#16a34a' : '#dc2626' }}">{{ $integrityValid ? 'PENGESAHAN INTERNAL VALID' : 'INTEGRITAS PDF TIDAK VALID' }}</div>
-            <div class="verify-sub">Rekam pengesahan elektronik internal SIMPEL-RS</div>
+            <div class="verify-badge {{ $headerClass }}">{{ $overallMatch ? '✓' : '!' }}</div>
+            <div class="verify-title">{{ $headerTitle }}</div>
+            <div class="verify-sub">TTE Internal Terverifikasi—OTP (non-PSrE; assurance identitas menengah)</div>
+        </div>
+
+        <div style="padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md); margin-bottom:1rem">
+            <strong>Pemeriksaan file pengguna:</strong> {{ $fileVerification['message'] ?? 'Belum diperiksa.' }}
+            @if(!empty($fileVerification['actual_hash']))
+                <div style="font-family:monospace; font-size:0.7rem; word-break:break-all; margin-top:0.5rem">Hash upload: {{ $fileVerification['actual_hash'] }}</div>
+            @endif
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem; font-size:0.78rem">
+            <div>Integritas record/PDF server: <strong>{{ ($verification['checks']['pdf_hash'] ?? $integrityValid) ? 'cocok' : 'tidak cocok' }}</strong></div>
+            <div>Persetujuan OTP: <strong>{{ ($verification['checks']['otp_receipt_binding'] ?? false) ? 'receipt valid' : ($signature->evidence ? 'tidak valid' : 'legacy/tidak tersedia') }}</strong></div>
+            <div>Segel institusi: <strong>{{ ($verification['checks']['institution_signature'] ?? false) ? 'valid' : ($signature->evidence ? 'tidak valid' : 'tidak tersedia') }}</strong></div>
+            <div>Status key: <strong>{{ $verification['key_status'] ?? 'unknown' }}</strong></div>
+            <div>Waktu: <strong>internal-only</strong></div>
+            <div>Audit chain/checkpoint: <strong>{{ ($verification['checks']['audit_chain'] ?? false) && ($verification['checks']['audit_checkpoint'] ?? false) ? 'lengkap & valid' : ($signature->evidence ? 'gap/tidak valid' : 'tidak tersedia') }}</strong></div>
+            <div>Immutable storage: <strong>{{ ($verification['checks']['immutable_storage'] ?? false) ? 'receipt & read-back valid' : ($signature->evidence ? 'gap/tidak valid' : 'tidak tersedia') }}</strong></div>
+            <div>Status administratif: <strong>{{ $administrativeStatus }}</strong></div>
         </div>
 
         <div class="info-row">
@@ -115,8 +145,19 @@
         </div>
 
         <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-elevated); border-radius: var(--radius-md); text-align:center; font-size:0.78rem; color:var(--text-muted); border: 1px solid var(--border-subtle)">
-            Hash di atas dihitung dari PDF final resmi yang disimpan SIMPEL-RS. Pengesahan ini merupakan persetujuan elektronik internal rumah sakit.
+            QR/token hanya menemukan record. Keaslian file yang Anda pegang baru dinilai setelah file diunggah dan dibandingkan byte-per-byte melalui SHA-256.
         </div>
+
+        <form method="POST" enctype="multipart/form-data" action="{{ route('public.verify.upload', $signature->qr_token) }}" style="margin-top:1rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md)">
+            @csrf
+            <label for="pdf" style="display:block; font-weight:600; margin-bottom:0.5rem">Bandingkan PDF dari perangkat Anda</label>
+            <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" required>
+            @error('pdf')<div style="color:#dc2626; margin-top:0.5rem">{{ $message }}</div>@enderror
+            <button type="submit" style="display:block; margin-top:0.75rem; padding:0.6rem 1rem">Periksa PDF</button>
+        </form>
+        @if($signature->evidence?->bundle_path)
+            <a href="{{ route('public.verify.bundle', $signature->qr_token) }}" style="display:block; margin-top:1rem; text-align:center">Unduh evidence bundle untuk verifikasi offline</a>
+        @endif
     @else
         <div class="verify-header">
             <div class="verify-badge error">✕</div>

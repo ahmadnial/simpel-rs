@@ -1,0 +1,21 @@
+[Unit]
+Description=SIMPEL-RS Laravel queue worker
+After=network-online.target php8.4-fpm.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nialapps
+Group=nialapps
+WorkingDirectory=/var/www/apps/simpel-rs
+ExecStart=/usr/bin/php artisan queue:work database --sleep=3 --tries=3 --timeout=120 --max-time=3600 --no-interaction
+ExecReload=/usr/bin/php artisan queue:restart
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=130
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

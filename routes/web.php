@@ -12,12 +12,17 @@ use App\Http\Controllers\DelegasiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\PublicVerifyController;
+use App\Http\Controllers\PublicKeyController;
 use App\Http\Controllers\OnlyOfficeController;
 
 // ==========================================
 // Public Routes
 // ==========================================
 Route::get('/validasi-qr/{token}', [PublicVerifyController::class, 'show'])->name('public.verify');
+Route::post('/validasi-qr/{token}/file', [PublicVerifyController::class, 'verifyUploadedPdf'])->name('public.verify.upload')->middleware('throttle:10,1');
+Route::get('/validasi-qr/{token}/bundle', [PublicVerifyController::class, 'downloadBundle'])->name('public.verify.bundle')->middleware('throttle:20,1');
+Route::get('/tte/keys/active', [PublicKeyController::class, 'active'])->name('public.keys.active');
+Route::get('/tte/keys/{keyId}', [PublicKeyController::class, 'show'])->name('public.keys.show');
 
 // ==========================================
 // Auth Routes
@@ -74,6 +79,8 @@ Route::middleware(['auth'])->group(function () {
     // Tanda Tangan
     Route::prefix('tanda-tangan')->name('ttd.')->group(function () {
         Route::get('/', [TandaTanganController::class, 'index'])->name('index');
+        Route::get('/{document}/candidate/{ceremony}', [TandaTanganController::class, 'candidatePdf'])->name('candidate');
+        Route::post('/{document}/reauthenticate', [TandaTanganController::class, 'reauthenticate'])->name('reauthenticate')->middleware('throttle:5,1');
         Route::get('/{document}', [TandaTanganController::class, 'show'])->name('show');
         // Dibatasi (throttle) karena OTP 6 digit rentan brute force bila tidak dibatasi jumlah percobaan.
         Route::post('/{document}/kirim-otp', [TandaTanganController::class, 'kirimOtp'])->name('kirim-otp')->middleware('throttle:5,1');
