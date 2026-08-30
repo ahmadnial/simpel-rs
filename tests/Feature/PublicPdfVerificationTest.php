@@ -39,21 +39,25 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->get(route('public.verify', $signature->qr_token))
             ->assertOk()
-            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
-            ->assertSee('FILE PENGGUNA BELUM DIPERIKSA')
-            ->assertDontSee('FILE RESMI — HASH COCOK')
+            ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
+            ->assertSee('Keaslian File Belum Diperiksa')
+            ->assertDontSee('File PDF Asli — Hash Cocok')
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY')
-            ->assertHeader('Referrer-Policy', 'no-referrer');
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()')
+            ->assertHeader('Content-Security-Policy', "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'")
+            ->assertDontSee('PSrE')
+            ->assertDontSee('BSrE');
 
         $filesBefore = Storage::disk('local')->allFiles();
         $officialBytes = Storage::disk('local')->get($evidence->pdf_path);
         $upload = UploadedFile::fake()->createWithContent('official.pdf', $officialBytes);
         $this->post(route('public.verify.upload', $signature->qr_token), ['pdf' => $upload])
             ->assertOk()
-            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
-            ->assertSee('FILE RESMI — HASH COCOK')
+            ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
+            ->assertSee('File PDF Asli — Hash Cocok')
             ->assertSee('Byte PDF yang diunggah cocok');
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Verifier tidak boleh menyimpan file upload.');
     }
@@ -81,15 +85,15 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->post(route('public.document.verify'), ['pdf' => $upload])
             ->assertOk()
-            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
-            ->assertSee('FILE RESMI — HASH COCOK')
+            ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
+            ->assertSee('File PDF Asli — Hash Cocok')
             ->assertSee($signature->document->judul);
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Validasi langsung tidak boleh menyimpan file upload.');
     }
 
     public function test_public_document_page_rejects_modified_or_unregistered_pdf_without_leaking_records(): void
     {
-        [, $evidence] = $this->signedEvidence();
+        [$signature, $evidence] = $this->signedEvidence();
         $modified = UploadedFile::fake()->createWithContent(
             'document-a-edited.pdf',
             Storage::disk('local')->get($evidence->pdf_path).'edited'
@@ -97,9 +101,12 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->post(route('public.document.verify'), ['pdf' => $modified])
             ->assertOk()
-            ->assertSee('DOKUMEN TIDAK COCOK / TIDAK TERDAFTAR')
-            ->assertDontSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
-            ->assertDontSee('FILE RESMI — HASH COCOK');
+            ->assertSee('Dokumen Tidak Cocok atau Tidak Terdaftar')
+            ->assertDontSee('Pengesahan Elektronik Internal Terverifikasi')
+            ->assertDontSee('File PDF Asli — Hash Cocok')
+            ->assertDontSee($signature->document->judul)
+            ->assertDontSee($signature->penandatangan->name)
+            ->assertDontSee($signature->hash_dokumen);
     }
 
     public function test_modified_pdf_with_copied_qr_token_never_receives_file_valid_claim(): void
@@ -112,9 +119,9 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->post(route('public.verify.upload', $signature->qr_token), ['pdf' => $modified])
             ->assertOk()
-            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
-            ->assertSee('FILE TIDAK COCOK DENGAN DOKUMEN RESMI')
-            ->assertDontSee('FILE RESMI — HASH COCOK');
+            ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
+            ->assertSee('File PDF Tidak Cocok')
+            ->assertDontSee('File PDF Asli — Hash Cocok');
     }
 
     public function test_oversized_and_non_pdf_are_rejected_while_pdf_is_treated_as_opaque_bytes(): void
@@ -134,8 +141,42 @@ class PublicPdfVerificationTest extends TestCase
         $this->post(route('public.verify.upload', $signature->qr_token), [
             'pdf' => UploadedFile::fake()->createWithContent('active.pdf', "%PDF-1.4\n/OpenAction << /JS (alert) >>"),
         ])->assertOk()
-            ->assertSee('FILE TIDAK COCOK DENGAN DOKUMEN RESMI')
-            ->assertDontSee('FILE RESMI — HASH COCOK');
+            ->assertSee('File PDF Tidak Cocok')
+            ->assertDontSee('File PDF Asli — Hash Cocok');
+    }
+
+    public function test_public_lookup_uses_generic_response_and_rate_limits_token_enumeration(): void
+    {
+        $unknownToken = '00000000-0000-4000-8000-000000000000';
+
+        $response = $this->get(route('public.verify', $unknownToken));
+        $response->assertOk()
+            ->assertSee('Data Pengesahan Tidak Ditemukan')
+            ->assertDontSee('SQL')
+            ->assertDontSee('Exception');
+
+        for ($attempt = 1; $attempt < 30; $attempt++) {
+            $this->get(route('public.verify', $unknownToken))->assertOk();
+        }
+
+        $this->get(route('public.verify', $unknownToken))
+            ->assertTooManyRequests()
+            ->assertSee('Permintaan Terlalu Sering')
+            ->assertHeader('X-Frame-Options', 'DENY')
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+    public function test_public_upload_is_rate_limited_and_bundle_is_not_public(): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post(route('public.document.verify'))->assertSessionHasErrors('pdf');
+        }
+
+        $this->post(route('public.document.verify'))
+            ->assertTooManyRequests()
+            ->assertSee('Permintaan Terlalu Sering')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->get('/validasi-qr/00000000-0000-4000-8000-000000000000/bundle')->assertNotFound();
     }
 
     /** @return array{DocumentSignature,SignatureEvidence} */

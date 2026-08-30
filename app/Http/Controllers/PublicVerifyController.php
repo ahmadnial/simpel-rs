@@ -107,18 +107,6 @@ class PublicVerifyController extends Controller
         return [$path, $actualHash];
     }
 
-    public function downloadBundle(string $token)
-    {
-        $signature = DocumentSignature::where('qr_token', $token)->with('evidence')->firstOrFail();
-        abort_unless($signature->evidence?->bundle_path && Storage::disk('local')->exists($signature->evidence->bundle_path), 404);
-
-        return Storage::disk('local')->download(
-            $signature->evidence->bundle_path,
-            "evidence-{$signature->evidence->uuid}.zip",
-            ['Content-Type' => 'application/zip', 'X-Content-Type-Options' => 'nosniff']
-        );
-    }
-
     private function recordVerification(string $token, EvidenceVerificationService $verifier): array
     {
         $signature = DocumentSignature::where('qr_token', $token)
@@ -146,9 +134,11 @@ class PublicVerifyController extends Controller
     {
         return $response
             ->header('Cache-Control', 'no-store, private')
+            ->header('Pragma', 'no-cache')
             ->header('X-Content-Type-Options', 'nosniff')
             ->header('X-Frame-Options', 'DENY')
             ->header('Referrer-Policy', 'no-referrer')
-            ->header('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+            ->header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()')
+            ->header('Content-Security-Policy', "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'");
     }
 }

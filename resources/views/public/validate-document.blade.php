@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
     <title>Validasi Dokumen — SIMPEL-RS</title>
     @vite(['resources/css/app.css'])
     <style>
@@ -30,7 +31,7 @@
 
     @if(($lookupResult['status'] ?? null) === 'not_found')
         <div class="result-error">
-            <strong>DOKUMEN TIDAK COCOK / TIDAK TERDAFTAR</strong>
+            <strong>Dokumen Tidak Cocok atau Tidak Terdaftar</strong>
             <div style="margin-top:.35rem">{{ $lookupResult['message'] }}</div>
         </div>
     @endif

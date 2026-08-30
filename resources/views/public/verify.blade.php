@@ -3,191 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validasi Pengesahan Internal Naskah Dinas — SIMPEL-RS</title>
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Validasi Pengesahan Dokumen — SIMPEL-RS</title>
     @vite(['resources/css/app.css'])
     <style>
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: var(--bg-base);
-            padding: 1.5rem;
-        }
-
-        .verify-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-2xl);
-            padding: 2.5rem;
-            width: 100%;
-            max-width: 580px;
-            box-shadow: var(--shadow-xl);
-        }
-
-        .verify-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .verify-badge {
-            width: 72px; height: 72px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.2rem;
-            margin: 0 auto 1rem;
-        }
-
-        .verify-badge.success { background: #f0fdf4; color: #16a34a; border: 2px solid #22c55e; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.2); }
-        .verify-badge.error { background: #fef2f2; color: #dc2626; border: 2px solid #ef4444; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2); }
-        .verify-badge.warning { background: #fffbeb; color: #d97706; border: 2px solid #f59e0b; }
-
-        .verify-title { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
-        .verify-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
-
-        .info-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border-subtle);
-            font-size: 0.875rem;
-        }
-
-        .info-label { font-size: 0.725rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-        .info-val { font-weight: 600; color: var(--text-primary); }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; padding:32px 18px; color:#172033; background:radial-gradient(circle at 15% 0%,#dbeafe 0,transparent 34%),radial-gradient(circle at 90% 16%,#dcfce7 0,transparent 30%),#f4f7fb; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; }
+        .shell { width:min(100%,860px); margin:0 auto; }
+        .brand { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+        .brand-mark { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:-.02em; }
+        .brand-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:13px; color:#fff; background:linear-gradient(135deg,#2563eb,#0f766e); box-shadow:0 10px 24px rgba(37,99,235,.22); }
+        .brand-note { color:#64748b; font-size:.78rem; text-align:right; }
+        .card { overflow:hidden; background:rgba(255,255,255,.96); border:1px solid #dbe4f0; border-radius:24px; box-shadow:0 24px 70px rgba(30,64,175,.10); }
+        .hero { padding:32px; color:#fff; background:linear-gradient(130deg,#172554 0%,#1d4ed8 58%,#0f766e 120%); }
+        .hero.is-error { background:linear-gradient(130deg,#450a0a,#b91c1c); }
+        .hero-row { display:flex; align-items:flex-start; gap:18px; }
+        .status-icon { flex:0 0 58px; width:58px; height:58px; display:grid; place-items:center; border-radius:18px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); font-size:1.8rem; }
+        .eyebrow { margin-bottom:6px; font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#bfdbfe; }
+        .hero h1 { margin:0; font-size:clamp(1.35rem,4vw,2rem); line-height:1.15; letter-spacing:-.035em; }
+        .hero p { margin:10px 0 0; max-width:650px; color:#dbeafe; line-height:1.55; font-size:.9rem; }
+        .content { padding:28px 32px 32px; }
+        .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+        .status-box { padding:18px; border-radius:16px; border:1px solid; }
+        .status-box strong { display:block; margin-bottom:6px; font-size:.86rem; letter-spacing:.02em; }
+        .status-box p { margin:0; font-size:.82rem; line-height:1.5; }
+        .status-box.good { color:#14532d; background:#f0fdf4; border-color:#86efac; }
+        .status-box.warn { color:#854d0e; background:#fefce8; border-color:#fde047; }
+        .status-box.bad { color:#991b1b; background:#fef2f2; border-color:#fca5a5; }
+        .section-title { margin:26px 0 10px; font-size:.76rem; font-weight:800; letter-spacing:.1em; color:#64748b; text-transform:uppercase; }
+        .metadata { display:grid; grid-template-columns:1fr 1fr; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; }
+        .meta { min-width:0; padding:15px 17px; border-bottom:1px solid #e2e8f0; }
+        .meta:nth-child(odd) { border-right:1px solid #e2e8f0; }
+        .meta:nth-last-child(-n+2) { border-bottom:0; }
+        .meta-label { margin-bottom:5px; color:#64748b; font-size:.69rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+        .meta-value { color:#1e293b; font-size:.88rem; font-weight:650; line-height:1.45; overflow-wrap:anywhere; }
+        .hash { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:500; }
+        details { margin-top:18px; border:1px solid #e2e8f0; border-radius:14px; background:#f8fafc; }
+        summary { cursor:pointer; padding:14px 16px; font-weight:750; font-size:.84rem; }
+        .checks { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 16px 16px; color:#475569; font-size:.76rem; }
+        .check { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px dashed #dbe4f0; }
+        .upload { margin-top:22px; padding:18px; border:1px solid #cbd5e1; border-radius:16px; background:#f8fafc; }
+        .upload label { display:block; margin-bottom:6px; font-size:.9rem; font-weight:800; }
+        .upload small { display:block; margin-bottom:12px; color:#64748b; line-height:1.45; }
+        .upload-row { display:flex; align-items:center; gap:12px; }
+        .upload input { min-width:0; flex:1; padding:10px; background:#fff; border:1px solid #cbd5e1; border-radius:10px; }
+        .upload button { padding:11px 18px; white-space:nowrap; color:#fff; background:#1d4ed8; border:0; border-radius:10px; font-weight:750; cursor:pointer; }
+        .error-text { margin-top:8px; color:#b91c1c; font-size:.8rem; }
+        .legal { margin:18px 0 0; text-align:center; color:#64748b; font-size:.74rem; line-height:1.55; }
+        .not-found { padding:38px 32px; text-align:center; }
+        .not-found h1 { margin:12px 0 8px; color:#991b1b; font-size:1.45rem; }
+        .not-found p { margin:0 auto; max-width:520px; color:#64748b; line-height:1.6; }
+        .back-link { display:inline-block; margin-top:20px; color:#1d4ed8; font-weight:750; text-decoration:none; }
+        @media(max-width:680px) { body{padding:16px 10px}.brand-note{display:none}.hero,.content{padding:24px 19px}.hero-row{flex-direction:column}.status-grid,.metadata,.checks{grid-template-columns:1fr}.meta:nth-child(odd){border-right:0}.meta:nth-last-child(2){border-bottom:1px solid #e2e8f0}.upload-row{align-items:stretch;flex-direction:column}.upload button{width:100%} }
     </style>
 </head>
 <body>
+<main class="shell">
+    <header class="brand">
+        <div class="brand-mark"><span class="brand-icon">SR</span><span>SIMPEL-RS</span></div>
+        <div class="brand-note">Layanan validasi dokumen<br>Rumah Sakit Nur Rohmah</div>
+    </header>
 
-<div class="verify-card">
-    @if($signature)
-        @php
-            $fileStatus = $fileVerification['status'] ?? 'not_checked';
-            $administrativeStatus = $verification['administrative_status'] ?? 'valid';
-            $recordVerified = ($verification['valid'] ?? false) && $administrativeStatus === 'valid';
-            $headerClass = $recordVerified ? 'success' : 'error';
-            $headerTitle = $recordVerified
-                ? 'PENGESAHAN SIMPEL-RS TERVERIFIKASI'
-                : 'BUKTI PENGESAHAN BERMASALAH';
-            $filePanel = match($fileStatus) {
-                'match' => [
-                    'color' => $recordVerified ? '#166534' : '#92400e',
-                    'background' => $recordVerified ? '#f0fdf4' : '#fffbeb',
-                    'border' => $recordVerified ? '#86efac' : '#fcd34d',
-                    'title' => $recordVerified ? 'FILE RESMI — HASH COCOK' : 'HASH FILE COCOK — BUKTI SISTEM BERMASALAH',
-                ],
-                'mismatch' => [
-                    'color' => '#991b1b',
-                    'background' => '#fef2f2',
-                    'border' => '#fca5a5',
-                    'title' => 'FILE TIDAK COCOK DENGAN DOKUMEN RESMI',
-                ],
-                default => [
-                    'color' => '#92400e',
-                    'background' => '#fffbeb',
-                    'border' => '#fcd34d',
-                    'title' => 'FILE PENGGUNA BELUM DIPERIKSA',
-                ],
-            };
-        @endphp
-        <div class="verify-header">
-            <div class="verify-badge {{ $headerClass }}">{{ $recordVerified ? '✓' : '!' }}</div>
-            <div class="verify-title">{{ $headerTitle }}</div>
-            <div class="verify-sub">Status bukti pengesahan elektronik internal, terpisah dari pemeriksaan file pengguna.</div>
-        </div>
+    <article class="card">
+        @if($signature)
+            @php
+                $fileStatus = $fileVerification['status'] ?? 'not_checked';
+                $administrativeStatus = $verification['administrative_status'] ?? 'legacy_unknown';
+                $hasCryptographicEvidence = $signature->evidence !== null;
+                $cryptographicallyVerified = $hasCryptographicEvidence
+                    && ($verification['valid'] ?? false)
+                    && $administrativeStatus === 'valid';
+                $legacyIntegrityValid = ! $hasCryptographicEvidence && (bool) $integrityValid;
+                $recordProblem = ! $cryptographicallyVerified && ! $legacyIntegrityValid;
+                $recordTitle = $cryptographicallyVerified
+                    ? 'Pengesahan Elektronik Internal Terverifikasi'
+                    : ($legacyIntegrityValid ? 'Pengesahan Tercatat — Validasi Terbatas' : 'Bukti Pengesahan Tidak Valid');
+                $recordDescription = $cryptographicallyVerified
+                    ? 'Evidence kriptografis, persetujuan OTP, segel institusi, jejak audit, dan penyimpanan immutable berhasil diverifikasi.'
+                    : ($legacyIntegrityValid
+                        ? 'PDF server cocok dengan hash lama, tetapi record ini belum memiliki evidence kriptografis v2 yang lengkap.'
+                        : 'Satu atau lebih pemeriksaan evidence gagal. Dokumen tidak boleh dianggap terverifikasi.');
+                $fileBoxClass = match($fileStatus) { 'match' => $cryptographicallyVerified ? 'good' : 'warn', 'mismatch' => 'bad', default => 'warn' };
+                $fileTitle = match($fileStatus) {
+                    'match' => $cryptographicallyVerified
+                        ? 'File PDF Asli — Hash Cocok'
+                        : ($legacyIntegrityValid ? 'Hash File Cocok — Validasi Terbatas' : 'Hash File Cocok — Bukti Pengesahan Tidak Valid'),
+                    'mismatch' => 'File PDF Tidak Cocok',
+                    default => 'Keaslian File Belum Diperiksa',
+                };
+                $adminLabel = match($administrativeStatus) { 'valid' => 'Berlaku', 'revoked' => 'Dicabut', 'superseded' => 'Digantikan', default => 'Tidak tersedia' };
+            @endphp
 
-        <div style="padding:1rem; border:1px solid {{ $filePanel['border'] }}; background:{{ $filePanel['background'] }}; color:{{ $filePanel['color'] }}; border-radius:var(--radius-md); margin-bottom:1rem">
-            <strong>{{ $filePanel['title'] }}</strong>
-            <div style="margin-top:0.35rem">{{ $fileVerification['message'] ?? 'Belum diperiksa.' }}</div>
-            @if(!empty($fileVerification['actual_hash']))
-                <div style="font-family:monospace; font-size:0.7rem; word-break:break-all; margin-top:0.5rem">Hash upload: {{ $fileVerification['actual_hash'] }}</div>
-            @endif
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem; font-size:0.78rem">
-            <div>Integritas record/PDF server: <strong>{{ ($verification['checks']['pdf_hash'] ?? $integrityValid) ? 'cocok' : 'tidak cocok' }}</strong></div>
-            <div>Persetujuan OTP: <strong>{{ ($verification['checks']['otp_receipt_binding'] ?? false) ? 'receipt valid' : ($signature->evidence ? 'tidak valid' : 'legacy/tidak tersedia') }}</strong></div>
-            <div>Segel institusi: <strong>{{ ($verification['checks']['institution_signature'] ?? false) ? 'valid' : ($signature->evidence ? 'tidak valid' : 'tidak tersedia') }}</strong></div>
-            <div>Status key: <strong>{{ $verification['key_status'] ?? 'unknown' }}</strong></div>
-            <div>Waktu: <strong>internal-only</strong></div>
-            <div>Audit chain/checkpoint: <strong>{{ ($verification['checks']['audit_chain'] ?? false) && ($verification['checks']['audit_checkpoint'] ?? false) ? 'lengkap & valid' : ($signature->evidence ? 'gap/tidak valid' : 'tidak tersedia') }}</strong></div>
-            <div>Immutable storage: <strong>{{ ($verification['checks']['immutable_storage'] ?? false) ? 'receipt & read-back valid' : ($signature->evidence ? 'gap/tidak valid' : 'tidak tersedia') }}</strong></div>
-            <div>Status administratif: <strong>{{ $administrativeStatus }}</strong></div>
-        </div>
-
-        <div class="info-row">
-            <div class="info-label">NOMOR SURAT RESMI</div>
-            <div class="info-val" style="font-family:monospace; color:var(--brand-700); font-size:1.1rem">
-                {{ $signature->document->nomor_surat ?? '[Nomor Belum Diterbitkan]' }}
-            </div>
-        </div>
-
-        <div class="info-row">
-            <div class="info-label">JUDUL NASKAH DINAS</div>
-            <div class="info-val">{{ $signature->document->judul }}</div>
-        </div>
-
-        <div class="info-row">
-            <div class="info-label">JENIS NASKAH & UNIT PENGUSUL</div>
-            <div class="info-val">{{ $signature->document->documentType->nama }} &bull; {{ $signature->document->unit->nama }}</div>
-        </div>
-
-        <div class="info-row">
-            <div class="info-label">PENANDATANGAN</div>
-            <div class="info-val" style="color:var(--brand-700)">
-                👤 {{ $signature->penandatangan->name }}
-                <div style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-top:2px">
-                    {{ $signature->penandatangan->jabatan ?? 'Pejabat Penandatangan' }}
-                </div>
-                @if(data_get($signature->metadata_tte, 'principal_name'))
-                    <div style="font-size:0.8rem; color:var(--text-muted); font-weight:normal; margin-top:4px">
-                        Bertindak sebagai {{ strtoupper(data_get($signature->metadata_tte, 'delegation_type')) }} untuk {{ data_get($signature->metadata_tte, 'principal_name') }}
-                        ({{ data_get($signature->metadata_tte, 'delegation_from') }} s.d. {{ data_get($signature->metadata_tte, 'delegation_until') }})
+            <section class="hero {{ $recordProblem ? 'is-error' : '' }}">
+                <div class="hero-row">
+                    <div class="status-icon">{{ $recordProblem ? '!' : '✓' }}</div>
+                    <div>
+                        <div class="eyebrow">Hasil validasi pengesahan</div>
+                        <h1>{{ $recordTitle }}</h1>
+                        <p>{{ $recordDescription }}</p>
                     </div>
+                </div>
+            </section>
+
+            <div class="content">
+                <div class="status-grid">
+                    <div class="status-box {{ $recordProblem ? 'bad' : ($cryptographicallyVerified ? 'good' : 'warn') }}">
+                        <strong>Status Pengesahan</strong>
+                        <p>{{ $recordTitle }} · status administratif: {{ $adminLabel }}.</p>
+                    </div>
+                    <div class="status-box {{ $fileBoxClass }}">
+                        <strong>{{ $fileTitle }}</strong>
+                        <p>{{ $fileVerification['message'] ?? 'Belum ada PDF pengguna yang dibandingkan dengan dokumen resmi.' }}</p>
+                    </div>
+                </div>
+
+                <div class="section-title">Identitas dokumen</div>
+                <div class="metadata">
+                    <div class="meta"><div class="meta-label">Nomor Dokumen</div><div class="meta-value">{{ $signature->document->nomor_surat ?? 'Belum diterbitkan' }}</div></div>
+                    <div class="meta"><div class="meta-label">Tanggal Pengesahan</div><div class="meta-value">{{ $signature->ditandatangani_at->timezone('Asia/Jakarta')->translatedFormat('d F Y, H:i') }} WIB</div></div>
+                    <div class="meta"><div class="meta-label">Judul Dokumen</div><div class="meta-value">{{ $signature->document->judul }}</div></div>
+                    <div class="meta"><div class="meta-label">Jenis dan Unit</div><div class="meta-value">{{ $signature->document->documentType->nama }} · {{ $signature->document->unit->nama }}</div></div>
+                    <div class="meta"><div class="meta-label">Pejabat yang Mengesahkan</div><div class="meta-value">{{ $signature->penandatangan->name }} · {{ $signature->penandatangan->jabatan ?? 'Pejabat Penandatangan' }}</div></div>
+                    <div class="meta"><div class="meta-label">SHA-256 Dokumen Resmi</div><div class="meta-value hash">{{ $signature->hash_dokumen }}</div></div>
+                </div>
+
+                @if($hasCryptographicEvidence)
+                    <details>
+                        <summary>Rincian pemeriksaan teknis</summary>
+                        <div class="checks">
+                            <div class="check"><span>Hash PDF evidence</span><strong>{{ ($verification['checks']['pdf_hash'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
+                            <div class="check"><span>Persetujuan OTP</span><strong>{{ ($verification['checks']['otp_receipt_binding'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
+                            <div class="check"><span>Segel institusi</span><strong>{{ ($verification['checks']['institution_signature'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
+                            <div class="check"><span>Kunci institusi</span><strong>{{ in_array($verification['key_status'] ?? '', ['active','retired'], true) ? 'Dikenali' : 'Bermasalah' }}</strong></div>
+                            <div class="check"><span>Jejak audit</span><strong>{{ ($verification['checks']['audit_chain'] ?? false) && ($verification['checks']['audit_checkpoint'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
+                            <div class="check"><span>Penyimpanan immutable</span><strong>{{ ($verification['checks']['immutable_storage'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
+                        </div>
+                    </details>
                 @endif
+
+                <form class="upload" method="POST" enctype="multipart/form-data" action="{{ route('public.verify.upload', $signature->qr_token) }}">
+                    @csrf
+                    <label for="pdf">Periksa keaslian file PDF yang Anda terima</label>
+                    <small>File tidak disimpan atau ditampilkan. Sistem hanya menghitung SHA-256 dan membandingkannya byte-per-byte dengan dokumen resmi.</small>
+                    <div class="upload-row">
+                        <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" required>
+                        <button type="submit">Periksa File</button>
+                    </div>
+                    @error('pdf')<div class="error-text">{{ $message }}</div>@enderror
+                </form>
+
+                <p class="legal">SIMPEL-RS hanya menyatakan file asli apabila SHA-256 cocok sepenuhnya dan seluruh bukti pengesahan berhasil diverifikasi.</p>
             </div>
-        </div>
-
-        <div class="info-row">
-            <div class="info-label">WAKTU PENGESAHAN</div>
-            <div class="info-val">
-                🕒 {{ $signature->ditandatangani_at->translatedFormat('d F Y \j\a\m H:i:s') }} WIB
-            </div>
-        </div>
-
-        <div class="info-row" style="border-bottom:none">
-            <div class="info-label">HASH INTEGRITAS DOKUMEN (SHA-256)</div>
-            <div class="info-val" style="font-family:monospace; font-size:0.75rem; word-break:break-all; color:var(--text-muted)">
-                🔒 {{ $signature->hash_dokumen }}
-            </div>
-        </div>
-
-        <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-elevated); border-radius: var(--radius-md); text-align:center; font-size:0.78rem; color:var(--text-muted); border: 1px solid var(--border-subtle)">
-            Status pengesahan di atas memeriksa evidence resmi SIMPEL-RS. Keaslian PDF dari perangkat Anda hanya dinyatakan resmi setelah hash SHA-256 file cocok byte-per-byte dengan dokumen yang disahkan.
-        </div>
-
-        <form method="POST" enctype="multipart/form-data" action="{{ route('public.verify.upload', $signature->qr_token) }}" style="margin-top:1rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md)">
-            @csrf
-            <label for="pdf" style="display:block; font-weight:600; margin-bottom:0.5rem">Bandingkan PDF dari perangkat Anda</label>
-            <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" required>
-            @error('pdf')<div style="color:#dc2626; margin-top:0.5rem">{{ $message }}</div>@enderror
-            <button type="submit" style="display:block; margin-top:0.75rem; padding:0.6rem 1rem">Periksa PDF</button>
-        </form>
-        @if($signature->evidence?->bundle_path)
-            <a href="{{ route('public.verify.bundle', $signature->qr_token) }}" style="display:block; margin-top:1rem; text-align:center">Unduh evidence bundle untuk verifikasi offline</a>
+        @else
+            <section class="not-found">
+                <div class="status-icon" style="margin:0 auto;color:#991b1b;background:#fef2f2;border-color:#fca5a5">!</div>
+                <h1>Data Pengesahan Tidak Ditemukan</h1>
+                <p>Tautan tidak valid atau tidak terdaftar. Demi keamanan, sistem tidak memberikan informasi tambahan mengenai token yang diperiksa.</p>
+                <a class="back-link" href="{{ route('public.document.form') }}">Validasi menggunakan file PDF</a>
+            </section>
         @endif
-    @else
-        <div class="verify-header">
-            <div class="verify-badge error">✕</div>
-            <div class="verify-title" style="color:#dc2626">DOKUMEN TIDAK DITEMUKAN</div>
-            <div class="verify-sub">Token verifikasi QR Code tidak valid atau tidak terdaftar di sistem.</div>
-        </div>
-        <div style="text-align:center; color:var(--text-muted); font-size:0.875rem">
-            Pastikan Anda memindai QR Code pengesahan dari naskah dinas cetak/digital SIMPEL-RS.
-        </div>
-    @endif
-</div>
-
+    </article>
+</main>
 </body>
 </html>

@@ -114,7 +114,9 @@ class TteBaselineCharacterizationTest extends TestCase
 
         $this->get(route('public.verify', $signature->qr_token))
             ->assertOk()
-            ->assertViewHas('integrityValid', true);
+            ->assertViewHas('integrityValid', true)
+            ->assertSee('Pengesahan Tercatat — Validasi Terbatas')
+            ->assertDontSee('Pengesahan Elektronik Internal Terverifikasi');
 
         Storage::disk('local')->put($path, $original.'!');
 

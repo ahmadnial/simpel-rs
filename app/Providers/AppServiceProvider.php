@@ -28,6 +28,9 @@ use App\Services\MinioImmutableEvidenceStore;
 use App\Services\AuditChainWriter;
 use App\Services\SecurityEventReporter;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Database\Events\DatabaseConnected;
 use Illuminate\Database\Events\StatementPrepared;
 use Illuminate\Pagination\Paginator;
@@ -79,6 +82,30 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::defaultView('vendor.pagination.custom');
+
+        RateLimiter::for('public-verification-lookup', function (Request $request): array {
+            $ip = $request->ip();
+            $response = fn () => response()
+                ->view('public.rate-limited', status: 429)
+                ->withHeaders($this->publicSecurityHeaders());
+
+            return [
+                Limit::perMinute(30)->by("public-verify-lookup-minute:{$ip}")->response($response),
+                Limit::perHour(300)->by("public-verify-lookup-hour:{$ip}")->response($response),
+            ];
+        });
+
+        RateLimiter::for('public-verification-upload', function (Request $request): array {
+            $ip = $request->ip();
+            $response = fn () => response()
+                ->view('public.rate-limited', status: 429)
+                ->withHeaders($this->publicSecurityHeaders());
+
+            return [
+                Limit::perMinute(5)->by("public-verify-upload-minute:{$ip}")->response($response),
+                Limit::perHour(30)->by("public-verify-upload-hour:{$ip}")->response($response),
+            ];
+        });
 
         User::updated(function (User $user): void {
             if ($user->wasChanged(['email', 'password', 'is_active']) && Schema::hasTable('signature_otp_challenges')) {
@@ -212,6 +239,19 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             // Ignore if execution fails
         }
+    }
+
+    private function publicSecurityHeaders(): array
+    {
+        return [
+            'Cache-Control' => 'no-store, private',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+            'Referrer-Policy' => 'no-referrer',
+            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'",
+        ];
     }
 
     private function failActiveCeremoniesForDocument(int $documentId, string $reason): void

@@ -18,13 +18,12 @@ use App\Http\Controllers\OnlyOfficeController;
 // ==========================================
 // Public Routes
 // ==========================================
-Route::get('/validasi-dokumen', [PublicVerifyController::class, 'documentForm'])->name('public.document.form');
-Route::post('/validasi-dokumen', [PublicVerifyController::class, 'verifyDocument'])->name('public.document.verify')->middleware('throttle:10,1');
-Route::get('/validasi-qr/{token}', [PublicVerifyController::class, 'show'])->name('public.verify');
-Route::post('/validasi-qr/{token}/file', [PublicVerifyController::class, 'verifyUploadedPdf'])->name('public.verify.upload')->middleware('throttle:10,1');
-Route::get('/validasi-qr/{token}/bundle', [PublicVerifyController::class, 'downloadBundle'])->name('public.verify.bundle')->middleware('throttle:20,1');
-Route::get('/tte/keys/active', [PublicKeyController::class, 'active'])->name('public.keys.active');
-Route::get('/tte/keys/{keyId}', [PublicKeyController::class, 'show'])->name('public.keys.show');
+Route::get('/validasi-dokumen', [PublicVerifyController::class, 'documentForm'])->name('public.document.form')->middleware('throttle:public-verification-lookup');
+Route::post('/validasi-dokumen', [PublicVerifyController::class, 'verifyDocument'])->name('public.document.verify')->middleware('throttle:public-verification-upload');
+Route::get('/validasi-qr/{token}', [PublicVerifyController::class, 'show'])->name('public.verify')->middleware('throttle:public-verification-lookup');
+Route::post('/validasi-qr/{token}/file', [PublicVerifyController::class, 'verifyUploadedPdf'])->name('public.verify.upload')->middleware('throttle:public-verification-upload');
+Route::get('/tte/keys/active', [PublicKeyController::class, 'active'])->name('public.keys.active')->middleware('throttle:public-verification-lookup');
+Route::get('/tte/keys/{keyId}', [PublicKeyController::class, 'show'])->name('public.keys.show')->middleware('throttle:public-verification-lookup');
 
 // ==========================================
 // Auth Routes
