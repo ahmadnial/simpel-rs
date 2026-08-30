@@ -170,6 +170,42 @@ class SigningOtpV2Test extends TestCase
         $this->assertSame('role_changed', $roleChallenge->fresh()->failure_reason);
     }
 
+    public function test_otp_email_field_routes_notification_to_dedicated_address_instead_of_login_email(): void
+    {
+        $fixture = $this->fixture();
+        $fixture['signer']->update(['otp_email' => 'director-inbox@example.test']);
+        $context = $this->context($fixture, 'session-otp-email');
+        $challenge = app(SigningOtpService::class)->request($fixture['signer']->fresh(), $fixture['document'], $context);
+        $otp = $this->otpFor($fixture['signer'], $challenge);
+
+        $notification = Notification::sent($fixture['signer'], OtpTandaTangan::class)->first();
+        $this->assertSame('director-inbox@example.test', $fixture['signer']->fresh()->routeNotificationForMail($notification));
+        $this->assertNotSame($fixture['signer']->email, $fixture['signer']->fresh()->routeNotificationForMail($notification));
+        $this->assertMatchesRegularExpression('/^\d{8}$/', $otp);
+    }
+
+    public function test_otp_email_falls_back_to_login_email_when_not_set(): void
+    {
+        $fixture = $this->fixture();
+        $this->assertNull($fixture['signer']->otp_email);
+        $notification = new OtpTandaTangan(otp: '12345678', expiryMinutes: 3, challengeId: 'abcd1234', documentTitle: 'X', documentNumber: 'Y');
+        $this->assertSame($fixture['signer']->email, $fixture['signer']->routeNotificationForMail($notification));
+    }
+
+    public function test_otp_email_change_invalidates_active_challenge_same_as_login_email_change(): void
+    {
+        $fixture = $this->fixture();
+        $fixture['signer']->update(['otp_email' => 'first-inbox@example.test']);
+        $context = $this->context($fixture, 'session-otp-email-change');
+        $challenge = app(SigningOtpService::class)->request($fixture['signer']->fresh(), $fixture['document'], $context);
+        $otp = $this->otpFor($fixture['signer'], $challenge);
+
+        $fixture['signer']->update(['otp_email' => 'second-inbox@example.test']);
+
+        $this->expectOtpFailure(fn () => app(SigningOtpService::class)->verifyAndConsume($fixture['signer']->fresh(), $fixture['document'], $otp, $context));
+        $this->assertSame(SignatureOtpChallenge::STATE_REVOKED, $challenge->fresh()->state);
+    }
+
     public function test_http_request_requires_recent_password_reauthentication(): void
     {
         $fixture = $this->fixture();

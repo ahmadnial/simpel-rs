@@ -46,6 +46,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
+            'otp_email' => 'nullable|email|max:255',
             'password' => 'required|string|min:6',
             'unit_id' => 'nullable|exists:units,id',
             'nip' => 'nullable|string|max:50',
@@ -70,10 +71,12 @@ class UserController extends Controller
     public function update(Request $request, User $user, SigningOtpService $signingOtpService)
     {
         $originalEmail = $user->email;
+        $originalOtpEmail = $user->otp_email;
         $originalRoles = $user->getRoleNames()->sort()->values()->all();
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'otp_email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:6',
             'unit_id' => 'nullable|exists:units,id',
             'nip' => 'nullable|string|max:50',
@@ -98,6 +101,7 @@ class UserController extends Controller
         }
 
         $securityContextChanged = $originalEmail !== $user->fresh()->email
+            || $originalOtpEmail !== $user->fresh()->otp_email
             || $request->filled('password')
             || $originalRoles !== $user->fresh()->getRoleNames()->sort()->values()->all()
             || $user->wasChanged('is_active');

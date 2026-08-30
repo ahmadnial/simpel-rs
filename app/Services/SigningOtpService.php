@@ -45,7 +45,7 @@ class SigningOtpService
         $now = now();
         $otp = $this->generateOtp();
         $challengeUuid = (string) Str::uuid();
-        $destination = $this->normalizeDestination($user->email);
+        $destination = $this->normalizeDestination($user->otpDeliveryEmail());
         $delivery = (string) config('tte.otp.delivery', 'email');
         abort_unless(in_array($delivery, ['email', 'display'], true), 500, 'Mode pengiriman OTP tidak valid.');
         abort_unless($delivery !== 'display' || app()->environment(['local', 'testing']), 403, 'Mode tampil OTP hanya diizinkan pada local/testing.');
@@ -188,7 +188,7 @@ class SigningOtpService
             $bindingMatches = hash_equals($challenge->pdf_hash, strtolower($context['pdf_hash']))
                 && hash_equals($challenge->manifest_draft_hash, strtolower($context['manifest_draft_hash']))
                 && hash_equals($challenge->session_id_hash, $this->sessionHash($context['session_id']))
-                && hash_equals($challenge->destination_hash, hash_hmac('sha256', $this->normalizeDestination($user->email), $this->secrets->destinationKey()))
+                && hash_equals($challenge->destination_hash, hash_hmac('sha256', $this->normalizeDestination($user->otpDeliveryEmail()), $this->secrets->destinationKey()))
                 && $challenge->user_id === (int) $user->id
                 && $challenge->document_id === (int) $document->id
                 && $challenge->document_version_id === (int) $context['document_version_id']

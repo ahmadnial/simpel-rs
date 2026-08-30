@@ -130,6 +130,11 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Email *</label>
                 <input type="email" name="email" class="form-control" placeholder="budi@rs.id" required>
             </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Email Pengiriman OTP Tanda Tangan (khusus penandatangan)</label>
+                <input type="email" name="otp_email" class="form-control" placeholder="Kosongkan untuk pakai Email di atas">
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kode OTP saat menandatangani dokumen dikirim ke sini, terpisah dari email login. Kosongkan jika sama dengan email login.</div>
+            </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Password *</label>
@@ -193,6 +198,11 @@
                 <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Email *</label>
                 <input type="email" id="edit_email" name="email" class="form-control" required>
             </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Email Pengiriman OTP Tanda Tangan (khusus penandatangan)</label>
+                <input type="email" id="edit_otp_email" name="otp_email" class="form-control" placeholder="Kosongkan untuk pakai Email di atas">
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Kode OTP saat menandatangani dokumen dikirim ke sini, terpisah dari email login. Mengubah ini membatalkan OTP yang sedang aktif.</div>
+            </div>
             <div style="display:flex; gap:12px; margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="font-size:0.85rem; font-weight:600; display:block; margin-bottom:4px;">Password Baru (Kosongkan jika tidak diubah)</label>
@@ -246,6 +256,7 @@ function editUser(user, userRoles) {
     document.getElementById('formEditUser').action = '/admin/users/' + user.id;
     document.getElementById('edit_name').value = user.name;
     document.getElementById('edit_email').value = user.email;
+    document.getElementById('edit_otp_email').value = user.otp_email || '';
     document.getElementById('edit_nip').value = user.nip || '';
     document.getElementById('edit_jabatan').value = user.jabatan || '';
     document.getElementById('edit_unit_id').value = user.unit_id || '';

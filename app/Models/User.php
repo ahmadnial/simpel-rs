@@ -14,7 +14,7 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasRoles, FixesSqlServerDates;
 
     protected $fillable = [
-        'name', 'nip', 'email', 'phone', 'jabatan',
+        'name', 'nip', 'email', 'otp_email', 'phone', 'jabatan',
         'unit_id', 'avatar', 'is_active', 'password',
         'otp_code', 'otp_hash', 'otp_document_id', 'otp_expires_at',
     ];
@@ -75,6 +75,28 @@ class User extends Authenticatable
             ->where('berlaku_sampai', '>=', now()->toDateString())
             ->latest()
             ->first();
+    }
+
+    /**
+     * Tujuan pengiriman OTP penandatanganan: pakai email khusus OTP bila
+     * diisi, jika tidak jatuh kembali ke email login.
+     */
+    public function otpDeliveryEmail(): string
+    {
+        return $this->otp_email ?: $this->email;
+    }
+
+    /**
+     * Notifikasi OTP penandatanganan dikirim ke otpDeliveryEmail(), bukan
+     * email login, tanpa mengubah routing mail untuk notifikasi lain.
+     */
+    public function routeNotificationForMail($notification): string
+    {
+        if ($notification instanceof \App\Notifications\OtpTandaTangan) {
+            return $this->otpDeliveryEmail();
+        }
+
+        return $this->email;
     }
 
     public function getAvatarUrlAttribute(): string
