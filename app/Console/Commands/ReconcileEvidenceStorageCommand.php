@@ -20,9 +20,17 @@ class ReconcileEvidenceStorageCommand extends Command
         }
         $evidence = $query->get();
         if ($evidence->isEmpty()) {
-            $this->error('Evidence tidak ditemukan.');
+            if ($uuid) {
+                $this->error('Evidence tidak ditemukan.');
 
-            return self::INVALID;
+                return self::INVALID;
+            }
+
+            $this->line($this->option('json')
+                ? json_encode(['valid' => true, 'evidence' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
+                : 'Belum ada evidence untuk direkonsiliasi.');
+
+            return self::SUCCESS;
         }
         $results = [];
         foreach ($evidence as $item) {

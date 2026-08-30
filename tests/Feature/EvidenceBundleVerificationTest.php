@@ -171,6 +171,19 @@ class EvidenceBundleVerificationTest extends TestCase
         $event->update(['reason' => 'ditulis ulang']);
     }
 
+    public function test_reconcile_command_succeeds_with_valid_empty_json_when_no_evidence_exists(): void
+    {
+        $this->artisan('evidence:reconcile', ['--json' => true])
+            ->assertExitCode(0)
+            ->expectsOutput(json_encode(['valid' => true, 'evidence' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+    }
+
+    public function test_reconcile_command_fails_when_specific_uuid_is_not_found(): void
+    {
+        $this->artisan('evidence:reconcile', ['uuid' => (string) \Illuminate\Support\Str::uuid(), '--json' => true])
+            ->assertExitCode(2);
+    }
+
     private function signDocument(): SignatureEvidence
     {
         $suffix = bin2hex(random_bytes(4));
