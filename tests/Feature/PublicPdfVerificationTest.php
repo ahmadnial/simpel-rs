@@ -117,7 +117,7 @@ class PublicPdfVerificationTest extends TestCase
             ->assertDontSee('FILE RESMI — HASH COCOK');
     }
 
-    public function test_oversized_non_pdf_and_active_content_are_rejected_safely(): void
+    public function test_oversized_and_non_pdf_are_rejected_while_pdf_is_treated_as_opaque_bytes(): void
     {
         [$signature] = $this->signedEvidence();
 
@@ -129,9 +129,13 @@ class PublicPdfVerificationTest extends TestCase
             'pdf' => UploadedFile::fake()->createWithContent('not-pdf.pdf', 'plain text'),
         ])->assertSessionHasErrors('pdf');
 
+        // Verifier tidak merender atau mengeksekusi PDF. Token seperti /OpenAction
+        // diperlakukan sebagai byte biasa dan hasil tetap fail-closed lewat hash.
         $this->post(route('public.verify.upload', $signature->qr_token), [
             'pdf' => UploadedFile::fake()->createWithContent('active.pdf', "%PDF-1.4\n/OpenAction << /JS (alert) >>"),
-        ])->assertSessionHasErrors('pdf');
+        ])->assertOk()
+            ->assertSee('FILE TIDAK COCOK DENGAN DOKUMEN RESMI')
+            ->assertDontSee('FILE RESMI — HASH COCOK');
     }
 
     /** @return array{DocumentSignature,SignatureEvidence} */

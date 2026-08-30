@@ -98,17 +98,11 @@ class PublicVerifyController extends Controller
         $upload = $request->file('pdf');
         $path = $upload->getRealPath();
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
-        $bytes = file_get_contents($path);
-        if (! in_array($mime, ['application/pdf', 'application/x-pdf'], true) || ! str_starts_with($bytes, '%PDF-')) {
+        $header = file_get_contents($path, false, null, 0, 5);
+        if (! in_array($mime, ['application/pdf', 'application/x-pdf'], true) || $header !== '%PDF-') {
             throw ValidationException::withMessages(['pdf' => 'File tidak dikenali sebagai PDF yang aman untuk diperiksa.']);
         }
-        foreach ((array) config('tte.verifier.dangerous_pdf_tokens') as $tokenPattern) {
-            if (stripos($bytes, $tokenPattern) !== false) {
-                throw ValidationException::withMessages(['pdf' => 'PDF memuat fitur aktif/tertanam yang tidak diizinkan untuk verifier publik.']);
-            }
-        }
         $actualHash = hash_file('sha256', $path);
-        unset($bytes);
 
         return [$path, $actualHash];
     }
