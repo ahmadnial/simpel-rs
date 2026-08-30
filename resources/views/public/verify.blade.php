@@ -37,11 +37,6 @@
         .meta:nth-last-child(-n+2) { border-bottom:0; }
         .meta-label { margin-bottom:5px; color:#64748b; font-size:.69rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
         .meta-value { color:#1e293b; font-size:.88rem; font-weight:650; line-height:1.45; overflow-wrap:anywhere; }
-        .hash { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:500; }
-        details { margin-top:18px; border:1px solid #e2e8f0; border-radius:14px; background:#f8fafc; }
-        summary { cursor:pointer; padding:14px 16px; font-weight:750; font-size:.84rem; }
-        .checks { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 16px 16px; color:#475569; font-size:.76rem; }
-        .check { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px dashed #dbe4f0; }
         .upload { margin-top:22px; padding:18px; border:1px solid #cbd5e1; border-radius:16px; background:#f8fafc; }
         .upload label { display:block; margin-bottom:6px; font-size:.9rem; font-weight:800; }
         .upload small { display:block; margin-bottom:12px; color:#64748b; line-height:1.45; }
@@ -54,7 +49,7 @@
         .not-found h1 { margin:12px 0 8px; color:#991b1b; font-size:1.45rem; }
         .not-found p { margin:0 auto; max-width:520px; color:#64748b; line-height:1.6; }
         .back-link { display:inline-block; margin-top:20px; color:#1d4ed8; font-weight:750; text-decoration:none; }
-        @media(max-width:680px) { body{padding:16px 10px}.brand-note{display:none}.hero,.content{padding:24px 19px}.hero-row{flex-direction:column}.status-grid,.metadata,.checks{grid-template-columns:1fr}.meta:nth-child(odd){border-right:0}.meta:nth-last-child(2){border-bottom:1px solid #e2e8f0}.upload-row{align-items:stretch;flex-direction:column}.upload button{width:100%} }
+        @media(max-width:680px) { body{padding:16px 10px}.brand-note{display:none}.hero,.content{padding:24px 19px}.hero-row{flex-direction:column}.status-grid,.metadata{grid-template-columns:1fr}.meta:nth-child(odd){border-right:0}.meta:nth-last-child(2){border-bottom:1px solid #e2e8f0}.upload-row{align-items:stretch;flex-direction:column}.upload button{width:100%} }
     </style>
 </head>
 <body>
@@ -77,17 +72,17 @@
                 $recordProblem = ! $cryptographicallyVerified && ! $legacyIntegrityValid;
                 $recordTitle = $cryptographicallyVerified
                     ? 'Pengesahan Elektronik Internal Terverifikasi'
-                    : ($legacyIntegrityValid ? 'Pengesahan Tercatat — Validasi Terbatas' : 'Bukti Pengesahan Tidak Valid');
+                    : ($legacyIntegrityValid ? 'Pengesahan Tercatat — Pemeriksaan Terbatas' : 'Bukti Pengesahan Tidak Valid');
                 $recordDescription = $cryptographicallyVerified
-                    ? 'Evidence kriptografis, persetujuan OTP, segel institusi, jejak audit, dan penyimpanan immutable berhasil diverifikasi.'
+                    ? 'Data dokumen dan bukti pengesahan berhasil diperiksa.'
                     : ($legacyIntegrityValid
-                        ? 'PDF server cocok dengan hash lama, tetapi record ini belum memiliki evidence kriptografis v2 yang lengkap.'
-                        : 'Satu atau lebih pemeriksaan evidence gagal. Dokumen tidak boleh dianggap terverifikasi.');
+                        ? 'Dokumen tercatat pada sistem lama dan belum memiliki pemeriksaan selengkap dokumen terbaru.'
+                        : 'Pemeriksaan bukti pengesahan tidak berhasil. Dokumen tidak boleh dianggap valid.');
                 $fileBoxClass = match($fileStatus) { 'match' => $cryptographicallyVerified ? 'good' : 'warn', 'mismatch' => 'bad', default => 'warn' };
                 $fileTitle = match($fileStatus) {
                     'match' => $cryptographicallyVerified
-                        ? 'File PDF Asli — Hash Cocok'
-                        : ($legacyIntegrityValid ? 'Hash File Cocok — Validasi Terbatas' : 'Hash File Cocok — Bukti Pengesahan Tidak Valid'),
+                        ? 'File PDF Sesuai Dokumen Resmi'
+                        : ($legacyIntegrityValid ? 'File Cocok — Pemeriksaan Terbatas' : 'File Cocok — Pengesahan Tidak Valid'),
                     'mismatch' => 'File PDF Tidak Cocok',
                     default => 'Keaslian File Belum Diperiksa',
                 };
@@ -123,28 +118,13 @@
                     <div class="meta"><div class="meta-label">Tanggal Pengesahan</div><div class="meta-value">{{ $signature->ditandatangani_at->timezone('Asia/Jakarta')->translatedFormat('d F Y, H:i') }} WIB</div></div>
                     <div class="meta"><div class="meta-label">Judul Dokumen</div><div class="meta-value">{{ $signature->document->judul }}</div></div>
                     <div class="meta"><div class="meta-label">Jenis dan Unit</div><div class="meta-value">{{ $signature->document->documentType->nama }} · {{ $signature->document->unit->nama }}</div></div>
-                    <div class="meta"><div class="meta-label">Pejabat yang Mengesahkan</div><div class="meta-value">{{ $signature->penandatangan->name }} · {{ $signature->penandatangan->jabatan ?? 'Pejabat Penandatangan' }}</div></div>
-                    <div class="meta"><div class="meta-label">SHA-256 Dokumen Resmi</div><div class="meta-value hash">{{ $signature->hash_dokumen }}</div></div>
+                    <div class="meta" style="grid-column:1/-1;border-right:0;border-bottom:0"><div class="meta-label">Pejabat yang Mengesahkan</div><div class="meta-value">{{ $signature->penandatangan->name }} · {{ $signature->penandatangan->jabatan ?? 'Pejabat Penandatangan' }}</div></div>
                 </div>
-
-                @if($hasCryptographicEvidence)
-                    <details>
-                        <summary>Rincian pemeriksaan teknis</summary>
-                        <div class="checks">
-                            <div class="check"><span>Hash PDF evidence</span><strong>{{ ($verification['checks']['pdf_hash'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
-                            <div class="check"><span>Persetujuan OTP</span><strong>{{ ($verification['checks']['otp_receipt_binding'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
-                            <div class="check"><span>Segel institusi</span><strong>{{ ($verification['checks']['institution_signature'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
-                            <div class="check"><span>Kunci institusi</span><strong>{{ in_array($verification['key_status'] ?? '', ['active','retired'], true) ? 'Dikenali' : 'Bermasalah' }}</strong></div>
-                            <div class="check"><span>Jejak audit</span><strong>{{ ($verification['checks']['audit_chain'] ?? false) && ($verification['checks']['audit_checkpoint'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
-                            <div class="check"><span>Penyimpanan immutable</span><strong>{{ ($verification['checks']['immutable_storage'] ?? false) ? 'Valid' : 'Gagal' }}</strong></div>
-                        </div>
-                    </details>
-                @endif
 
                 <form class="upload" method="POST" enctype="multipart/form-data" action="{{ route('public.verify.upload', $signature->qr_token) }}">
                     @csrf
                     <label for="pdf">Periksa keaslian file PDF yang Anda terima</label>
-                    <small>File tidak disimpan atau ditampilkan. Sistem hanya menghitung SHA-256 dan membandingkannya byte-per-byte dengan dokumen resmi.</small>
+                    <small>Pilih file PDF yang Anda terima untuk dibandingkan dengan dokumen resmi.</small>
                     <div class="upload-row">
                         <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" required>
                         <button type="submit">Periksa File</button>
@@ -152,7 +132,7 @@
                     @error('pdf')<div class="error-text">{{ $message }}</div>@enderror
                 </form>
 
-                <p class="legal">SIMPEL-RS hanya menyatakan file asli apabila SHA-256 cocok sepenuhnya dan seluruh bukti pengesahan berhasil diverifikasi.</p>
+                <p class="legal">SIMPEL-RS hanya menyatakan dokumen valid apabila file dan bukti pengesahannya sesuai dengan data resmi.</p>
             </div>
         @else
             <section class="not-found">

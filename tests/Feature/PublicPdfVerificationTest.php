@@ -41,7 +41,7 @@ class PublicPdfVerificationTest extends TestCase
             ->assertOk()
             ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
             ->assertSee('Keaslian File Belum Diperiksa')
-            ->assertDontSee('File PDF Asli — Hash Cocok')
+            ->assertDontSee('File PDF Sesuai Dokumen Resmi')
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY')
@@ -57,8 +57,8 @@ class PublicPdfVerificationTest extends TestCase
         $this->post(route('public.verify.upload', $signature->qr_token), ['pdf' => $upload])
             ->assertOk()
             ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
-            ->assertSee('File PDF Asli — Hash Cocok')
-            ->assertSee('Byte PDF yang diunggah cocok');
+            ->assertSee('File PDF Sesuai Dokumen Resmi')
+            ->assertSee('File yang diunggah cocok');
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Verifier tidak boleh menyimpan file upload.');
     }
 
@@ -74,7 +74,8 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->get(route('public.document.form'))
             ->assertOk()
-            ->assertSee('Validasi Dokumen SIMPEL-RS')
+            ->assertSee('Periksa keaslian PDF')
+            ->assertSee('Validasi Dokumen Sekarang')
             ->assertHeader('Cache-Control', 'no-store, private');
 
         $filesBefore = Storage::disk('local')->allFiles();
@@ -86,7 +87,7 @@ class PublicPdfVerificationTest extends TestCase
         $this->post(route('public.document.verify'), ['pdf' => $upload])
             ->assertOk()
             ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
-            ->assertSee('File PDF Asli — Hash Cocok')
+            ->assertSee('File PDF Sesuai Dokumen Resmi')
             ->assertSee($signature->document->judul);
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Validasi langsung tidak boleh menyimpan file upload.');
     }
@@ -103,7 +104,7 @@ class PublicPdfVerificationTest extends TestCase
             ->assertOk()
             ->assertSee('Dokumen Tidak Cocok atau Tidak Terdaftar')
             ->assertDontSee('Pengesahan Elektronik Internal Terverifikasi')
-            ->assertDontSee('File PDF Asli — Hash Cocok')
+            ->assertDontSee('File PDF Sesuai Dokumen Resmi')
             ->assertDontSee($signature->document->judul)
             ->assertDontSee($signature->penandatangan->name)
             ->assertDontSee($signature->hash_dokumen);
@@ -121,7 +122,7 @@ class PublicPdfVerificationTest extends TestCase
             ->assertOk()
             ->assertSee('Pengesahan Elektronik Internal Terverifikasi')
             ->assertSee('File PDF Tidak Cocok')
-            ->assertDontSee('File PDF Asli — Hash Cocok');
+            ->assertDontSee('File PDF Sesuai Dokumen Resmi');
     }
 
     public function test_oversized_and_non_pdf_are_rejected_while_pdf_is_treated_as_opaque_bytes(): void
@@ -142,7 +143,7 @@ class PublicPdfVerificationTest extends TestCase
             'pdf' => UploadedFile::fake()->createWithContent('active.pdf', "%PDF-1.4\n/OpenAction << /JS (alert) >>"),
         ])->assertOk()
             ->assertSee('File PDF Tidak Cocok')
-            ->assertDontSee('File PDF Asli — Hash Cocok');
+            ->assertDontSee('File PDF Sesuai Dokumen Resmi');
     }
 
     public function test_public_lookup_uses_generic_response_and_rate_limits_token_enumeration(): void

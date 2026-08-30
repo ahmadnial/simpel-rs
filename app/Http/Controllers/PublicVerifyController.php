@@ -31,7 +31,7 @@ class PublicVerifyController extends Controller
                 response()->view('public.validate-document', [
                     'lookupResult' => [
                         'status' => 'not_found',
-                        'message' => 'Hash PDF tidak ditemukan pada record pengesahan resmi SIMPEL-RS. File mungkin telah berubah atau bukan keluaran resmi.',
+                        'message' => 'Dokumen tidak cocok dengan data resmi SIMPEL-RS. Pastikan Anda menggunakan file PDF asli yang diterima.',
                     ],
                 ])
             );
@@ -40,7 +40,7 @@ class PublicVerifyController extends Controller
         [$signature, $integrityValid, $verification] = $this->recordVerification($signature->qr_token, $verifier);
         $fileVerification = [
             'status' => 'match',
-            'message' => 'Byte PDF yang diunggah cocok dengan evidence resmi.',
+            'message' => 'File yang diunggah cocok dengan dokumen resmi SIMPEL-RS.',
             'actual_hash' => $actualHash,
             'expected_hash' => $signature->evidence?->pdf_hash ?? $signature->hash_dokumen,
         ];
@@ -61,7 +61,7 @@ class PublicVerifyController extends Controller
                 'verification' => $verification,
                 'fileVerification' => [
                     'status' => 'not_checked',
-                    'message' => 'Belum ada PDF pengguna yang dibandingkan dengan hash dokumen resmi.',
+                    'message' => 'Belum ada file PDF yang diperiksa.',
                 ],
             ])
         );
@@ -78,8 +78,8 @@ class PublicVerifyController extends Controller
         $fileVerification = [
             'status' => $matches ? 'match' : 'mismatch',
             'message' => $matches
-                ? 'Byte PDF yang diunggah cocok dengan evidence resmi.'
-                : 'Byte PDF yang diunggah tidak cocok dengan evidence resmi.',
+                ? 'File yang diunggah cocok dengan dokumen resmi SIMPEL-RS.'
+                : 'File yang diunggah berbeda dari dokumen resmi SIMPEL-RS.',
             'actual_hash' => $actualHash,
             'expected_hash' => $expectedHash,
         ];
