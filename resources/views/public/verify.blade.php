@@ -8,28 +8,28 @@
     @vite(['resources/css/app.css'])
     <style>
         * { box-sizing:border-box; }
-        body { margin:0; min-height:100vh; padding:32px 18px; color:#172033; background:radial-gradient(circle at 15% 0%,#dbeafe 0,transparent 34%),radial-gradient(circle at 90% 16%,#dcfce7 0,transparent 30%),#f4f7fb; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; }
-        .shell { width:min(100%,860px); margin:0 auto; }
-        .brand { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
-        .brand-mark { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:-.02em; }
-        .brand-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:13px; color:#fff; background:linear-gradient(135deg,#2563eb,#0f766e); box-shadow:0 10px 24px rgba(37,99,235,.22); }
-        .brand-note { color:#64748b; font-size:.78rem; text-align:right; }
-        .card { overflow:hidden; background:rgba(255,255,255,.96); border:1px solid #dbe4f0; border-radius:24px; box-shadow:0 24px 70px rgba(30,64,175,.10); }
-        .hero { padding:32px; color:#fff; background:linear-gradient(130deg,#172554 0%,#1d4ed8 58%,#0f766e 120%); }
-        .hero.is-error { background:linear-gradient(130deg,#450a0a,#b91c1c); }
+        body { margin:0; min-height:100vh; padding:36px 18px; color:#172033; background:#f4f6f8; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; }
+        .shell { width:min(100%,820px); margin:0 auto; }
+        .verify-brandbar { display:flex; align-items:center; gap:10px; padding:18px 26px; color:#334155; background:#fff; border-bottom:1px solid #e5e7eb; font-size:.82rem; font-weight:800; letter-spacing:-.01em; }
+        .verify-brandbar span:first-child { width:30px; height:30px; display:grid; place-items:center; color:#fff; background:#1e3a5f; border-radius:8px; font-size:.65rem; }
+        .verify-brandbar small { margin-left:auto; color:#94a3b8; font-size:.72rem; font-weight:600; }
+        .card { overflow:hidden; background:#fff; border:1px solid #dde3ea; border-radius:18px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+        .hero { padding:30px 32px; color:#172033; background:#fff; border-bottom:1px solid #e5e7eb; }
+        .hero.is-error { background:#fff; }
         .hero-row { display:flex; align-items:flex-start; gap:18px; }
-        .status-icon { flex:0 0 58px; width:58px; height:58px; display:grid; place-items:center; border-radius:18px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); font-size:1.8rem; }
-        .eyebrow { margin-bottom:6px; font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#bfdbfe; }
-        .hero h1 { margin:0; font-size:clamp(1.35rem,4vw,2rem); line-height:1.15; letter-spacing:-.035em; }
-        .hero p { margin:10px 0 0; max-width:650px; color:#dbeafe; line-height:1.55; font-size:.9rem; }
-        .content { padding:28px 32px 32px; }
+        .status-icon { flex:0 0 50px; width:50px; height:50px; display:grid; place-items:center; border-radius:50%; color:#166534; background:#ecfdf3; border:1px solid #bbf7d0; font-size:1.45rem; }
+        .hero.is-error .status-icon { color:#991b1b; background:#fef2f2; border-color:#fecaca; }
+        .eyebrow { margin-bottom:6px; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#64748b; }
+        .hero h1 { margin:0; font-size:clamp(1.25rem,3.5vw,1.65rem); line-height:1.2; letter-spacing:-.025em; }
+        .hero p { margin:8px 0 0; max-width:650px; color:#64748b; line-height:1.55; font-size:.84rem; }
+        .content { padding:26px 32px 30px; }
         .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
-        .status-box { padding:18px; border-radius:16px; border:1px solid; }
+        .status-box { padding:16px 17px; border-radius:12px; border:1px solid; }
         .status-box strong { display:block; margin-bottom:6px; font-size:.86rem; letter-spacing:.02em; }
         .status-box p { margin:0; font-size:.82rem; line-height:1.5; }
-        .status-box.good { color:#14532d; background:#f0fdf4; border-color:#86efac; }
-        .status-box.warn { color:#854d0e; background:#fefce8; border-color:#fde047; }
-        .status-box.bad { color:#991b1b; background:#fef2f2; border-color:#fca5a5; }
+        .status-box.good { color:#244534; background:#f8faf9; border-color:#d6e5dc; border-left:3px solid #22c55e; }
+        .status-box.warn { color:#713f12; background:#fffdf7; border-color:#ede4c8; border-left:3px solid #d97706; }
+        .status-box.bad { color:#7f1d1d; background:#fffafa; border-color:#f1d5d5; border-left:3px solid #dc2626; }
         .section-title { margin:26px 0 10px; font-size:.76rem; font-weight:800; letter-spacing:.1em; color:#64748b; text-transform:uppercase; }
         .metadata { display:grid; grid-template-columns:1fr 1fr; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; }
         .meta { min-width:0; padding:15px 17px; border-bottom:1px solid #e2e8f0; }
@@ -42,24 +42,20 @@
         .upload small { display:block; margin-bottom:12px; color:#64748b; line-height:1.45; }
         .upload-row { display:flex; align-items:center; gap:12px; }
         .upload input { min-width:0; flex:1; padding:10px; background:#fff; border:1px solid #cbd5e1; border-radius:10px; }
-        .upload button { padding:11px 18px; white-space:nowrap; color:#fff; background:#1d4ed8; border:0; border-radius:10px; font-weight:750; cursor:pointer; }
+        .upload button { padding:11px 18px; white-space:nowrap; color:#fff; background:#1e3a5f; border:0; border-radius:9px; font-weight:750; cursor:pointer; }
         .error-text { margin-top:8px; color:#b91c1c; font-size:.8rem; }
         .legal { margin:18px 0 0; text-align:center; color:#64748b; font-size:.74rem; line-height:1.55; }
         .not-found { padding:38px 32px; text-align:center; }
         .not-found h1 { margin:12px 0 8px; color:#991b1b; font-size:1.45rem; }
         .not-found p { margin:0 auto; max-width:520px; color:#64748b; line-height:1.6; }
         .back-link { display:inline-block; margin-top:20px; color:#1d4ed8; font-weight:750; text-decoration:none; }
-        @media(max-width:680px) { body{padding:16px 10px}.brand-note{display:none}.hero,.content{padding:24px 19px}.hero-row{flex-direction:column}.status-grid,.metadata{grid-template-columns:1fr}.meta:nth-child(odd){border-right:0}.meta:nth-last-child(2){border-bottom:1px solid #e2e8f0}.upload-row{align-items:stretch;flex-direction:column}.upload button{width:100%} }
+        @media(max-width:680px) { body{padding:16px 10px}.verify-brandbar small{display:none}.hero,.content{padding:23px 19px}.hero-row{gap:14px}.status-grid,.metadata{grid-template-columns:1fr}.meta:nth-child(odd){border-right:0}.meta:nth-last-child(2){border-bottom:1px solid #e2e8f0}.upload-row{align-items:stretch;flex-direction:column}.upload button{width:100%} }
     </style>
 </head>
 <body>
 <main class="shell">
-    <header class="brand">
-        <div class="brand-mark"><span class="brand-icon">SR</span><span>SIMPEL-RS</span></div>
-        <div class="brand-note">Layanan validasi dokumen<br>Rumah Sakit Nur Rohmah</div>
-    </header>
-
     <article class="card">
+        <div class="verify-brandbar"><span>SR</span><strong>SIMPEL-RS</strong><small>Validasi Dokumen</small></div>
         @if($signature)
             @php
                 $fileStatus = $fileVerification['status'] ?? 'not_checked';
