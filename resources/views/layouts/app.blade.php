@@ -548,8 +548,16 @@
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin',
         }).then(response => {
-            if (response.redirected || response.status === 401 || response.status === 419) {
+            if (response.redirected) {
+                // Request ini benar-benar di-redirect server (mis. ke halaman login);
+                // response.url sudah menjadi tujuan yang tepat.
                 window.location.assign(response.url);
+            } else if (response.status === 401 || response.status === 419) {
+                // Bukan redirect HTTP — response.url masih menunjuk ke endpoint
+                // keep-alive itu sendiri. Muat ulang halaman saat ini supaya
+                // middleware auth mengarahkan ke login dengan tujuan-setelah-login
+                // yang benar (halaman ini), bukan endpoint JSON keep-alive.
+                window.location.reload();
             }
         }).catch(() => {
             // Jangan mengeluarkan pengguna karena gangguan jaringan sementara.
