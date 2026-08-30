@@ -58,6 +58,50 @@ class PublicPdfVerificationTest extends TestCase
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Verifier tidak boleh menyimpan file upload.');
     }
 
+    public function test_public_document_page_finds_exact_official_pdf_without_qr_token(): void
+    {
+        [$signature, $evidence] = $this->signedEvidence();
+
+        auth()->logout();
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(route('public.document.form'), false)
+            ->assertSee('Validasi keaslian PDF');
+
+        $this->get(route('public.document.form'))
+            ->assertOk()
+            ->assertSee('Validasi Dokumen SIMPEL-RS')
+            ->assertHeader('Cache-Control', 'no-store, private');
+
+        $filesBefore = Storage::disk('local')->allFiles();
+        $upload = UploadedFile::fake()->createWithContent(
+            'document-a.pdf',
+            Storage::disk('local')->get($evidence->pdf_path)
+        );
+
+        $this->post(route('public.document.verify'), ['pdf' => $upload])
+            ->assertOk()
+            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
+            ->assertSee('FILE RESMI — HASH COCOK')
+            ->assertSee($signature->document->judul);
+        $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Validasi langsung tidak boleh menyimpan file upload.');
+    }
+
+    public function test_public_document_page_rejects_modified_or_unregistered_pdf_without_leaking_records(): void
+    {
+        [, $evidence] = $this->signedEvidence();
+        $modified = UploadedFile::fake()->createWithContent(
+            'document-a-edited.pdf',
+            Storage::disk('local')->get($evidence->pdf_path).'edited'
+        );
+
+        $this->post(route('public.document.verify'), ['pdf' => $modified])
+            ->assertOk()
+            ->assertSee('DOKUMEN TIDAK COCOK / TIDAK TERDAFTAR')
+            ->assertDontSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
+            ->assertDontSee('FILE RESMI — HASH COCOK');
+    }
+
     public function test_modified_pdf_with_copied_qr_token_never_receives_file_valid_claim(): void
     {
         [$signature, $evidence] = $this->signedEvidence();

@@ -441,6 +441,11 @@
                 </button>
             </form>
 
+            <div style="margin-top:1.25rem; padding-top:1.1rem; border-top:1px solid #e2e8f0; text-align:center; font-size:.85rem; color:#64748b;">
+                Menerima dokumen dari SIMPEL-RS?
+                <a href="{{ route('public.document.form') }}" style="color:#1d4ed8; font-weight:700; text-decoration:none;">Validasi keaslian PDF</a>
+            </div>
+
         </div>
     </div>
 

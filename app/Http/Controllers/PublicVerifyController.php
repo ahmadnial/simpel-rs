@@ -10,6 +10,46 @@ use Illuminate\Validation\ValidationException;
 
 class PublicVerifyController extends Controller
 {
+    public function documentForm()
+    {
+        return $this->secureVerificationResponse(
+            response()->view('public.validate-document', ['lookupResult' => null])
+        );
+    }
+
+    public function verifyDocument(Request $request, EvidenceVerificationService $verifier)
+    {
+        [$path, $actualHash] = $this->inspectUploadedPdf($request);
+
+        $signature = DocumentSignature::query()
+            ->whereHas('evidence', fn ($query) => $query->where('pdf_hash', $actualHash))
+            ->orWhere('hash_dokumen', $actualHash)
+            ->first();
+
+        if (! $signature) {
+            return $this->secureVerificationResponse(
+                response()->view('public.validate-document', [
+                    'lookupResult' => [
+                        'status' => 'not_found',
+                        'message' => 'Hash PDF tidak ditemukan pada record pengesahan resmi SIMPEL-RS. File mungkin telah berubah atau bukan keluaran resmi.',
+                    ],
+                ])
+            );
+        }
+
+        [$signature, $integrityValid, $verification] = $this->recordVerification($signature->qr_token, $verifier);
+        $fileVerification = [
+            'status' => 'match',
+            'message' => 'Byte PDF yang diunggah cocok dengan evidence resmi.',
+            'actual_hash' => $actualHash,
+            'expected_hash' => $signature->evidence?->pdf_hash ?? $signature->hash_dokumen,
+        ];
+
+        return $this->secureVerificationResponse(
+            response()->view('public.verify', compact('signature', 'integrityValid', 'verification', 'fileVerification'))
+        );
+    }
+
     public function show(string $token, EvidenceVerificationService $verifier)
     {
         [$signature, $integrityValid, $verification] = $this->recordVerification($token, $verifier);
@@ -31,6 +71,27 @@ class PublicVerifyController extends Controller
     {
         [$signature, $integrityValid, $verification] = $this->recordVerification($token, $verifier);
         abort_unless($signature, 404);
+        [$path, $actualHash] = $this->inspectUploadedPdf($request);
+
+        $expectedHash = $signature->evidence?->pdf_hash ?? $signature->hash_dokumen;
+        $matches = is_string($expectedHash) && hash_equals($expectedHash, $actualHash);
+        $fileVerification = [
+            'status' => $matches ? 'match' : 'mismatch',
+            'message' => $matches
+                ? 'Byte PDF yang diunggah cocok dengan evidence resmi.'
+                : 'Byte PDF yang diunggah tidak cocok dengan evidence resmi.',
+            'actual_hash' => $actualHash,
+            'expected_hash' => $expectedHash,
+        ];
+
+        return $this->secureVerificationResponse(
+            response()->view('public.verify', compact('signature', 'integrityValid', 'verification', 'fileVerification'))
+        );
+    }
+
+    /** @return array{string,string} */
+    private function inspectUploadedPdf(Request $request): array
+    {
         $request->validate([
             'pdf' => ['required', 'file', 'max:'.config('tte.verifier.max_upload_kilobytes')],
         ], ['pdf.max' => 'Ukuran PDF melebihi batas pemeriksaan.', 'pdf.required' => 'Pilih file PDF yang akan diperiksa.']);
@@ -46,23 +107,10 @@ class PublicVerifyController extends Controller
                 throw ValidationException::withMessages(['pdf' => 'PDF memuat fitur aktif/tertanam yang tidak diizinkan untuk verifier publik.']);
             }
         }
-
-        $expectedHash = $signature->evidence?->pdf_hash ?? $signature->hash_dokumen;
         $actualHash = hash_file('sha256', $path);
-        $matches = is_string($expectedHash) && hash_equals($expectedHash, $actualHash);
-        $fileVerification = [
-            'status' => $matches ? 'match' : 'mismatch',
-            'message' => $matches
-                ? 'Byte PDF yang diunggah cocok dengan evidence resmi.'
-                : 'Byte PDF yang diunggah tidak cocok dengan evidence resmi.',
-            'actual_hash' => $actualHash,
-            'expected_hash' => $expectedHash,
-        ];
         unset($bytes);
 
-        return $this->secureVerificationResponse(
-            response()->view('public.verify', compact('signature', 'integrityValid', 'verification', 'fileVerification'))
-        );
+        return [$path, $actualHash];
     }
 
     public function downloadBundle(string $token)

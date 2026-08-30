@@ -18,6 +18,8 @@ use App\Http\Controllers\OnlyOfficeController;
 // ==========================================
 // Public Routes
 // ==========================================
+Route::get('/validasi-dokumen', [PublicVerifyController::class, 'documentForm'])->name('public.document.form');
+Route::post('/validasi-dokumen', [PublicVerifyController::class, 'verifyDocument'])->name('public.document.verify')->middleware('throttle:10,1');
 Route::get('/validasi-qr/{token}', [PublicVerifyController::class, 'show'])->name('public.verify');
 Route::post('/validasi-qr/{token}/file', [PublicVerifyController::class, 'verifyUploadedPdf'])->name('public.verify.upload')->middleware('throttle:10,1');
 Route::get('/validasi-qr/{token}/bundle', [PublicVerifyController::class, 'downloadBundle'])->name('public.verify.bundle')->middleware('throttle:20,1');
