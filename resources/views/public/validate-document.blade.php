@@ -9,12 +9,10 @@
     <style>
         * { box-sizing:border-box; }
         body { margin:0; min-height:100vh; color:#172033; background:radial-gradient(circle at 8% 8%,rgba(191,219,254,.82),transparent 32%),radial-gradient(circle at 92% 88%,rgba(167,243,208,.58),transparent 32%),#f4f7fb; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; }
-        .page { width:min(100%,1080px); margin:0 auto; padding:28px 20px 40px; }
-        .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:20px; }
-        .brand { display:flex; align-items:center; gap:12px; color:#172033; font-weight:850; letter-spacing:-.025em; }
-        .brand-mark { width:44px; height:44px; display:grid; place-items:center; color:#fff; background:linear-gradient(135deg,#1d4ed8,#0f766e); border-radius:14px; box-shadow:0 10px 26px rgba(29,78,216,.22); font-size:.86rem; }
-        .top-note { color:#64748b; font-size:.78rem; line-height:1.45; text-align:right; }
-        .panel { display:grid; grid-template-columns:.92fr 1.08fr; min-height:610px; overflow:hidden; background:rgba(255,255,255,.96); border:1px solid rgba(203,213,225,.88); border-radius:28px; box-shadow:0 28px 90px rgba(30,64,175,.12); }
+        .verify-page { width:min(100%,1080px); margin:0 auto; padding:34px 20px 40px; }
+        .verify-panel { display:grid; grid-template-columns:.92fr 1.08fr; min-height:610px; overflow:hidden; background:rgba(255,255,255,.96); border:1px solid rgba(203,213,225,.88); border-radius:28px; box-shadow:0 28px 90px rgba(30,64,175,.12); }
+        .verify-brand { display:flex; align-items:center; gap:10px; margin-bottom:48px; color:#fff; font-size:.88rem; font-weight:850; letter-spacing:-.015em; }
+        .verify-brand-mark { width:36px; height:36px; display:grid; place-items:center; color:#172554; background:#fff; border-radius:11px; font-size:.72rem; box-shadow:0 7px 18px rgba(15,23,42,.18); }
         .intro { position:relative; overflow:hidden; padding:46px 42px; color:#fff; background:linear-gradient(145deg,#172554 0%,#1e40af 58%,#0f766e 125%); }
         .intro:before,.intro:after { content:""; position:absolute; border-radius:999px; border:1px solid rgba(255,255,255,.13); }
         .intro:before { width:330px; height:330px; right:-180px; top:-120px; }
@@ -49,21 +47,17 @@
         .submit { width:100%; margin-top:14px; padding:14px 18px; display:flex; align-items:center; justify-content:center; gap:10px; color:#fff; background:linear-gradient(135deg,#1d4ed8,#2563eb); border:0; border-radius:13px; box-shadow:0 10px 22px rgba(37,99,235,.22); font-size:.9rem; font-weight:850; cursor:pointer; transition:transform .18s,box-shadow .18s; }
         .submit:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(37,99,235,.28); }
         .footnote { margin:13px 0 0; color:#94a3b8; text-align:center; font-size:.68rem; line-height:1.45; }
-        @media(max-width:820px) { .panel{grid-template-columns:1fr}.intro{padding:36px 28px}.intro h1{font-size:2.25rem}.steps{grid-template-columns:repeat(3,1fr);gap:10px}.step{grid-template-columns:1fr}.form-side{padding:34px 28px} }
-        @media(max-width:560px) { .page{padding:16px 10px 28px}.top-note{display:none}.panel{border-radius:22px}.intro,.form-side{padding:28px 20px}.intro h1{font-size:2rem}.steps{grid-template-columns:1fr}.step{grid-template-columns:34px 1fr}.drop-zone{padding:19px 14px} }
+        @media(max-width:820px) { .verify-panel{grid-template-columns:1fr}.intro{padding:36px 28px}.intro h1{font-size:2.25rem}.verify-brand{margin-bottom:34px}.steps{grid-template-columns:repeat(3,1fr);gap:10px}.step{grid-template-columns:1fr}.form-side{padding:34px 28px} }
+        @media(max-width:560px) { .verify-page{padding:14px 10px 28px}.verify-panel{border-radius:22px}.intro,.form-side{padding:28px 20px}.intro h1{font-size:2rem}.verify-brand{margin-bottom:28px}.steps{grid-template-columns:1fr}.step{grid-template-columns:34px 1fr}.drop-zone{padding:19px 14px} }
     </style>
 </head>
 <body>
 @php $maxUploadMb = (int) ceil(config('tte.verifier.max_upload_kilobytes') / 1024); @endphp
-<main class="page">
-    <header class="topbar">
-        <div class="brand"><span class="brand-mark">SR</span><span>SIMPEL-RS</span></div>
-        <div class="top-note">Layanan validasi dokumen<br>Rumah Sakit Nur Rohmah</div>
-    </header>
-
-    <section class="panel">
+<main class="verify-page">
+    <section class="verify-panel">
         <div class="intro">
             <div class="intro-content">
+                <div class="verify-brand"><span class="verify-brand-mark">SR</span><span>SIMPEL-RS</span></div>
                 <div class="secure-chip"><span class="secure-dot"></span> Layanan validasi resmi SIMPEL-RS</div>
                 <h1>Pastikan dokumen Anda asli.</h1>
                 <p class="intro-lead">Unggah PDF yang Anda terima untuk memeriksa keaslian dokumen dan status pengesahannya.</p>
