@@ -39,15 +39,21 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->get(route('public.verify', $signature->qr_token))
             ->assertOk()
-            ->assertSee('FILE BELUM DIBANDINGKAN')
-            ->assertDontSee('FILE COCOK & SEGEL VALID');
+            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
+            ->assertSee('FILE PENGGUNA BELUM DIPERIKSA')
+            ->assertDontSee('FILE RESMI — HASH COCOK')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('X-Frame-Options', 'DENY')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
 
         $filesBefore = Storage::disk('local')->allFiles();
         $officialBytes = Storage::disk('local')->get($evidence->pdf_path);
         $upload = UploadedFile::fake()->createWithContent('official.pdf', $officialBytes);
         $this->post(route('public.verify.upload', $signature->qr_token), ['pdf' => $upload])
             ->assertOk()
-            ->assertSee('FILE COCOK & SEGEL VALID')
+            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
+            ->assertSee('FILE RESMI — HASH COCOK')
             ->assertSee('Byte PDF yang diunggah cocok');
         $this->assertSame($filesBefore, Storage::disk('local')->allFiles(), 'Verifier tidak boleh menyimpan file upload.');
     }
@@ -62,8 +68,9 @@ class PublicPdfVerificationTest extends TestCase
 
         $this->post(route('public.verify.upload', $signature->qr_token), ['pdf' => $modified])
             ->assertOk()
-            ->assertSee('FILE TIDAK COCOK DENGAN EVIDENCE')
-            ->assertDontSee('FILE COCOK & SEGEL VALID');
+            ->assertSee('PENGESAHAN SIMPEL-RS TERVERIFIKASI')
+            ->assertSee('FILE TIDAK COCOK DENGAN DOKUMEN RESMI')
+            ->assertDontSee('FILE RESMI — HASH COCOK');
     }
 
     public function test_oversized_non_pdf_and_active_content_are_rejected_safely(): void

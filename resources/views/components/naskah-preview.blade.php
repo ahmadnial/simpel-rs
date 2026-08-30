@@ -39,7 +39,7 @@
                     <strong style="color:#14532d">Dokumen Disahkan Secara Elektronik Internal</strong> &bull; {{ $signature->penandatangan->name }} ({{ $signature->ditandatangani_at->translatedFormat('d F Y H:i') }} WIB)
                 </div>
             </div>
-            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:underline; font-size:0.8rem">Cek Rekam QR</a>
+            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" rel="noopener noreferrer" style="color:#15803d; font-weight:700; text-decoration:underline; font-size:0.8rem">Lihat Bukti Pengesahan</a>
         </div>
     @endif
 

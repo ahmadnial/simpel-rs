@@ -65,22 +65,41 @@
         @php
             $fileStatus = $fileVerification['status'] ?? 'not_checked';
             $administrativeStatus = $verification['administrative_status'] ?? 'valid';
-            $overallMatch = $fileStatus === 'match' && ($verification['valid'] ?? false) && $administrativeStatus === 'valid';
-            $headerClass = $fileStatus === 'not_checked' ? 'warning' : ($overallMatch ? 'success' : 'error');
-            $headerTitle = match($fileStatus) {
-                'match' => $administrativeStatus !== 'valid' ? 'FILE COCOK — STATUS ADMINISTRATIF '.strtoupper($administrativeStatus) : ($overallMatch ? 'FILE COCOK & SEGEL VALID' : 'FILE COCOK, BUKTI LAIN BERMASALAH'),
-                'mismatch' => 'FILE TIDAK COCOK DENGAN EVIDENCE',
-                default => 'RECORD RESMI DITEMUKAN — FILE BELUM DIBANDINGKAN',
+            $recordVerified = ($verification['valid'] ?? false) && $administrativeStatus === 'valid';
+            $headerClass = $recordVerified ? 'success' : 'error';
+            $headerTitle = $recordVerified
+                ? 'PENGESAHAN SIMPEL-RS TERVERIFIKASI'
+                : 'BUKTI PENGESAHAN BERMASALAH';
+            $filePanel = match($fileStatus) {
+                'match' => [
+                    'color' => $recordVerified ? '#166534' : '#92400e',
+                    'background' => $recordVerified ? '#f0fdf4' : '#fffbeb',
+                    'border' => $recordVerified ? '#86efac' : '#fcd34d',
+                    'title' => $recordVerified ? 'FILE RESMI — HASH COCOK' : 'HASH FILE COCOK — BUKTI SISTEM BERMASALAH',
+                ],
+                'mismatch' => [
+                    'color' => '#991b1b',
+                    'background' => '#fef2f2',
+                    'border' => '#fca5a5',
+                    'title' => 'FILE TIDAK COCOK DENGAN DOKUMEN RESMI',
+                ],
+                default => [
+                    'color' => '#92400e',
+                    'background' => '#fffbeb',
+                    'border' => '#fcd34d',
+                    'title' => 'FILE PENGGUNA BELUM DIPERIKSA',
+                ],
             };
         @endphp
         <div class="verify-header">
-            <div class="verify-badge {{ $headerClass }}">{{ $overallMatch ? '✓' : '!' }}</div>
+            <div class="verify-badge {{ $headerClass }}">{{ $recordVerified ? '✓' : '!' }}</div>
             <div class="verify-title">{{ $headerTitle }}</div>
-            <div class="verify-sub">TTE Internal Terverifikasi—OTP (non-PSrE; assurance identitas menengah)</div>
+            <div class="verify-sub">Status bukti pengesahan elektronik internal, terpisah dari pemeriksaan file pengguna.</div>
         </div>
 
-        <div style="padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md); margin-bottom:1rem">
-            <strong>Pemeriksaan file pengguna:</strong> {{ $fileVerification['message'] ?? 'Belum diperiksa.' }}
+        <div style="padding:1rem; border:1px solid {{ $filePanel['border'] }}; background:{{ $filePanel['background'] }}; color:{{ $filePanel['color'] }}; border-radius:var(--radius-md); margin-bottom:1rem">
+            <strong>{{ $filePanel['title'] }}</strong>
+            <div style="margin-top:0.35rem">{{ $fileVerification['message'] ?? 'Belum diperiksa.' }}</div>
             @if(!empty($fileVerification['actual_hash']))
                 <div style="font-family:monospace; font-size:0.7rem; word-break:break-all; margin-top:0.5rem">Hash upload: {{ $fileVerification['actual_hash'] }}</div>
             @endif
@@ -145,7 +164,7 @@
         </div>
 
         <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-elevated); border-radius: var(--radius-md); text-align:center; font-size:0.78rem; color:var(--text-muted); border: 1px solid var(--border-subtle)">
-            QR/token hanya menemukan record. Keaslian file yang Anda pegang baru dinilai setelah file diunggah dan dibandingkan byte-per-byte melalui SHA-256.
+            Status pengesahan di atas memeriksa evidence resmi SIMPEL-RS. Keaslian PDF dari perangkat Anda hanya dinyatakan resmi setelah hash SHA-256 file cocok byte-per-byte dengan dokumen yang disahkan.
         </div>
 
         <form method="POST" enctype="multipart/form-data" action="{{ route('public.verify.upload', $signature->qr_token) }}" style="margin-top:1rem; padding:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md)">

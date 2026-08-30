@@ -14,8 +14,17 @@ class PublicVerifyController extends Controller
     {
         [$signature, $integrityValid, $verification] = $this->recordVerification($token, $verifier);
 
-        return view('public.verify', compact('signature', 'integrityValid', 'verification'))
-            ->with('fileVerification', ['status' => 'not_checked', 'message' => 'Record resmi ditemukan; file yang Anda pegang belum dibandingkan.']);
+        return $this->secureVerificationResponse(
+            response()->view('public.verify', [
+                'signature' => $signature,
+                'integrityValid' => $integrityValid,
+                'verification' => $verification,
+                'fileVerification' => [
+                    'status' => 'not_checked',
+                    'message' => 'Belum ada PDF pengguna yang dibandingkan dengan hash dokumen resmi.',
+                ],
+            ])
+        );
     }
 
     public function verifyUploadedPdf(Request $request, string $token, EvidenceVerificationService $verifier)
@@ -51,10 +60,9 @@ class PublicVerifyController extends Controller
         ];
         unset($bytes);
 
-        return response()
-            ->view('public.verify', compact('signature', 'integrityValid', 'verification', 'fileVerification'))
-            ->header('Cache-Control', 'no-store, private')
-            ->header('X-Content-Type-Options', 'nosniff');
+        return $this->secureVerificationResponse(
+            response()->view('public.verify', compact('signature', 'integrityValid', 'verification', 'fileVerification'))
+        );
     }
 
     public function downloadBundle(string $token)
@@ -90,5 +98,15 @@ class PublicVerifyController extends Controller
         }
 
         return [$signature, $integrityValid, $verification];
+    }
+
+    private function secureVerificationResponse(\Illuminate\Http\Response $response): \Illuminate\Http\Response
+    {
+        return $response
+            ->header('Cache-Control', 'no-store, private')
+            ->header('X-Content-Type-Options', 'nosniff')
+            ->header('X-Frame-Options', 'DENY')
+            ->header('Referrer-Policy', 'no-referrer')
+            ->header('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
     }
 }
