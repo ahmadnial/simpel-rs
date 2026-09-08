@@ -10,10 +10,12 @@ use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\SignatureOtpChallenge;
+use App\Models\SigningKey;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Notifications\DokumenNotification;
 use App\Notifications\OtpTandaTangan;
 use App\Services\SigningOtpService;
 use App\Services\TestingEvidenceSigner;
@@ -139,6 +141,44 @@ class TteTargetGapContractTest extends TestCase
             ->assertExitCode(Command::FAILURE);
 
         $this->assertDatabaseHas('audit_logs', ['id' => $audit->id]);
+    }
+
+    public function test_guarded_document_reset_removes_transactions_and_preserves_master_and_audit(): void
+    {
+        $fixture = $this->signingFixture();
+        SigningKey::create([
+            'key_id' => 'test-reset-key-v1',
+            'algorithm' => 'Ed25519',
+            'purpose' => 'institutional_evidence_seal',
+            'public_key' => base64_encode(str_repeat('k', 32)),
+            'fingerprint' => hash('sha256', 'test-reset-key-v1'),
+            'status' => 'active',
+            'activated_at' => now(),
+            'policy_version' => 'test-v1',
+        ]);
+        $audit = AuditLog::create([
+            'aksi' => 'reset_preservation_sentinel',
+            'deskripsi' => 'Audit harus tetap tersedia setelah reset transaksi surat.',
+        ]);
+        $fixture['signer']->notify(new DokumenNotification(
+            $fixture['document'], 'diajukan', 'Dokumen diajukan', 'Notifikasi transaksi pengujian'
+        ));
+
+        $this->artisan('data:reset-document-transactions')->assertSuccessful();
+        $this->assertDatabaseHas('documents', ['id' => $fixture['document']->id]);
+
+        $this->artisan('data:reset-document-transactions', [
+            '--execute' => true,
+            '--ticket' => 'TEST-RESET-001',
+        ])->assertSuccessful();
+
+        $this->assertDatabaseCount('documents', 0);
+        $this->assertDatabaseCount('document_versions', 0);
+        $this->assertDatabaseCount('notifications', 0);
+        $this->assertDatabaseHas('users', ['id' => $fixture['signer']->id]);
+        $this->assertDatabaseHas('units', ['id' => $fixture['signer']->unit_id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $audit->id]);
+        $this->assertDatabaseHas('signing_keys', ['status' => 'active']);
     }
 
     /**
