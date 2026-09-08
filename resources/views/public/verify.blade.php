@@ -24,6 +24,7 @@
         .hero p { margin:8px 0 0; max-width:650px; color:#64748b; line-height:1.55; font-size:.84rem; }
         .content { padding:26px 32px 30px; }
         .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+        .status-grid.single { grid-template-columns:1fr; }
         .status-box { padding:16px 17px; border-radius:12px; border:1px solid; }
         .status-box strong { display:block; margin-bottom:6px; font-size:.86rem; letter-spacing:.02em; }
         .status-box p { margin:0; font-size:.82rem; line-height:1.5; }
@@ -80,7 +81,7 @@
                         ? 'File PDF Sesuai Dokumen Resmi'
                         : ($legacyIntegrityValid ? 'File Cocok — Pemeriksaan Terbatas' : 'File Cocok — Pengesahan Tidak Valid'),
                     'mismatch' => 'File PDF Tidak Cocok',
-                    default => 'Keaslian File Belum Diperiksa',
+                    default => null,
                 };
                 $adminLabel = match($administrativeStatus) { 'valid' => 'Berlaku', 'revoked' => 'Dicabut', 'superseded' => 'Digantikan', default => 'Tidak tersedia' };
             @endphp
@@ -97,15 +98,17 @@
             </section>
 
             <div class="content">
-                <div class="status-grid">
+                <div class="status-grid {{ $fileStatus === 'not_checked' ? 'single' : '' }}">
                     <div class="status-box {{ $recordProblem ? 'bad' : ($cryptographicallyVerified ? 'good' : 'warn') }}">
                         <strong>Status Pengesahan</strong>
                         <p>{{ $recordTitle }} · status administratif: {{ $adminLabel }}.</p>
                     </div>
+                    @if($fileStatus !== 'not_checked')
                     <div class="status-box {{ $fileBoxClass }}">
                         <strong>{{ $fileTitle }}</strong>
-                        <p>{{ $fileVerification['message'] ?? 'Belum ada PDF pengguna yang dibandingkan dengan dokumen resmi.' }}</p>
+                        <p>{{ $fileVerification['message'] }}</p>
                     </div>
+                    @endif
                 </div>
 
                 <div class="section-title">Identitas dokumen</div>
