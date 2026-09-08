@@ -10,6 +10,7 @@ use App\Services\DocumentService;
 use App\Services\DocxParserService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use chillerlan\QRCode\Output\QRGdImagePNG;
+use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -147,7 +148,9 @@ class DocumentController extends Controller
 
         $document->load([
             'documentType', 'unit', 'pengusul',
-            'versions.uploader', 'verifications.verifikator',
+            'versions.uploader', 'verifications.verifikator', 'verifications.version',
+            'verifications.decisionMaker', 'verifications.closingDecision.verifikator',
+            'verifications.closingDecision.decisionMaker',
             'signature.penandatangan', 'distributions.unit',
             'penggantiDocument', 'auditLogs',
         ]);
@@ -572,7 +575,7 @@ class DocumentController extends Controller
                     'scale' => 5,
                     'addQuietzone' => false,
                 ]);
-                $qrCodeBase64 = (new \chillerlan\QRCode\QRCode($options))->render($verifyUrl);
+                $qrCodeBase64 = (new QRCode($options))->render($verifyUrl);
             } catch (\Throwable $e) {
             }
         }

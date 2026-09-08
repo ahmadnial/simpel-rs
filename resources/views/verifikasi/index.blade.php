@@ -86,7 +86,9 @@
                             <div>{{ $v->document->pengusul->name }}</div>
                             <div style="font-size:0.75rem; color:var(--text-muted)">{{ $v->document->unit->nama }}</div>
                         </td>
-                        <td><span class="badge badge-indigo">Level {{ $v->level }}</span></td>
+                        <td><span class="badge badge-indigo">Level {{ $v->level }}</span>
+                            <span class="badge badge-yellow">Belum Diputuskan</span>
+                        </td>
                         <td>
                             @if($v->isOverdue())
                                 <span class="badge badge-red">Terlambat ({{ $v->batas_waktu?->format('d/m/Y') }})</span>
@@ -126,26 +128,54 @@
                         <th>Dokumen</th>
                         <th>Pengusul</th>
                         <th>Keputusan</th>
+                        <th>Diputuskan Oleh</th>
                         <th>Catatan</th>
-                        <th>Tanggal Respon</th>
+                        <th>Waktu Keputusan / Penyelesaian</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($riwayat as $r)
                     <tr>
-                        <td style="font-weight:500; color:var(--text-primary)">{{ $r->document->judul }}</td>
+                        <td style="font-weight:500; color:var(--text-primary)">
+                            <a href="{{ route('verifikasi.show', $r) }}">{{ $r->document->judul }}</a>
+                            <div><span class="badge badge-indigo">Level {{ $r->level }}</span></div>
+                        </td>
                         <td>{{ $r->document->pengusul->name }}</td>
                         <td>
                             @switch($r->status)
                                 @case('disetujui') <span class="badge badge-green">Disetujui</span> @break
                                 @case('revisi') <span class="badge badge-orange">Minta Revisi</span> @break
-                                @case('batal') <span class="badge badge-gray">Dibatalkan Sistem</span> @break
+                                @case('dikembalikan') <span class="badge badge-red">Ke Level Sebelumnya</span> @break
+                                @case('batal') <span class="badge badge-gray">{{ $r->closureLabel() }}</span> @break
                                 @case('ditolak') <span class="badge badge-red">Ditolak</span> @break
                                 @default <span class="badge badge-gray">{{ ucfirst($r->status) }}</span>
                             @endswitch
+                            @if($r->closingDecision)
+                                <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px">
+                                    Hasil: {{ match ($r->closingDecision->status) {
+                                        'disetujui' => 'Disetujui',
+                                        'revisi' => 'Revisi kepada Pengusul',
+                                        'dikembalikan' => 'Dikembalikan ke Level Sebelumnya',
+                                        default => ucfirst($r->closingDecision->status),
+                                    } }}
+                                </div>
+                            @endif
+                        </td>
+                        <td>
+                            @if($r->resolvedDecisionMaker())
+                                <strong>{{ $r->resolvedDecisionMaker()->name }}</strong>
+                                @if(!$r->resolvedDecision()?->decided_by_user_id)
+                                    <div style="font-size:.72rem; color:var(--text-muted)">Pemilik tiket · data lama</div>
+                                @endif
+                            @else
+                                <span style="color:var(--text-muted)">Tidak ada keputusan verifikator</span>
+                            @endif
                         </td>
                         <td style="font-size:0.8rem; color:var(--text-muted)">{{ $r->catatan ?? $r->direset_alasan ?? '-' }}</td>
-                        <td>{{ $r->direspon_at?->format('d/m/Y H:i') }}</td>
+                        <td>
+                            {{ ($r->direspon_at ?? $r->direset_at)?->format('d/m/Y H:i') }}
+                            <div style="font-size:.72rem; color:var(--text-muted)">Putaran {{ $r->verification_round }}</div>
+                        </td>
                     </tr>
                     @endforeach
                 </tbody>

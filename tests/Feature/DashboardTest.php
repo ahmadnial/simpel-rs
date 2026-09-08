@@ -13,6 +13,7 @@ use App\Models\WorkflowTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
@@ -23,7 +24,7 @@ class DashboardTest extends TestCase
     {
         parent::setUp();
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create permissions and roles
         Permission::create(['name' => 'dokumen.verifikasi', 'guard_name' => 'web']);
@@ -39,7 +40,7 @@ class DashboardTest extends TestCase
     public function test_dashboard_displays_accurate_menunggu_tindakan_for_verifier_and_signer(): void
     {
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
-        
+
         $pengusul = User::create([
             'name' => 'Pengusul User',
             'email' => 'pengusul@test.com',
@@ -106,7 +107,7 @@ class DashboardTest extends TestCase
         $response->assertSee('Perlu Tindakan Saya');
         $response->assertSee('Dokumen TTD 1');
         $response->assertSee('Dokumen TTD 2');
-        
+
         $stats = $response->viewData('stats');
         $this->assertEquals(2, $stats['menunggu_tindakan']);
         $this->assertEquals(2, $stats['menunggu_ttd']);
@@ -116,7 +117,7 @@ class DashboardTest extends TestCase
     public function test_dashboard_combines_verification_and_ttd_for_user_with_both_roles(): void
     {
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
-        
+
         $pengusul = User::create([
             'name' => 'Pengusul User',
             'email' => 'pengusul2@test.com',
@@ -149,7 +150,7 @@ class DashboardTest extends TestCase
             'is_active' => true,
         ]);
 
-        WorkflowStep::create([
+        $verificationStep = WorkflowStep::create([
             'workflow_template_id' => $wf->id,
             'urutan' => 1,
             'nama_tahap' => 'Verifikasi',
@@ -175,6 +176,7 @@ class DashboardTest extends TestCase
             'pengusul_id' => $pengusul->id,
             'workflow_template_id' => $wf->id,
             'status' => Document::STATUS_VERIFIKASI,
+            'current_step' => 1,
         ]);
 
         $version = DocumentVersion::create([
@@ -189,6 +191,7 @@ class DashboardTest extends TestCase
         DocumentVerification::create([
             'document_id' => $docVerif->id,
             'document_version_id' => $version->id,
+            'workflow_step_id' => $verificationStep->id,
             'verifikator_id' => $multiRoleUser->id,
             'level' => 1,
             'status' => DocumentVerification::STATUS_MENUNGGU,
@@ -209,7 +212,7 @@ class DashboardTest extends TestCase
 
         $response->assertStatus(200);
         $stats = $response->viewData('stats');
-        
+
         $this->assertEquals(2, $stats['menunggu_tindakan']);
         $this->assertEquals(1, $stats['menunggu_verifikasi']);
         $this->assertEquals(1, $stats['menunggu_ttd']);
@@ -218,7 +221,7 @@ class DashboardTest extends TestCase
     public function test_unauthorized_user_cannot_access_ttd_document_for_other_roles(): void
     {
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
-        
+
         $pengusul = User::create([
             'name' => 'Pengusul User',
             'email' => 'pengusul3@test.com',

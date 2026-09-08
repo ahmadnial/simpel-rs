@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\DocumentVerification;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
@@ -47,7 +46,7 @@ class DashboardController extends Controller
             ->get();
 
         // Antrian verifikasi saya
-        $antrianVerifikasiQuery = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
+        $antrianVerifikasiQuery = DocumentVerification::actionable((int) $user->id)
             ->with(['document.documentType', 'document.pengusul'])
             ->whereIn('verifikator_id', $pejabatIds);
         $antrianVerifikasi = $antrianVerifikasiQuery->latest()->take(5)->get();
@@ -61,7 +60,7 @@ class DashboardController extends Controller
         $antrianTtd = $antrianTtdQuery->latest()->take(5)->get();
 
         // Hitung total menunggu verifikasi & menunggu TTD secara akurat
-        $totalVerifikasiMenunggu = DocumentVerification::where('status', DocumentVerification::STATUS_MENUNGGU)
+        $totalVerifikasiMenunggu = DocumentVerification::actionable((int) $user->id)
             ->whereIn('verifikator_id', $pejabatIds)
             ->count();
 
@@ -73,13 +72,13 @@ class DashboardController extends Controller
 
         // Statistik Dashboard
         $stats = [
-            'total_dokumen'      => Document::where('pengusul_id', $user->id)->count(),
-            'menunggu_tindakan'  => $totalVerifikasiMenunggu + $totalTtdMenunggu + $totalRevisi,
-            'perlu_revisi'       => $totalRevisi,
-            'menunggu_verifikasi'=> $totalVerifikasiMenunggu,
-            'menunggu_ttd'       => $totalTtdMenunggu,
-            'draft'              => Document::where('pengusul_id', $user->id)->where('status', Document::STATUS_DRAFT)->count(),
-            'selesai_bulan_ini'  => Document::where('pengusul_id', $user->id)
+            'total_dokumen' => Document::where('pengusul_id', $user->id)->count(),
+            'menunggu_tindakan' => $totalVerifikasiMenunggu + $totalTtdMenunggu + $totalRevisi,
+            'perlu_revisi' => $totalRevisi,
+            'menunggu_verifikasi' => $totalVerifikasiMenunggu,
+            'menunggu_ttd' => $totalTtdMenunggu,
+            'draft' => Document::where('pengusul_id', $user->id)->where('status', Document::STATUS_DRAFT)->count(),
+            'selesai_bulan_ini' => Document::where('pengusul_id', $user->id)
                 ->where('status', Document::STATUS_DITANDATANGANI)
                 ->whereMonth('ditandatangani_at', now()->month)
                 ->whereYear('ditandatangani_at', now()->year)

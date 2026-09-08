@@ -213,8 +213,11 @@
                      4 baris menunggu yang identik. Begitu ada yang benar-benar bertindak
                      (approve/minta revisi), namanya ditampilkan sendiri; tiket sisanya yang
                      otomatis dibatalkan (kalah cepat) disembunyikan, bukan noise. --}}
-                @foreach($document->verifications->groupBy('level') as $level => $levelGroup)
+                @foreach($document->verifications->sortBy(fn ($v) => sprintf('%010d-%010d-%010d-%010d', $v->version?->versi ?? 0, $v->verification_round, $v->level, $v->id))->groupBy(fn ($v) => $v->document_version_id.'-'.$v->verification_round.'-'.$v->level) as $levelGroup)
                     @php
+                        $level = $levelGroup->first()->level;
+                        $round = $levelGroup->first()->verification_round;
+                        $versionNumber = $levelGroup->first()->version?->versi ?? '?';
                         $decided = $levelGroup->reject(fn ($v) => $v->isMenunggu() || $v->isDibatalkan());
                         $pending = $levelGroup->filter(fn ($v) => $v->isMenunggu());
                     @endphp
@@ -231,10 +234,10 @@
 
                         <div class="timeline-content">
                             <div class="timeline-title">
-                                Verifikasi Level {{ $level }}: {{ $verif->verifikator->name }}
+                                Verifikasi Level {{ $level }}: {{ $verif->resolvedDecisionMaker()?->name ?? $verif->verifikator->name }}
                             </div>
                             <div class="timeline-meta">
-                                Status: <strong>{{ ucfirst($verif->status) }}</strong>
+                                Versi {{ $versionNumber }} · Putaran {{ $round }} · Status: <strong>{{ $verif->isDikembalikan() ? 'Ke Level Sebelumnya' : ucfirst($verif->status) }}</strong>
                                 @if($verif->direspon_at)
                                     &bull; {{ $verif->direspon_at->format('d/m/Y H:i') }}
                                 @endif
@@ -244,6 +247,7 @@
                                     "{{ $verif->catatan }}"
                                 </div>
                             @endif
+                            @include('verifikasi.closed-peer-summary', ['tickets' => $document->verifications, 'decision' => $verif])
                             @if($verif->direset_alasan)
                                 <div class="timeline-note" style="background:rgba(239,68,68,0.05); border-left-color:#ef4444; color:#ef4444">
                                     <strong>Dikembalikan:</strong> {{ $verif->direset_alasan }}
@@ -261,7 +265,7 @@
                                 <div class="timeline-title">
                                     Verifikasi Level {{ $level }}: {{ $verif->verifikator->name }}
                                 </div>
-                                <div class="timeline-meta">Status: <strong>Menunggu</strong></div>
+                                <div class="timeline-meta">Versi {{ $versionNumber }} · Putaran {{ $round }} · Status: <strong>Menunggu</strong></div>
                             </div>
                         </div>
                     @elseif($pending->count() > 1)
@@ -278,7 +282,7 @@
                                         <span style="font-weight:500; color:var(--text-muted)">&middot; {{ $pendingCommonSub }}</span>
                                     @endif
                                 </div>
-                                <div class="timeline-meta">Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
+                                <div class="timeline-meta">Versi {{ $versionNumber }} · Putaran {{ $round }} · Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
                             </div>
                         </div>
                     @endif

@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Models\DocumentType;
+use App\Models\DocumentVerification;
 use App\Models\SigningCeremony;
+use App\Models\Unit;
 use App\Services\DocumentService;
 use App\Services\SigningOtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
@@ -57,18 +61,18 @@ class TandaTanganController extends Controller
             $search = $request->search;
             $antrianQuery->where(function ($q) use ($search) {
                 $q->where('judul', 'like', "%{$search}%")
-                  ->orWhere('nomor_surat', 'like', "%{$search}%")
-                  ->orWhereHas('pengusul', function ($pu) use ($search) {
-                      $pu->where('name', 'like', "%{$search}%");
-                  });
+                    ->orWhere('nomor_surat', 'like', "%{$search}%")
+                    ->orWhereHas('pengusul', function ($pu) use ($search) {
+                        $pu->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
         $antrian = $antrianQuery->latest()->paginate(10)->withQueryString();
 
         // Data Master untuk Filter Dropdown
-        $documentTypes = \App\Models\DocumentType::orderBy('nama')->get();
-        $units = \App\Models\Unit::orderBy('nama')->get();
+        $documentTypes = DocumentType::orderBy('nama')->get();
+        $units = Unit::orderBy('nama')->get();
 
         return view('tanda-tangan.index', compact('antrian', 'documentTypes', 'units'));
     }
@@ -81,25 +85,41 @@ class TandaTanganController extends Controller
 
         $document->load([
             'documentType', 'unit', 'pengusul',
-            'currentVersion', 'verifications.verifikator'
+            'currentVersion', 'verifications.verifikator', 'verifications.decisionMaker',
+            'verifications.closingDecision.verifikator', 'verifications.closingDecision.decisionMaker',
         ]);
 
         $currentVersionId = $document->currentVersion?->id;
         $returnTarget = $document->verifications
             ->where('document_version_id', $currentVersionId)
-            ->where('status', \App\Models\DocumentVerification::STATUS_DISETUJUI)
+            ->where('status', DocumentVerification::STATUS_DISETUJUI)
             ->sortByDesc('level')
             ->groupBy('level')
             ->first();
 
         $ceremony = null;
+        $finalizationPending = $this->documentService->pendingFinalizationFor($document, $user);
+        $signingUnavailable = null;
         $reauthenticationAge = $this->reauthenticationAge($request);
-        if ($reauthenticationAge !== null && $reauthenticationAge <= config('tte.otp.reauthentication_max_age_seconds')) {
-            $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
-            $ceremony = SigningCeremony::where('uuid', $context['signing_ceremony_id'])->firstOrFail();
+        if ($finalizationPending) {
+            $ceremony = $finalizationPending;
+        } elseif ($reauthenticationAge !== null && $reauthenticationAge <= config('tte.otp.reauthentication_max_age_seconds')) {
+            try {
+                $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
+                $ceremony = SigningCeremony::where('uuid', $context['signing_ceremony_id'])->firstOrFail();
+            } catch (HttpExceptionInterface $exception) {
+                if ($exception->getStatusCode() !== 503) {
+                    throw $exception;
+                }
+
+                $signingUnavailable = $exception->getMessage();
+            }
         }
 
-        return view('tanda-tangan.show', compact('document', 'returnTarget', 'ceremony', 'reauthenticationAge'));
+        return view('tanda-tangan.show', compact(
+            'document', 'returnTarget', 'ceremony', 'reauthenticationAge',
+            'finalizationPending', 'signingUnavailable'
+        ));
     }
 
     public function reauthenticate(Request $request, Document $document)
@@ -132,10 +152,15 @@ class TandaTanganController extends Controller
     {
         $user = auth()->user();
         $this->documentService->assertCanSign($document, $user);
+        abort_if(
+            $this->documentService->pendingFinalizationFor($document, $user),
+            409,
+            'OTP sudah diverifikasi dan persetujuan Anda telah tercatat. Finalisasi sedang menunggu pemulihan layanan; jangan meminta OTP baru.'
+        );
         $reauthenticationAge = $this->reauthenticationAge($request);
         abort_if($reauthenticationAge === null || $reauthenticationAge > config('tte.otp.reauthentication_max_age_seconds'), 423, 'Konfirmasi ulang password diperlukan sebelum meminta OTP.');
         $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
-        $context['correlation_id'] = (string) \Illuminate\Support\Str::uuid();
+        $context['correlation_id'] = (string) Str::uuid();
         $context['source_ip'] = $request->ip();
         $context['user_agent'] = $request->userAgent();
         $challenge = $this->signingOtpService->request($user, $document, $context);
@@ -168,6 +193,7 @@ class TandaTanganController extends Controller
             $reauthenticationAge = $this->reauthenticationAge($request);
             abort_if($reauthenticationAge === null || $reauthenticationAge > config('tte.otp.reauthentication_max_age_seconds'), 423, 'Konfirmasi ulang password diperlukan sebelum tanda tangan.');
             $this->documentService->tandaTangani($document, $request->otp, $request->session()->getId(), $reauthenticationAge);
+
             return redirect()->route('ttd.index')->with('success', "Dokumen '{$document->judul}' berhasil disahkan secara elektronik di SIMPEL-RS.");
         } catch (HttpExceptionInterface $exception) {
             return back()->with('error', $exception->getMessage());
@@ -193,8 +219,9 @@ class TandaTanganController extends Controller
 
         try {
             $this->documentService->tolakTandaTangan($document, $request->alasan_tolak);
+
             return redirect()->route('ttd.index')
-                ->with('success', "Dokumen dikembalikan. Verifikator terkait telah dinotifikasi.");
+                ->with('success', 'Dokumen dikembalikan. Verifikator terkait telah dinotifikasi.');
         } catch (HttpExceptionInterface $exception) {
             return back()->with('error', $exception->getMessage());
         } catch (Throwable $exception) {

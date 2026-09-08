@@ -21,9 +21,11 @@ use App\Services\UnavailableEvidenceSigner;
 use App\Services\UnavailableImmutableEvidenceStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\RequestsSigningOtp;
 use Tests\TestCase;
 
@@ -72,7 +74,7 @@ class SigningCeremonyStateMachineTest extends TestCase
         try {
             app(DocumentService::class)->prepareOtpContext($fixture['document'], $fixture['signer'], 'missing-source-session');
             $this->fail('Berkas sumber yang hilang harus menghentikan ceremony.');
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+        } catch (HttpException $exception) {
             $this->assertSame(422, $exception->getStatusCode());
         }
 
@@ -91,7 +93,7 @@ class SigningCeremonyStateMachineTest extends TestCase
         try {
             app(DocumentService::class)->prepareOtpContext($fixture['document'], $fixture['signer'], 'corrupt-source-session');
             $this->fail('DOCX rusak harus menghentikan ceremony.');
-        } catch (\Illuminate\Validation\ValidationException $exception) {
+        } catch (ValidationException $exception) {
             $this->assertArrayHasKey('file_dokumen', $exception->errors());
         }
 
@@ -153,6 +155,19 @@ class SigningCeremonyStateMachineTest extends TestCase
         $this->assertDatabaseCount('signature_evidence', 0);
         $this->assertSame('pending', SigningOutboxMessage::firstOrFail()->state);
 
+        $this->actingAs($fixture['signer'])
+            ->withSession(['auth_password_confirmed_at' => now()->timestamp])
+            ->get(route('ttd.show', $fixture['document']))
+            ->assertOk()
+            ->assertSee('OTP sudah diverifikasi')
+            ->assertSee('Persetujuan Anda telah tercatat')
+            ->assertDontSee('id="form-tte"', false)
+            ->assertDontSee('Kembalikan Dokumen ke Verifikator');
+
+        $this->postJson(route('ttd.kirim-otp', $fixture['document']))
+            ->assertStatus(409)
+            ->assertJsonFragment(['message' => 'OTP sudah diverifikasi dan persetujuan Anda telah tercatat. Finalisasi sedang menunggu pemulihan layanan; jangan meminta OTP baru.']);
+
         $this->artisan('tte:process-signing-outbox')->assertSuccessful();
         $sealed = $fixture['document']->fresh();
         $this->assertSame(Document::STATUS_DITANDATANGANI, $sealed->status);
@@ -192,7 +207,25 @@ class SigningCeremonyStateMachineTest extends TestCase
             ->assertHeader('X-Document-SHA256', $ceremony->candidate_pdf_hash);
     }
 
-    public function test_missing_production_signer_fails_closed_before_document_is_published(): void
+    public function test_unavailable_signing_infrastructure_blocks_otp_before_a_ceremony_is_created(): void
+    {
+        $fixture = $this->fixture();
+        app()->instance(EvidenceSigner::class, new UnavailableEvidenceSigner);
+
+        $this->actingAs($fixture['signer'])
+            ->withSession(['auth_password_confirmed_at' => now()->timestamp])
+            ->postJson(route('ttd.kirim-otp', $fixture['document']))
+            ->assertStatus(503)
+            ->assertJsonFragment([
+                'message' => 'Layanan finalisasi pengesahan sedang tidak tersedia. OTP belum dikirim atau dikonsumsi. Hubungi administrator untuk memulihkan layanan KMS dan penyimpanan bukti.',
+            ]);
+
+        $this->assertDatabaseCount('signing_ceremonies', 0);
+        $this->assertDatabaseCount('signature_otp_challenges', 0);
+        $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
+    }
+
+    public function test_missing_production_signer_fails_before_otp_is_consumed(): void
     {
         Storage::disk('local')->put('fixtures/candidate.pdf', "%PDF-1.4\nfixed candidate bytes");
         $fixture = $this->fixture();
@@ -204,35 +237,39 @@ class SigningCeremonyStateMachineTest extends TestCase
 
         try {
             app(DocumentService::class)->tandaTangani($fixture['document'], $otp['otp'], $otp['session_id']);
-            $this->fail('Tanpa provider KMS, finalisasi harus gagal tertutup.');
-        } catch (RuntimeException $exception) {
-            $this->assertStringContainsString('KMS/HSM/Vault', $exception->getMessage());
+            $this->fail('Tanpa provider KMS, OTP tidak boleh dikonsumsi.');
+        } catch (HttpException $exception) {
+            $this->assertSame(503, $exception->getStatusCode());
+            $this->assertStringContainsString('OTP belum dikirim atau dikonsumsi', $exception->getMessage());
         }
 
         $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
-        $this->assertSame(SigningCeremony::STATE_USER_SIGNED, SigningCeremony::firstOrFail()->state);
+        $this->assertSame(SigningCeremony::STATE_AWAITING_USER_SIGNATURE, SigningCeremony::firstOrFail()->state);
+        $this->assertDatabaseCount('signing_outbox_messages', 0);
         $this->assertDatabaseCount('signature_evidence', 0);
         $this->assertDatabaseCount('document_signatures', 0);
     }
 
-    public function test_missing_worm_provider_fails_closed_before_document_is_published(): void
+    public function test_missing_worm_provider_fails_before_otp_is_consumed(): void
     {
         Storage::disk('local')->put('fixtures/candidate.pdf', "%PDF-1.4\nfixed candidate bytes");
         $fixture = $this->fixture();
         app()->instance(DocumentPdfService::class, new ControllableDocumentPdfService(Storage::disk('local')->path('fixtures/candidate.pdf')));
-        app()->instance(ImmutableEvidenceStore::class, new UnavailableImmutableEvidenceStore);
         $this->actingAs($fixture['signer']);
         $otp = $this->requestSigningOtp($fixture['signer'], $fixture['document'], 'missing-worm-session');
+        app()->instance(ImmutableEvidenceStore::class, new UnavailableImmutableEvidenceStore);
 
         try {
             app(DocumentService::class)->tandaTangani($fixture['document'], $otp['otp'], $otp['session_id']);
-            $this->fail('Tanpa provider WORM, finalisasi harus gagal tertutup.');
-        } catch (RuntimeException $exception) {
-            $this->assertStringContainsString('WORM evidence provider', $exception->getMessage());
+            $this->fail('Tanpa provider WORM, OTP tidak boleh dikonsumsi.');
+        } catch (HttpException $exception) {
+            $this->assertSame(503, $exception->getStatusCode());
+            $this->assertStringContainsString('OTP belum dikirim atau dikonsumsi', $exception->getMessage());
         }
 
         $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
-        $this->assertSame(SigningCeremony::STATE_USER_SIGNED, SigningCeremony::firstOrFail()->state);
+        $this->assertSame(SigningCeremony::STATE_AWAITING_USER_SIGNATURE, SigningCeremony::firstOrFail()->state);
+        $this->assertDatabaseCount('signing_outbox_messages', 0);
         $this->assertDatabaseCount('signature_evidence', 0);
         $this->assertDatabaseCount('document_signatures', 0);
     }

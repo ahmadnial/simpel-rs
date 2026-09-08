@@ -2,10 +2,11 @@
 
 namespace Tests\Unit;
 
+use App\Models\Delegation;
 use App\Models\Document;
 use App\Models\DocumentSignature;
 use App\Models\DocumentVerification;
-use App\Models\Delegation;
+use App\Models\WorkflowStep;
 use Tests\TestCase;
 
 class SqlServerForeignKeyCastTest extends TestCase
@@ -15,20 +16,26 @@ class SqlServerForeignKeyCastTest extends TestCase
         // sqlsrv returns numeric/unsignedBigInteger columns as strings. These are
         // representative raw values from a hydrated SQL Server model, not values
         // assigned through Eloquent's normal setter.
-        $verification = new DocumentVerification();
+        $verification = new DocumentVerification;
         $verification->setRawAttributes([
             'document_id' => '10031', 'document_version_id' => '10080',
             'workflow_step_id' => '10017', 'verifikator_id' => '10060',
         ]);
 
-        $document = new Document();
+        $document = new Document;
         $document->setRawAttributes(['pengusul_id' => '10060', 'unit_id' => '12']);
 
-        $signature = new DocumentSignature();
+        $signature = new DocumentSignature;
         $signature->setRawAttributes(['penandatangan_id' => '10060']);
 
-        $delegation = new Delegation();
+        $delegation = new Delegation;
         $delegation->setRawAttributes(['pejabat_id' => '10060', 'delegasi_id' => '10061']);
+
+        $workflowStep = new WorkflowStep;
+        $workflowStep->setRawAttributes([
+            'workflow_template_id' => '10044',
+            'urutan' => '1',
+        ]);
 
         $userId = 10060;
         $this->assertSame($userId, $verification->verifikator_id);
@@ -36,5 +43,7 @@ class SqlServerForeignKeyCastTest extends TestCase
         $this->assertSame($userId, $signature->penandatangan_id);
         $this->assertSame($userId, $delegation->pejabat_id);
         $this->assertSame(10061, $delegation->delegasi_id);
+        $this->assertSame(10044, $workflowStep->workflow_template_id);
+        $this->assertSame(1, $workflowStep->urutan);
     }
 }

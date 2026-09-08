@@ -19,14 +19,18 @@ use App\Models\SignatureOtpChallenge;
 use App\Models\SigningCeremony;
 use App\Models\SigningOutboxMessage;
 use App\Models\User;
+use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Notifications\DokumenNotification;
+use App\Support\SigningKeyDescriptor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class DocumentService
 {
@@ -83,7 +87,7 @@ class DocumentService
 
                 return $document;
             });
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             if ($documentId !== null) {
                 Storage::disk('local')->deleteDirectory("documents/{$documentId}");
             }
@@ -124,7 +128,7 @@ class DocumentService
                         'catatan' => $catatan,
                         'is_current' => true,
                     ]);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     Storage::disk('local')->delete($path);
                     throw $e;
                 }
@@ -146,6 +150,11 @@ class DocumentService
     public function ajukanDokumen(Document $document, array $verifikatorIds): Document
     {
         return DB::transaction(function () use ($document, $verifikatorIds) {
+            $document = Document::with(['currentVersion', 'workflowTemplate'])
+                ->lockForUpdate()
+                ->findOrFail($document->id);
+            $wasRevision = $document->status === Document::STATUS_REVISI;
+
             abort_unless(
                 in_array($document->status, [Document::STATUS_DRAFT, Document::STATUS_REVISI]),
                 403, 'Dokumen tidak dapat diajukan dari status saat ini.'
@@ -161,7 +170,7 @@ class DocumentService
             // SQL Server (sqlsrv) menolak ORDER BY dengan kolom yang sama dua kali (error 20018).
             $this->assertWorkflowIsValid($template);
 
-            $revisionTicket = $document->status === Document::STATUS_REVISI
+            $revisionTicket = $wasRevision
                 ? DocumentVerification::where('document_id', $document->id)
                     ->where('status', DocumentVerification::STATUS_REVISI)
                     ->latest('direspon_at')
@@ -173,7 +182,13 @@ class DocumentService
             // Batalkan antrian verifikasi lama yang masih berstatus menunggu (jika pengajuan ulang dari revisi)
             DocumentVerification::where('document_id', $document->id)
                 ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->update(['status' => DocumentVerification::STATUS_DIBATALKAN]);
+                ->update([
+                    'status' => DocumentVerification::STATUS_DIBATALKAN,
+                    'direset_alasan' => 'Antrian lama ditutup karena dokumen diajukan kembali.',
+                    'direset_at' => now(),
+                ]);
+
+            $round = $this->nextVerificationRound($document, $currentVersion->id);
 
             // visibility_scope TETAP 'terbatas' selama proses verifikasi+TTE berjalan — orang di
             // luar rantai verifikasi (bukan pengusul/verifikator/penandatangan/admin) memang belum
@@ -186,7 +201,9 @@ class DocumentService
                 $currentVersion,
                 $targetStep,
                 $targetStep->urutan,
-                $targetStep->urutan === $template->steps()->where('tipe', 'verifikasi')->first()?->urutan ? $verifikatorIds : []
+                $targetStep->urutan === $template->steps()->where('tipe', 'verifikasi')->first()?->urutan ? $verifikatorIds : [],
+                $round,
+                $wasRevision ? DocumentVerification::REASON_RESUBMITTED : DocumentVerification::REASON_SUBMITTED,
             );
 
             $document->update([
@@ -358,14 +375,28 @@ class DocumentService
     /**
      * Helper membuat verifikasi berdasarkan konfigurasi step.
      */
-    private function createVerificationsForStep(Document $document, $currentVersion, $step, $level, array $defaultVerifikatorIds = [])
-    {
+    private function createVerificationsForStep(
+        Document $document,
+        $currentVersion,
+        $step,
+        $level,
+        array $defaultVerifikatorIds = [],
+        int $round = 1,
+        string $activationReason = DocumentVerification::REASON_SUBMITTED,
+        ?int $reopenedFromVerificationId = null,
+        array $reopenedAssigneeIds = [],
+    ) {
         if (! $step) {
             return;
         }
         $verifiers = [];
 
-        if ($step->isParallelQuorum()) {
+        if (! empty($reopenedAssigneeIds)) {
+            $verifiers = User::whereIn('id', $reopenedAssigneeIds)
+                ->where('is_active', true)
+                ->get()
+                ->all();
+        } elseif ($step->isParallelQuorum()) {
             $pools = $step->verifierPool;
             foreach ($pools as $pool) {
                 if ($pool->tipe_pool === 'user' && $pool->user_id) {
@@ -414,20 +445,84 @@ class DocumentService
 
         $uniqueVerifiers = collect($verifiers)->filter()->unique('id');
 
+        // Satu penerima tugas tidak otomatis berpindah ke level lebih tinggi pada
+        // versi yang sama. Riwayat putaran tetap dihitung agar pengembalian tidak
+        // membuka celah penugasan rangkap saat alur maju kembali.
+        $lowerAssigneeIds = DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $currentVersion->id)
+            ->where('level', '<', $level)
+            ->pluck('verifikator_id')->map(fn ($id) => (int) $id)->all();
+        $uniqueVerifiers = $uniqueVerifiers
+            ->reject(fn ($verifier) => in_array((int) $verifier->id, $lowerAssigneeIds, true));
+
+        $requiredVerifiers = $step->isParallelQuorum() ? max(1, (int) $step->min_approval) : 1;
+        abort_if($uniqueVerifiers->count() < $requiredVerifiers, 422,
+            "Pemeriksa berbeda untuk tahap '{$step->nama_tahap}' (Level {$level}) tidak mencukupi. Diperlukan {$requiredVerifiers} pemeriksa yang tidak ditugaskan pada level sebelumnya. Hubungi Administrator.");
+
         abort_if(
             $uniqueVerifiers->isEmpty(),
             422,
             "Tidak ada pejabat/pengguna yang ditugaskan untuk verifikasi pada tahap: '{$step->nama_tahap}' (Level {$level}). Harap hubungi Administrator untuk penyesuaian Master Data."
         );
 
+        $stalePending = DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $currentVersion->id)
+            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+            ->where(function ($query) use ($round, $level, $step): void {
+                $query->where('verification_round', '!=', $round)
+                    ->orWhere('level', '!=', $level)
+                    ->orWhere('workflow_step_id', '!=', $step->id);
+            });
+        $stalePending->update([
+            'status' => DocumentVerification::STATUS_DIBATALKAN,
+            'direset_alasan' => 'Tiket stale ditutup saat tahap aktif baru dibuat.',
+            'direset_at' => now(),
+        ]);
+
+        DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $currentVersion->id)
+            ->where('workflow_step_id', $step->id)
+            ->where('level', $level)
+            ->where('verification_round', $round)
+            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+            ->whereNotIn('verifikator_id', $uniqueVerifiers->pluck('id'))
+            ->update([
+                'status' => DocumentVerification::STATUS_DIBATALKAN,
+                'direset_alasan' => 'Penugasan tidak lagi termasuk dalam tahap aktif.',
+                'direset_at' => now(),
+            ]);
+
         foreach ($uniqueVerifiers as $v) {
-            $verif = DocumentVerification::updateOrCreate([
+            $existingActiveTicket = DocumentVerification::where('document_id', $document->id)
+                ->where('document_version_id', $currentVersion->id)
+                ->where('workflow_step_id', $step->id)
+                ->where('verifikator_id', $v->id)
+                ->where('level', $level)
+                ->where('status', DocumentVerification::STATUS_MENUNGGU)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingActiveTicket?->verification_round === $round) {
+                continue;
+            }
+
+            if ($existingActiveTicket) {
+                $existingActiveTicket->update([
+                    'status' => DocumentVerification::STATUS_DIBATALKAN,
+                    'direset_alasan' => 'Tiket stale ditutup saat putaran verifikasi baru dibuat.',
+                    'direset_at' => now(),
+                ]);
+            }
+
+            $verif = DocumentVerification::create([
                 'document_id' => $document->id,
                 'document_version_id' => $currentVersion->id,
                 'workflow_step_id' => $step->id,
                 'verifikator_id' => $v->id,
                 'level' => $level,
-            ], [
+                'verification_round' => $round,
+                'activation_reason' => $activationReason,
+                'reopened_from_verification_id' => $reopenedFromVerificationId,
                 'status' => DocumentVerification::STATUS_MENUNGGU,
                 'batas_waktu' => $this->addBusinessDays($step->sla_hari_kerja ?? 2),
                 'catatan' => null,
@@ -436,14 +531,60 @@ class DocumentService
                 'direset_at' => null,
             ]);
 
+            [$notificationType, $notificationTitle, $notificationMessage] = match ($activationReason) {
+                DocumentVerification::REASON_RETURNED_BY_VERIFIER => [
+                    'dikembalikan_verifikator',
+                    'Dokumen Dikembalikan ke Tahap Sebelumnya',
+                    "Dokumen '{$document->judul}' memerlukan pemeriksaan ulang pada tahap Anda.",
+                ],
+                DocumentVerification::REASON_RETURNED_BY_SIGNER => [
+                    'ditolak_penandatangan',
+                    'Dokumen Dikembalikan Penandatangan',
+                    "Dokumen '{$document->judul}' dikembalikan oleh penandatangan dan memerlukan pemeriksaan ulang.",
+                ],
+                default => [
+                    'diajukan',
+                    'Antrian Verifikasi Dokumen',
+                    "Dokumen '{$document->judul}' memerlukan verifikasi dari Anda.",
+                ],
+            };
+
             $v->notify(new DokumenNotification(
                 $document,
-                'diajukan',
-                'Antrian Verifikasi Dokumen',
-                "Dokumen '{$document->judul}' memerlukan verifikasi dari Anda.",
-                route('verifikasi.index')
+                $notificationType,
+                $notificationTitle,
+                $notificationMessage,
+                route('verifikasi.show', $verif)
             ));
         }
+    }
+
+    private function nextVerificationRound(Document $document, int $versionId): int
+    {
+        return (int) DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $versionId)
+            ->max('verification_round') + 1;
+    }
+
+    /**
+     * Step manual tidak mempunyai role/pool yang dapat dibaca ulang dari konfigurasi.
+     * Saat pemeriksaan dibuka kembali, gunakan kembali para penerima tiket terakhir step tersebut.
+     */
+    private function priorAssigneeIds(Document $document, int $versionId, int $workflowStepId): array
+    {
+        $latestRound = DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $versionId)
+            ->where('workflow_step_id', $workflowStepId)
+            ->max('verification_round');
+
+        return DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $versionId)
+            ->where('workflow_step_id', $workflowStepId)
+            ->where('verification_round', $latestRound)
+            ->pluck('verifikator_id')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -457,6 +598,7 @@ class DocumentService
 
             $verification->update([
                 'status' => DocumentVerification::STATUS_DISETUJUI,
+                'decided_by_user_id' => auth()->id(),
                 'catatan' => $catatan,
                 'direspon_at' => now(),
             ]);
@@ -472,26 +614,27 @@ class DocumentService
                 $approvedCount = DocumentVerification::where('document_id', $document->id)
                     ->where('document_version_id', $currentVersionId)
                     ->where('workflow_step_id', $step->id)
+                    ->where('verification_round', $verification->verification_round)
                     ->where('status', DocumentVerification::STATUS_DISETUJUI)
                     ->lockForUpdate()
                     ->count();
 
                 if ($approvedCount < $minApproval) {
-                    if ($document->status === Document::STATUS_DITOLAK_TTD) {
-                        $document->update(['status' => Document::STATUS_VERIFIKASI]);
-                    }
-
                     return $document->fresh();
                 }
             }
 
             // Bersihkan sisa tiket verifikasi di level ini yang masih 'menunggu' (karena kuorum/syarat sudah terpenuhi)
-            DocumentVerification::where('document_id', $document->id)
+            $remainingTickets = DocumentVerification::where('document_id', $document->id)
                 ->where('document_version_id', $currentVersionId)
                 ->where('workflow_step_id', $step?->id)
                 ->where('level', $verification->level)
-                ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->update(['status' => DocumentVerification::STATUS_DIBATALKAN]);
+                ->where('verification_round', $verification->verification_round)
+                ->where('status', DocumentVerification::STATUS_MENUNGGU);
+            $this->closeTicketsByDecision($remainingTickets, $verification, $document,
+                $step->isParallelQuorum() && $step->min_approval > 1
+                    ? 'Kuorum persetujuan terpenuhi; keputusan persetujuan terakhir oleh '.auth()->user()->name
+                    : 'Disetujui oleh '.auth()->user()->name);
 
             // Advance step
             $template = $document->workflowTemplate;
@@ -504,7 +647,14 @@ class DocumentService
 
             if ($nextVerificationStep) {
                 $nextLevel = $nextVerificationStep->urutan;
-                $this->createVerificationsForStep($document, $document->currentVersion, $nextVerificationStep, $nextLevel);
+                $this->createVerificationsForStep(
+                    $document,
+                    $document->currentVersion,
+                    $nextVerificationStep,
+                    $nextLevel,
+                    round: $verification->verification_round,
+                    activationReason: DocumentVerification::REASON_ADVANCED,
+                );
 
                 $document->update([
                     'status' => Document::STATUS_VERIFIKASI,
@@ -583,6 +733,7 @@ class DocumentService
 
             $verification->update([
                 'status' => DocumentVerification::STATUS_REVISI,
+                'decided_by_user_id' => auth()->id(),
                 'catatan' => $catatan,
                 'direspon_at' => now(),
             ]);
@@ -592,15 +743,12 @@ class DocumentService
             // dengan workflow_step yang sama. Ini menutup celah ketika konfigurasi
             // memiliki beberapa tiket/verifikator pada level berbeda atau halaman
             // verifikator lain masih terbuka.
-            DocumentVerification::where('document_id', $document->id)
+            $remainingTickets = DocumentVerification::where('document_id', $document->id)
                 ->where('document_version_id', $verification->document_version_id)
                 ->whereKeyNot($verification->id)
-                ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                ->update([
-                    'status' => DocumentVerification::STATUS_DIBATALKAN,
-                    'direset_alasan' => 'Siklus dihentikan karena ada permintaan revisi.',
-                    'direset_at' => now(),
-                ]);
+                ->where('status', DocumentVerification::STATUS_MENUNGGU);
+            $this->closeTicketsByDecision($remainingTickets, $verification, $document,
+                'Revisi kepada pengusul diminta oleh '.auth()->user()->name);
 
             $document->update(['status' => Document::STATUS_REVISI]);
 
@@ -626,6 +774,14 @@ class DocumentService
         $sessionId ??= session()->getId();
         $document = $document->fresh(['currentVersion', 'workflowTemplate']);
         $this->assertCanSign($document, $user);
+
+        // Submission ulang dari tab lama tidak boleh meminta/mengonsumsi OTP kedua.
+        // Jika persetujuan pengguna sudah tercatat, operasi yang benar adalah
+        // melanjutkan finalisasi ceremony yang sama secara idempotent.
+        if ($pending = $this->pendingFinalizationFor($document, $user)) {
+            return $this->resumeFinalization($pending);
+        }
+
         $otpContext = $this->prepareOtpContext($document, $user, $sessionId, $reauthenticationAgeSeconds);
         $otpReceipt = $this->signingOtpService->verifyAndConsume($user, $document, $otpInput, $otpContext);
 
@@ -649,6 +805,11 @@ class DocumentService
         $version = $document->currentVersion;
         abort_unless($version, 422, 'Versi aktif dokumen tidak ditemukan.');
 
+        // Jangan menerbitkan OTP bila dependency finalisasi yang sudah diketahui
+        // wajib tidak siap. Tanpa preflight ini OTP dapat habis dikonsumsi lalu
+        // ceremony tertahan pada state user_signed.
+        $this->assertSigningInfrastructureReady();
+
         $sessionHash = hash('sha256', $sessionId);
         $activeKey = hash('sha256', implode('|', [$document->id, $version->id, $user->id, config('tte.otp.action')]));
         $idempotencyKey = hash('sha256', $activeKey.'|'.$sessionHash);
@@ -664,8 +825,8 @@ class DocumentService
                 return $existing;
             }
 
-            abort_if($existing && $existing->state === SigningCeremony::STATE_USER_SIGNED, 409, 'Ceremony sebelumnya sedang menunggu finalisasi.');
-            abort_if($existing && $existing->state === SigningCeremony::STATE_SEALED, 409, 'Ceremony sebelumnya sudah diselesaikan.');
+            abort_if($existing && $existing->state === SigningCeremony::STATE_USER_SIGNED, 409, 'OTP sudah diverifikasi dan persetujuan Anda telah tercatat. Finalisasi sedang menunggu pemulihan layanan; jangan mengulang OTP.');
+            abort_if($existing && $existing->state === SigningCeremony::STATE_SEALED, 409, 'Pengesahan dokumen ini sudah diselesaikan.');
 
             SigningCeremony::where('active_key', $activeKey)->lockForUpdate()->get()->each->update([
                 'state' => SigningCeremony::STATE_FAILED,
@@ -732,7 +893,7 @@ class DocumentService
         if ($ceremony->state === SigningCeremony::STATE_PREPARING) {
             try {
                 $ceremony = $this->renderAndLockCandidate($ceremony, $document, $version, $user);
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 $ceremony->update([
                     'state' => SigningCeremony::STATE_FAILED,
                     'active_key' => null,
@@ -752,6 +913,34 @@ class DocumentService
             'reauthentication_age_seconds' => $reauthenticationAgeSeconds,
             'signing_ceremony_id' => $ceremony->uuid,
         ];
+    }
+
+    public function pendingFinalizationFor(Document $document, User $user): ?SigningCeremony
+    {
+        $versionId = $document->currentVersion?->id
+            ?? $document->fresh('currentVersion')->currentVersion?->id;
+
+        if (! $versionId) {
+            return null;
+        }
+
+        return SigningCeremony::query()
+            ->where('document_id', $document->id)
+            ->where('document_version_id', $versionId)
+            ->where('intended_actor_id', $user->id)
+            ->where('state', SigningCeremony::STATE_USER_SIGNED)
+            ->latest('id')
+            ->first();
+    }
+
+    public function assertSigningInfrastructureReady(): void
+    {
+        try {
+            $this->signingInfrastructure();
+        } catch (Throwable $exception) {
+            report($exception);
+            abort(503, 'Layanan finalisasi pengesahan sedang tidak tersedia. OTP belum dikirim atau dikonsumsi. Hubungi administrator untuk memulihkan layanan KMS dan penyimpanan bukti.');
+        }
     }
 
     private function renderAndLockCandidate(SigningCeremony $ceremony, Document $document, DocumentVersion $version, User $user): SigningCeremony
@@ -890,6 +1079,10 @@ class DocumentService
         $candidatePath = Storage::disk('local')->path($ceremony->candidate_pdf_path);
         abort_unless(hash_equals($ceremony->candidate_pdf_hash, hash_file('sha256', $candidatePath)), 500, 'Hash PDF kandidat berubah.');
 
+        // Dependency wajib diperiksa sebelum PDF resmi atau audit final ditulis.
+        // Retry tetap fail-closed dan tidak meninggalkan artefak parsial baru.
+        [$activeKey, $storageDescriptor] = $this->signingInfrastructure();
+
         $official = $this->pdfService->persistOfficial($document, $version, $candidatePath, $ceremony->qr_token);
         abort_unless(hash_equals($ceremony->candidate_pdf_hash, $official['hash']) && $ceremony->candidate_pdf_size === (int) $official['size'], 500, 'Verifikasi write PDF resmi gagal.');
 
@@ -910,7 +1103,6 @@ class DocumentService
             idempotencyKey: "signing-user-confirmed|{$ceremony->uuid}",
         );
         $checkpoint = $this->auditCheckpointService->create();
-        $activeKey = $this->evidenceSigner->activeKey();
         $manifest = $this->manifestBase($ceremony, $document, $version, $user, $official['hash'], (int) $official['size']);
         $manifest['manifest_stage'] = 'final';
         $manifest['institution_seal'] = [
@@ -927,7 +1119,6 @@ class DocumentService
             'event_sequence' => $auditEvent->sequence,
             'stream_id' => $auditEvent->stream_id,
         ];
-        $storageDescriptor = $this->immutableEvidenceStore->descriptor();
         $manifest['immutable_storage_plan'] = [
             'bucket_logical_id' => $storageDescriptor['bucket'],
             'object_prefix' => "evidence/{$ceremony->evidence_uuid}/",
@@ -1079,11 +1270,26 @@ class DocumentService
                 "Dokumen '{$sealedDocument->judul}' telah disahkan secara elektronik di SIMPEL-RS dengan Nomor: {$sealedDocument->nomor_surat}",
                 route('dokumen.show', $sealedDocument)
             ));
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Bukti yang sudah tersegel tidak boleh dibatalkan hanya karena notifikasi pasca-signing gagal.
         }
 
         return $sealedDocument;
+    }
+
+    /** @return array{0:SigningKeyDescriptor,1:array{provider:string,bucket:string,retention_mode:string}} */
+    private function signingInfrastructure(): array
+    {
+        $activeKey = $this->evidenceSigner->activeKey();
+        $storage = $this->immutableEvidenceStore->descriptor();
+
+        if (($storage['provider'] ?? 'unavailable') === 'unavailable'
+            || ($storage['bucket'] ?? 'unconfigured') === 'unconfigured'
+            || ($storage['retention_mode'] ?? 'unconfigured') === 'unconfigured') {
+            throw new \RuntimeException('WORM evidence provider production belum dikonfigurasi; signing dihentikan fail-closed.');
+        }
+
+        return [$activeKey, $storage];
     }
 
     private function manifestBase(SigningCeremony $ceremony, Document $document, DocumentVersion $version, User $user, string $pdfHash, int $pdfSize): array
@@ -1499,15 +1705,18 @@ class DocumentService
                 'ditolak_ttd_oleh' => $user->id,
             ]);
 
-            // Cari verifikasi yang levelnya tertinggi dan disetujui pada versi aktif
-            $highestLevelQuery = DocumentVerification::where('document_id', $document->id)
-                ->where('status', DocumentVerification::STATUS_DISETUJUI);
-            if ($currentVersionId) {
-                $highestLevelQuery->where('document_version_id', $currentVersionId);
-            }
-            $highestLevel = $highestLevelQuery->max('level');
+            // Keputusan verifikasi sebelumnya tetap immutable. Pengembalian dari penandatangan
+            // membuka putaran baru pada step verifikasi tertinggi, bukan mereset tiket lama.
+            $returnTarget = DocumentVerification::with('workflowStep')
+                ->where('document_id', $document->id)
+                ->where('document_version_id', $currentVersionId)
+                ->where('status', DocumentVerification::STATUS_DISETUJUI)
+                ->orderByDesc('level')
+                ->orderByDesc('verification_round')
+                ->orderByDesc('id')
+                ->first();
 
-            abort_unless($highestLevel, 422, 'Tidak ada tahap verifikasi yang dapat diaktifkan kembali. Hubungi administrator workflow.');
+            abort_unless($returnTarget?->workflowStep, 422, 'Tidak ada tahap verifikasi yang dapat dibuka kembali. Hubungi administrator workflow.');
 
             DocumentVerification::where('document_id', $document->id)
                 ->where('document_version_id', $currentVersionId)
@@ -1518,28 +1727,23 @@ class DocumentService
                     'direset_at' => now(),
                 ]);
 
-            $verificationsToReset = DocumentVerification::where('document_id', $document->id)
-                ->where('level', $highestLevel)
-                ->where('document_version_id', $currentVersionId);
+            $targetStep = $returnTarget->workflowStep;
+            $newRound = $this->nextVerificationRound($document, $currentVersionId);
+            $reopenedAssignees = $this->priorAssigneeIds($document, $currentVersionId, $targetStep->id);
 
-            foreach ($verificationsToReset->get() as $verif) {
-                $verif->update([
-                    'status' => DocumentVerification::STATUS_MENUNGGU,
-                    'direset_alasan' => "Dikembalikan penandatangan: {$alasanTolak}",
-                    'direset_at' => now(),
-                    'direspon_at' => null,
-                ]);
+            $this->createVerificationsForStep(
+                $document,
+                $document->currentVersion,
+                $targetStep,
+                $targetStep->urutan,
+                [],
+                $newRound,
+                DocumentVerification::REASON_RETURNED_BY_SIGNER,
+                $returnTarget->id,
+                $reopenedAssignees,
+            );
 
-                $verif->verifikator?->notify(new DokumenNotification(
-                    $document,
-                    'ditolak_penandatangan',
-                    'Dokumen Dikembalikan Penandatangan',
-                    "Dokumen '{$document->judul}' dikembalikan. Catatan: {$alasanTolak}",
-                    route('verifikasi.show', $verif)
-                ));
-            }
-
-            $document->update(['current_step' => $highestLevel]);
+            $document->update(['current_step' => $targetStep->urutan]);
 
             AuditLog::catat('tolak_ttd', "Dikembalikan penandatangan: {$alasanTolak}", $document);
 
@@ -1564,60 +1768,48 @@ class DocumentService
             [$verification, $document] = $this->lockAndValidateVerificationAction($verification);
             $currentVersionId = $document->currentVersion->id;
 
-            // Cari level sebelumnya pada versi yang sama
-            $lowerLevelQuery = DocumentVerification::where('document_id', $document->id)
-                ->where('level', '<', $verification->level)
-                ->where('status', DocumentVerification::STATUS_DISETUJUI);
-            $lowerLevelQuery->where('document_version_id', $currentVersionId);
-            $lowerLevel = $lowerLevelQuery->max('level');
+            $lowerStep = WorkflowStep::where('workflow_template_id', $document->workflow_template_id)
+                ->where('tipe', 'verifikasi')
+                ->where('urutan', '<', $verification->level)
+                ->orderByDesc('urutan')
+                ->first();
 
-            if ($lowerLevel) {
-                $verification->update([
-                    'status' => DocumentVerification::STATUS_DIBATALKAN,
-                    'direset_alasan' => "Ditangguhkan karena dikembalikan ke level {$lowerLevel}: {$alasan}",
-                    'direset_at' => now(),
-                    'direspon_at' => now(),
-                ]);
+            abort_unless($lowerStep, 422, 'Tahap ini tidak memiliki level verifikasi sebelumnya. Gunakan aksi Minta Revisi ke Pengusul.');
 
-                DocumentVerification::where('document_id', $document->id)
-                    ->where('document_version_id', $currentVersionId)
-                    ->where('level', $verification->level)
-                    ->where('status', DocumentVerification::STATUS_MENUNGGU)
-                    ->update([
-                        'status' => DocumentVerification::STATUS_DIBATALKAN,
-                        'direset_alasan' => "Tahap ditangguhkan karena dikembalikan ke level {$lowerLevel}.",
-                        'direset_at' => now(),
-                    ]);
+            // Keputusan pengembalian adalah bagian riwayat, bukan pembatalan sistem.
+            $verification->update([
+                'status' => DocumentVerification::STATUS_DIKEMBALIKAN,
+                'decided_by_user_id' => auth()->id(),
+                'catatan' => $alasan,
+                'direspon_at' => now(),
+            ]);
 
-                $lowerVerifications = DocumentVerification::where('document_id', $document->id)
-                    ->where('level', $lowerLevel)
-                    ->where('document_version_id', $currentVersionId);
+            $remainingTickets = DocumentVerification::where('document_id', $document->id)
+                ->where('document_version_id', $currentVersionId)
+                ->where('verification_round', $verification->verification_round)
+                ->where('status', DocumentVerification::STATUS_MENUNGGU);
+            $this->closeTicketsByDecision($remainingTickets, $verification, $document,
+                'Dikembalikan ke Level '.$lowerStep->urutan.' oleh '.auth()->user()->name);
 
-                foreach ($lowerVerifications->get() as $lowerVerif) {
-                    $lowerVerif->update([
-                        'status' => DocumentVerification::STATUS_MENUNGGU,
-                        'direset_alasan' => "Dikembalikan dari level atas: {$alasan}",
-                        'direset_at' => now(),
-                        'direspon_at' => null,
-                        'catatan' => null,
-                    ]);
+            $newRound = $this->nextVerificationRound($document, $currentVersionId);
+            $reopenedAssignees = $this->priorAssigneeIds($document, $currentVersionId, $lowerStep->id);
 
-                    $lowerVerif->verifikator?->notify(new DokumenNotification(
-                        $document,
-                        'dikembalikan_verifikator',
-                        'Dokumen Dikembalikan ke Tahap Sebelumnya',
-                        "Dokumen '{$document->judul}' dikembalikan dari tahap selanjutnya. Catatan: {$alasan}",
-                        route('verifikasi.show', $lowerVerif)
-                    ));
-                }
+            $this->createVerificationsForStep(
+                $document,
+                $document->currentVersion,
+                $lowerStep,
+                $lowerStep->urutan,
+                [],
+                $newRound,
+                DocumentVerification::REASON_RETURNED_BY_VERIFIER,
+                $verification->id,
+                $reopenedAssignees,
+            );
 
-                $document->update([
-                    'status' => Document::STATUS_VERIFIKASI,
-                    'current_step' => $lowerLevel,
-                ]);
-            } else {
-                abort(422, 'Tahap ini tidak memiliki level verifikasi sebelumnya. Gunakan aksi Minta Revisi ke Pengusul.');
-            }
+            $document->update([
+                'status' => Document::STATUS_VERIFIKASI,
+                'current_step' => $lowerStep->urutan,
+            ]);
 
             AuditLog::catat('turunkan_verifikasi', "Diturunkan ke level bawah: {$alasan}", $document);
 
@@ -1628,24 +1820,73 @@ class DocumentService
     /**
      * Kunci dan validasi tiket sebelum transisi agar tiket lama/tidak aktif tidak dapat diputar ulang.
      */
+    private function closeTicketsByDecision(
+        Builder $query,
+        DocumentVerification $decision,
+        Document $document,
+        string $outcome,
+    ): void {
+        $message = "Dokumen '{$document->judul}': {$outcome} pada Level {$decision->level}. Tugas pemeriksaan lainnya pada putaran ini selesai.";
+        foreach ($query->with('verifikator')->lockForUpdate()->get() as $ticket) {
+            $ticket->update([
+                'status' => DocumentVerification::STATUS_DIBATALKAN,
+                'closed_by_verification_id' => $decision->id,
+                'direset_alasan' => $message,
+                'direset_at' => now(),
+            ]);
+            AuditLog::catat('penugasan_selesai_oleh_keputusan', $message, $document, [], [
+                'ticket_id' => $ticket->id,
+                'decision_id' => $decision->id,
+                'actor_id' => auth()->id(),
+                'actor_name' => auth()->user()->name,
+                'decision_status' => $decision->status,
+                'version_id' => $decision->document_version_id,
+                'round' => $decision->verification_round,
+            ]);
+            $ticket->verifikator?->notify(new DokumenNotification(
+                $document, 'verifikasi_selesai', 'Hasil Pemeriksaan Dokumen', $message,
+                route('verifikasi.show', $ticket),
+            ));
+        }
+    }
+
     private function lockAndValidateVerificationAction(DocumentVerification $verification): array
     {
-        $verification = DocumentVerification::with('workflowStep')
-            ->lockForUpdate()
-            ->findOrFail($verification->id);
+        // Semua transisi mengunci dokumen lebih dahulu agar aksi paralel pada tiket berbeda
+        // tidak membentuk pola deadlock tiket-A → dokumen → tiket-B.
         $document = Document::with('currentVersion')
             ->lockForUpdate()
             ->findOrFail($verification->document_id);
+        $verification = DocumentVerification::with('workflowStep')
+            ->lockForUpdate()
+            ->findOrFail($verification->id);
         $user = auth()->user();
         $delegation = $user->activeDelegation();
         $isAssignee = $verification->verifikator_id === $user->id
             || ($delegation && $delegation->pejabat_id === $verification->verifikator_id);
 
         abort_unless($isAssignee, 403, 'Anda bukan pemilik tiket verifikasi aktif ini.');
+        abort_if($verification->hasLowerLevelAssignment()
+            || $verification->hasLowerLevelAssignment((int) $user->id),
+            409, 'Tugas Anda pada level sebelumnya sudah selesai. Pemeriksaan level ini harus dilakukan oleh verifikator berbeda.');
         abort_unless($verification->status === DocumentVerification::STATUS_MENUNGGU, 409, 'Tiket verifikasi ini sudah diproses atau dibatalkan.');
-        abort_unless($document->currentVersion?->id === $verification->document_version_id, 409, 'Tiket berasal dari versi dokumen lama dan tidak dapat diproses.');
+        abort_unless((int) $document->currentVersion?->id === $verification->document_version_id, 409, 'Tiket berasal dari versi dokumen lama dan tidak dapat diproses.');
+        abort_unless(
+            $verification->workflowStep
+                && (int) $verification->workflowStep->workflow_template_id === (int) $document->workflow_template_id
+                && $verification->workflowStep->tipe === 'verifikasi'
+                && (int) $verification->workflowStep->urutan === $verification->level,
+            409,
+            'Tiket tidak sesuai dengan tahap workflow dokumen yang aktif.'
+        );
         abort_unless((int) $document->current_step === (int) $verification->level, 409, 'Tahap verifikasi ini sudah tidak aktif.');
         abort_unless(in_array($document->status, [Document::STATUS_DIAJUKAN, Document::STATUS_VERIFIKASI, Document::STATUS_DITOLAK_TTD], true), 409, 'Dokumen tidak sedang berada pada proses verifikasi aktif.');
+        $activeRound = (int) DocumentVerification::where('document_id', $document->id)
+            ->where('document_version_id', $verification->document_version_id)
+            ->where('level', $verification->level)
+            ->where('status', DocumentVerification::STATUS_MENUNGGU)
+            ->max('verification_round');
+        abort_unless($verification->verification_round === $activeRound, 409, 'Tiket berasal dari putaran verifikasi lama dan tidak dapat diproses.');
 
         return [$verification, $document];
     }

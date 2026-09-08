@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\DocumentVerification;
@@ -10,20 +11,94 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Services\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class DocumentVerificationTimelineTest extends TestCase
 {
     use RefreshDatabase;
 
+    public static function poolDecisions(): array
+    {
+        return [[1, 'setujui'], [2, 'setujui'], [4, 'setujui'], [1, 'mintaRevisi'], [2, 'mintaRevisi'], [4, 'mintaRevisi']];
+    }
+
+    public function test_quorum_closes_peers_only_after_required_approvals_and_names_final_actor(): void
+    {
+        $fixture = $this->makeDocumentWithQuorumPool(4);
+        $document = $fixture['document'];
+        $first = $document->verifications()->where('verifikator_id', $fixture['verifiers'][0]->id)->sole();
+        $first->workflowStep->update(['min_approval' => 2]);
+        $this->actingAs($fixture['verifiers'][0]);
+        app(DocumentService::class)->setujui($first);
+        $this->assertSame(3, $document->verifications()->where('status', 'menunggu')->count());
+        $this->assertSame(0, $document->verifications()->whereNotNull('closed_by_verification_id')->count());
+        $second = $document->verifications()->where('verifikator_id', $fixture['verifiers'][1]->id)->sole();
+        $this->actingAs($fixture['verifiers'][1]);
+        app(DocumentService::class)->setujui($second);
+        $closed = $document->verifications()->where('closed_by_verification_id', $second->id)->get();
+        $this->assertCount(2, $closed);
+        foreach ($closed as $ticket) {
+            $this->assertStringContainsString('Kuorum persetujuan terpenuhi', $ticket->direset_alasan);
+            $this->assertStringContainsString($fixture['verifiers'][1]->name, $ticket->direset_alasan);
+        }
+        $this->assertSame(2, $document->verifications()->where('status', 'disetujui')->count());
+    }
+
+    #[DataProvider('poolDecisions')]
+    public function test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers(int $count, string $action): void
+    {
+        $fixture = $this->makeDocumentWithQuorumPool($count);
+        $actor = $fixture['verifiers'][0];
+        $document = $fixture['document'];
+        $decision = $document->verifications()->where('verifikator_id', $actor->id)->sole();
+        $this->actingAs($actor);
+        app(DocumentService::class)->{$action}($decision, 'Catatan pemeriksaan');
+        $this->assertSame($action === 'setujui' ? 'disetujui' : 'revisi', $decision->fresh()->status);
+        $this->assertSame($actor->id, $decision->fresh()->decided_by_user_id);
+        $peers = $document->verifications()->where('closed_by_verification_id', $decision->id)->get();
+        $this->assertCount($count - 1, $peers);
+        foreach ($peers as $peer) {
+            $this->assertSame('batal', $peer->status);
+            $this->assertNull($peer->direspon_at);
+            $this->assertNotNull($peer->direset_at);
+            $this->assertStringContainsString($actor->name, $peer->direset_alasan);
+            $this->assertStringContainsString($document->judul, $peer->direset_alasan);
+            $this->assertStringContainsString($action === 'setujui' ? 'Disetujui oleh' : 'Revisi kepada pengusul diminta oleh', $peer->direset_alasan);
+            $notification = $peer->verifikator->notifications()->get()->first(fn ($item) => $item->data['tipe_event'] === 'verifikasi_selesai');
+            $this->assertNotNull($notification);
+            $this->assertSame($peer->direset_alasan, $notification->data['message']);
+            $this->assertSame($actor->id, $peer->fresh()->load('closingDecision.decisionMaker')->resolvedDecisionMaker()?->id);
+            $this->actingAs($peer->verifikator)->get(route('verifikasi.show', $peer))
+                ->assertOk()->assertSee($actor->name)
+                ->assertSee('Selesai melalui keputusan verifikator lain')
+                ->assertDontSee('Dibatalkan Sistem')
+                ->assertDontSee('id="form-setuju"', false);
+            $this->get(route('verifikasi.index'))
+                ->assertOk()
+                ->assertSee('Diputuskan Oleh')
+                ->assertSee('<strong>'.$actor->name.'</strong>', false)
+                ->assertSee('Selesai melalui keputusan verifikator lain')
+                ->assertDontSee('Dibatalkan Sistem');
+        }
+        $this->actingAs($actor)->get(route('verifikasi.index'))
+            ->assertOk()
+            ->assertSee('Diputuskan Oleh')
+            ->assertSee('<strong>'.$actor->name.'</strong>', false)
+            ->assertSee($action === 'setujui' ? 'Disetujui' : 'Minta Revisi');
+        $this->assertSame($count - 1, AuditLog::where('aksi', 'penugasan_selesai_oleh_keputusan')->count());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (['dokumen.buat', 'dokumen.lihat', 'dokumen.verifikasi'] as $perm) {
             Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
@@ -80,7 +155,7 @@ class DocumentVerificationTimelineTest extends TestCase
         $names = ['Rika Apriliniani', 'Hervikta AW', 'Yuko Mandasari', 'Arlinda P'];
         for ($i = 0; $i < $poolSize; $i++) {
             $u = User::create([
-                'name' => $names[$i], 'email' => strtolower(str_replace(' ', '', $names[$i])) . '@test.com',
+                'name' => $names[$i], 'email' => strtolower(str_replace(' ', '', $names[$i])).'@test.com',
                 'jabatan' => 'Asesor Internal', 'password' => bcrypt('password'),
                 'unit_id' => $unit->id, 'is_active' => true,
             ]);
@@ -172,7 +247,7 @@ class DocumentVerificationTimelineTest extends TestCase
             ->where('verifikator_id', $requester->id)->first();
 
         $this->actingAs($requester);
-        app(\App\Services\DocumentService::class)->mintaRevisi($requesterTicket, 'Perbaiki format tabel.');
+        app(DocumentService::class)->mintaRevisi($requesterTicket, 'Perbaiki format tabel.');
 
         $document->refresh();
         $this->assertSame(Document::STATUS_REVISI, $document->status);
@@ -186,7 +261,7 @@ class DocumentVerificationTimelineTest extends TestCase
         ]);
 
         $this->actingAs($fixtures['pengusul']);
-        app(\App\Services\DocumentService::class)->ajukanDokumen($document, []);
+        app(DocumentService::class)->ajukanDokumen($document, []);
 
         $newTickets = DocumentVerification::where('document_id', $document->id)
             ->where('status', DocumentVerification::STATUS_MENUNGGU)

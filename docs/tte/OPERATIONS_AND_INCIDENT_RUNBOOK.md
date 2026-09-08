@@ -17,6 +17,18 @@ Scheduler dan worker harus aktif. `tte:audit-verify --json` berjalan tiap 15 men
 
 Pada VM saat ini keduanya disupervisi oleh `simpel-rs-queue.service` dan `simpel-rs-scheduler.timer`. Periksa dengan `systemctl status simpel-rs-queue.service simpel-rs-scheduler.timer`; setelah deployment kode jalankan `php artisan queue:restart` agar worker memuat versi terbaru.
 
+## OTP sudah diverifikasi tetapi finalisasi tertunda
+
+State ceremony `user_signed` berarti OTP sudah sah dan persetujuan pengguna sudah tercatat. Jangan menghapus ceremony, mengubahnya kembali ke `awaiting_user_signature`, atau meminta pengguna mengulang OTP. Tindakan tersebut merusak jejak audit dan dapat menciptakan proses ganda.
+
+1. Periksa OpenBao, pastikan statusnya `Sealed false`, lalu pastikan MinIO sehat.
+2. Pastikan `.env` aplikasi menggunakan `TTE_SIGNER_PROVIDER=openbao` dan `TTE_IMMUTABLE_STORE_PROVIDER=minio`, beserta credential aplikasi yang benar. Jalankan `php artisan config:cache` setelah perubahan terkontrol.
+3. Pastikan scheduler benar-benar berjalan. Verifikasi dengan `systemctl status simpel-rs-scheduler.timer` dan `php artisan schedule:list`.
+4. Setelah dependency pulih, jalankan `php artisan tte:process-signing-outbox --limit=25`. Perintah ini idempotent: ceremony yang sudah selesai tidak membuat signature/evidence kedua.
+5. Pastikan outbox terkait menjadi `processed`, ceremony menjadi `sealed`, dan status dokumen menjadi `ditandatangani`. Bila masih gagal, gunakan hash error pada `last_error` untuk mencocokkan log aplikasi; jangan mengedit row bukti secara manual.
+
+Aplikasi melakukan preflight KMS dan konfigurasi penyimpanan immutable sebelum menerbitkan atau mengonsumsi OTP baru. Preflight tidak menggantikan scheduler: outage yang terjadi tepat setelah OTP dikonsumsi tetap dipulihkan melalui outbox.
+
 Tambahkan rule SIEM untuk lonjakan OTP/resend/lockout, signing di luar pola, lookup/upload verifier, clock drift, perubahan policy KMS/WORM, serta percobaan `UPDATE`/`DELETE` yang ditolak SQL Server/Object Lock. Metadata sensitif harus tetap berupa hash atau `[REDACTED]`.
 
 ## Respons insiden

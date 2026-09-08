@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\EvidenceSigner;
+use App\Contracts\ImmutableEvidenceStore;
 use App\Contracts\OtpSecretProvider;
 use App\Models\AuditLog;
 use App\Models\Document;
@@ -14,6 +16,8 @@ use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Notifications\OtpTandaTangan;
 use App\Services\SigningOtpService;
+use App\Services\TestingEvidenceSigner;
+use App\Services\TestingImmutableEvidenceStore;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -41,8 +45,12 @@ class TteTargetGapContractTest extends TestCase
     {
         Notification::fake();
         config(['app.debug' => true]);
+        $testingSigner = app(TestingEvidenceSigner::class);
+        $testingStore = new TestingImmutableEvidenceStore;
         app(OtpSecretProvider::class);
         app()->detectEnvironment(fn (): string => 'staging');
+        app()->instance(EvidenceSigner::class, $testingSigner);
+        app()->instance(ImmutableEvidenceStore::class, $testingStore);
         $this->withoutMiddleware(ValidateCsrfToken::class);
         $fixture = $this->signingFixture();
 

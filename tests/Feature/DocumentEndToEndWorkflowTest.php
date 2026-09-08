@@ -4,12 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Document;
 use App\Models\DocumentSignature;
-use App\Models\SignatureOtpChallenge;
-use App\Models\SignatureEvidence;
-use App\Models\SigningCeremony;
 use App\Models\DocumentType;
 use App\Models\DocumentVerification;
 use App\Models\DocumentVersion;
+use App\Models\SignatureEvidence;
+use App\Models\SignatureOtpChallenge;
+use App\Models\SigningCeremony;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
@@ -19,8 +19,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Support\RequestsSigningOtp;
+use Tests\TestCase;
 
 class DocumentEndToEndWorkflowTest extends TestCase
 {
@@ -29,7 +30,7 @@ class DocumentEndToEndWorkflowTest extends TestCase
 
     public function test_document_can_complete_pedoman_workflow_from_submission_through_internal_signature(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
         foreach (['dokumen.buat', 'dokumen.verifikasi', 'dokumen.tanda_tangan'] as $permission) {
             Permission::create(['name' => $permission, 'guard_name' => 'web']);
         }
@@ -90,8 +91,22 @@ class DocumentEndToEndWorkflowTest extends TestCase
         $this->assertCount(4, $document->verifications()->where('status', DocumentVerification::STATUS_MENUNGGU)->get());
 
         $firstTicket = $document->verifications()->where('verifikator_id', $asesors->first()->id)->firstOrFail();
+        $this->assertTrue($firstTicket->fresh()->isActionable(), 'Tiket yang baru diajukan ke verifikator level 1 harus aktif.');
         $this->actingAs($asesors->first());
+        $this->get(route('verifikasi.show', $firstTicket))
+            ->assertOk()
+            ->assertSee('Menunggu Keputusan Anda')
+            ->assertSee('Setujui & Lanjutkan Alur', false)
+            ->assertDontSee('Tiket Riwayat · Tidak Aktif');
         $service->setujui($firstTicket, 'Sesuai pedoman.');
+
+        $this->get(route('verifikasi.show', $firstTicket))
+            ->assertOk()
+            ->assertSee('Sudah Disetujui')
+            ->assertSee('Sesuai pedoman.')
+            ->assertDontSee('id="form-setuju"', false)
+            ->assertDontSee('id="form-revisi"', false)
+            ->assertDontSee('id="form-kembali"', false);
 
         $document->refresh();
         $this->assertSame(Document::STATUS_VERIFIKASI, $document->status);
@@ -99,7 +114,13 @@ class DocumentEndToEndWorkflowTest extends TestCase
         $this->assertSame(3, $document->verifications()->where('level', 1)->where('status', DocumentVerification::STATUS_DIBATALKAN)->count());
 
         $secretaryTicket = $document->verifications()->where('verifikator_id', $sekretariat->id)->where('status', DocumentVerification::STATUS_MENUNGGU)->firstOrFail();
+        $this->assertTrue($secretaryTicket->fresh()->isActionable(), 'Tiket level berikutnya harus aktif setelah level 1 disetujui.');
         $this->actingAs($sekretariat);
+        $this->get(route('verifikasi.show', $secretaryTicket))
+            ->assertOk()
+            ->assertSee('Menunggu Keputusan Anda')
+            ->assertSee('Setujui & Lanjutkan Alur', false)
+            ->assertDontSee('Tiket Riwayat · Tidak Aktif');
         $service->setujui($secretaryTicket, 'Format dan administrasi sesuai.');
 
         $document->refresh();

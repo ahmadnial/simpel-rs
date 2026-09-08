@@ -12,16 +12,33 @@
 @section('content')
 
 @php
-    $isCurrentTicket = $verification->isMenunggu()
-        && $verification->document_version_id === $verification->document->currentVersion?->id
-        && (int) $verification->level === (int) $verification->document->current_step
-        && in_array($verification->document->status, ['diajukan', 'dalam_verifikasi', 'ditolak_penandatangan'], true);
+    $isCurrentTicket = $verification->isActionable((int) auth()->id());
+    $isReopenedTicket = in_array($verification->activation_reason, [
+        \App\Models\DocumentVerification::REASON_RETURNED_BY_VERIFIER,
+        \App\Models\DocumentVerification::REASON_RETURNED_BY_SIGNER,
+    ], true);
+    [$decisionLabel, $decisionColor] = match ($verification->status) {
+        'disetujui' => ['Sudah Disetujui', 'badge-green'],
+        'revisi' => ['Revisi Diminta', 'badge-orange'],
+        'ditolak' => ['Ditolak', 'badge-red'],
+        'dikembalikan' => ['Dikembalikan ke Level Sebelumnya', 'badge-orange'],
+        'batal' => [$verification->closureLabel(), 'badge-gray'],
+        default => ['Belum Diputuskan', 'badge-yellow'],
+    };
+    $priorApprovals = $verification->document->verifications->filter(fn ($ticket) =>
+        $ticket->verifikator_id === $verification->verifikator_id
+        && $ticket->document_version_id === $verification->document_version_id
+        && $ticket->level < $verification->level
+        && $ticket->isApproved()
+    );
 @endphp
 
 <div class="page-header" style="display:flex; align-items:flex-start; justify-content:space-between">
     <div>
+        <span class="badge {{ $decisionColor }}">{{ $decisionLabel }}</span>
+        <span class="badge badge-indigo">Level {{ $verification->level }} · {{ $verification->workflowStep?->nama_tahap }}</span>
         <span class="badge {{ $isCurrentTicket ? 'badge-yellow' : 'badge-gray' }}" style="margin-bottom:8px">
-            {{ $isCurrentTicket ? 'Menunggu Keputusan Anda' : 'Tiket Riwayat · Tidak Aktif' }}
+            {{ $isCurrentTicket ? ($isReopenedTicket ? 'Pemeriksaan Ulang · Putaran '.$verification->verification_round : 'Menunggu Keputusan Anda') : 'Tiket Riwayat · Tidak Aktif' }}
         </span>
         <h1 class="page-title">{{ $verification->document->judul }}</h1>
         <p class="page-subtitle">
@@ -38,6 +55,14 @@
     @endif
 </div>
 
+@if(!$isCurrentTicket && $verification->isMenunggu() && $priorApprovals->isNotEmpty())
+<div class="alert alert-info" style="margin-bottom: var(--space-6)">
+    <strong>Persetujuan level sebelumnya sudah tercatat.</strong>
+    Verifikator pada tiket ini sudah menyetujui Level {{ $priorApprovals->pluck('level')->unique()->sort()->implode(', ') }}.
+    Pemeriksaan Level {{ $verification->level }} harus dilakukan oleh verifikator berbeda. Penugasan ini tidak dapat diproses.
+</div>
+@endif
+
 @if($verification->document->status === 'ditolak_penandatangan')
 <div class="alert alert-danger" style="margin-bottom: var(--space-6); background: rgba(239,68,68,0.1); border: 1px solid var(--border-danger); color: var(--text-danger); padding: var(--space-4); border-radius: var(--radius-md);">
     <strong style="display:flex; align-items:center; gap:8px;">
@@ -50,6 +75,16 @@
 </div>
 @endif
 
+@if($isCurrentTicket && $verification->activation_reason === \App\Models\DocumentVerification::REASON_RETURNED_BY_VERIFIER)
+<div class="alert alert-info" style="margin-bottom: var(--space-6)">
+    <strong>Pemeriksaan ulang dari level berikutnya.</strong>
+    Keputusan sebelumnya tetap tersimpan pada riwayat Putaran {{ max(1, $verification->verification_round - 1) }}.
+    @if($verification->reopenedFrom?->catatan)
+        <div style="margin-top:8px; font-style:italic">“{{ $verification->reopenedFrom->catatan }}”</div>
+    @endif
+</div>
+@endif
+
 <div class="workflow-review-grid" style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
 
     {{-- Left: Keputusan & Form --}}
@@ -58,7 +93,7 @@
         {{-- Form Setujui / Minta Revisi --}}
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Form Keputusan Verifikasi</span>
+                <span class="card-title">{{ $isCurrentTicket ? 'Form Keputusan Verifikasi' : 'Hasil Keputusan Verifikasi' }} · Level {{ $verification->level }}</span>
             </div>
 
             @if($isCurrentTicket)
@@ -114,7 +149,26 @@
                 </button>
             </form>
             @else
-                <div class="alert alert-info">Tiket ini tidak lagi aktif karena sudah diproses, dibatalkan, atau berasal dari versi/tahap lama. Seluruh aksi dinonaktifkan.</div>
+                <p><strong>{{ $decisionLabel }}</strong>
+                    @if($verification->direspon_at ?? $verification->direset_at)
+                        · {{ ($verification->direspon_at ?? $verification->direset_at)->format('d/m/Y H:i') }}
+                    @endif
+                </p>
+                @if($verification->resolvedDecisionMaker())
+                    <p>Diputuskan oleh: <strong>{{ $verification->resolvedDecisionMaker()->name }}</strong></p>
+                @endif
+                @if($verification->catatan)
+                    <p>{{ $verification->catatan }}</p>
+                @endif
+                <div class="alert alert-info">
+                    @if($verification->direset_alasan)
+                        {{ $verification->direset_alasan }}
+                    @elseif($verification->isDibatalkan())
+                        Penugasan ini telah ditutup. Alasan penutupan tidak tercatat pada data lama.
+                    @else
+                        Tiket ini tidak lagi aktif. Keputusan hanya dapat diberikan pada penugasan pemeriksaan yang sedang aktif.
+                    @endif
+                </div>
             @endif
         </div>
 
@@ -163,10 +217,11 @@
                  jadi 1 baris ringkas, bukan 1 baris identik per orang. Tiket yang otomatis
                  dibatalkan (kalah cepat) disembunyikan; begitu ada yang benar-benar bertindak,
                  namanya tampil sendiri. --}}
-            @foreach($verification->document->verifications->groupBy(fn ($v) => $v->document_version_id.'-'.$v->level) as $cycleGroup)
+            @foreach($verification->document->verifications->sortBy(fn ($v) => sprintf('%010d-%010d-%010d-%010d', $v->version?->versi ?? 0, $v->verification_round, $v->level, $v->id))->groupBy(fn ($v) => $v->document_version_id.'-'.$v->verification_round.'-'.$v->level) as $cycleGroup)
                 @php
                     $levelGroup = $cycleGroup;
                     $level = $levelGroup->first()->level;
+                    $round = $levelGroup->first()->verification_round;
                     $versionNumber = $levelGroup->first()->version?->versi ?? '?';
                     $decided = $levelGroup->reject(fn ($v) => $v->isMenunggu() || $v->isDibatalkan());
                     $pending = $levelGroup->filter(fn ($v) => $v->isMenunggu());
@@ -176,11 +231,12 @@
                 <div class="timeline-item">
                     <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
                     <div class="timeline-content">
-                        <div class="timeline-title">{{ $v->verifikator->name }}</div>
-                        <div class="timeline-meta">Versi {{ $versionNumber }} · Status: <strong>{{ ucfirst($v->status) }}</strong></div>
+                        <div class="timeline-title">{{ $v->resolvedDecisionMaker()?->name ?? $v->verifikator->name }}</div>
+                        <div class="timeline-meta">Versi {{ $versionNumber }} · Putaran {{ $round }} · Status: <strong>{{ $v->isDikembalikan() ? 'Ke Level Sebelumnya' : ucfirst($v->status) }}</strong></div>
                         @if($v->catatan)
                             <div class="timeline-note">"{{ $v->catatan }}"</div>
                         @endif
+                        @include('verifikasi.closed-peer-summary', ['tickets' => $verification->document->verifications, 'decision' => $v])
                     </div>
                 </div>
                 @endforeach
@@ -191,7 +247,7 @@
                         <div class="timeline-dot" style="background:var(--bg-elevated); color:var(--text-muted)">{{ $level }}</div>
                         <div class="timeline-content">
                             <div class="timeline-title">{{ $v->verifikator->name }}</div>
-                            <div class="timeline-meta">Versi {{ $versionNumber }} · Status: <strong>Menunggu</strong></div>
+                            <div class="timeline-meta">Versi {{ $versionNumber }} · Putaran {{ $round }} · Status: <strong>Menunggu</strong></div>
                         </div>
                     </div>
                 @elseif($pending->count() > 1)
@@ -208,7 +264,7 @@
                                     <span style="font-weight:500; color:var(--text-muted)">&middot; {{ $pendingCommonSub }}</span>
                                 @endif
                             </div>
-                            <div class="timeline-meta">Versi {{ $versionNumber }} · Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
+                            <div class="timeline-meta">Versi {{ $versionNumber }} · Putaran {{ $round }} · Menunggu salah satu dari {{ $pending->count() }} verifikator</div>
                         </div>
                     </div>
                 @endif
@@ -219,6 +275,10 @@
 </div>
 
 <script>
+    // Browser dapat memulihkan form lama lewat back/forward cache setelah keputusan.
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) window.location.reload();
+    });
     function switchMode(mode) {
         document.getElementById('form-setuju').style.display = 'none';
         const formKembali = document.getElementById('form-kembali');

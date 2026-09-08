@@ -12,7 +12,7 @@
 @section('content')
 
 <div class="page-header">
-    <span class="badge badge-purple" style="margin-bottom:8px">Siap Ditandatangani</span>
+    <span class="badge badge-purple" style="margin-bottom:8px">{{ $finalizationPending ? 'Menunggu Finalisasi Pengesahan' : 'Siap Ditandatangani' }}</span>
     <h1 class="page-title">{{ $document->judul }}</h1>
     <p class="page-subtitle">
         Pengusul: <strong>{{ $document->pengusul->name }}</strong> ({{ $document->unit->nama }}) &bull; Jenis: {{ $document->documentType->nama }} &bull; Versi resmi kandidat: v{{ $document->currentVersion->versi }}
@@ -32,6 +32,22 @@
                 <span class="card-title">Proses Pengesahan Elektronik Internal</span>
             </div>
 
+            @if($finalizationPending)
+                <div role="status" style="padding:var(--space-5); background:rgba(245,158,11,0.10); border:1px solid var(--border-warning); border-radius:var(--radius-lg)">
+                    <h4 style="font-size:1rem; margin-bottom:8px; color:#d97706">OTP sudah diverifikasi</h4>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.6; margin:0">
+                        Persetujuan Anda telah tercatat pada
+                        <strong>{{ $finalizationPending->consumed_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' ?? 'waktu yang tercatat pada sistem' }}</strong>.
+                        Finalisasi bukti pengesahan sedang menunggu pemulihan layanan. Anda tidak perlu meminta atau memasukkan OTP lagi.
+                        Aksi pengesahan dan pengembalian dinonaktifkan untuk mencegah proses ganda.
+                    </p>
+                </div>
+            @elseif($signingUnavailable)
+                <div role="alert" style="padding:var(--space-5); background:rgba(239,68,68,0.08); border:1px solid var(--border-danger); border-radius:var(--radius-lg)">
+                    <h4 style="font-size:1rem; margin-bottom:8px; color:var(--text-danger)">Layanan pengesahan belum siap</h4>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.6; margin:0">{{ $signingUnavailable }}</p>
+                </div>
+            @else
             <div style="padding: var(--space-4); background: rgba(99,102,241,0.08); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid rgba(99,102,241,0.2)">
                 <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode: Pengesahan Elektronik Internal SIMPEL-RS</h4>
                 <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5">
@@ -74,6 +90,7 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
         {{-- Pratinjau naskah sebelum pengesahan --}}
         <div class="card">
@@ -126,9 +143,10 @@
                     <div style="display:flex; flex-direction:column; gap: var(--space-3)">
                     @foreach($resolvedVerifications->sortByDesc('level') as $verif)
                         <div style="padding: 10px; background: var(--bg-body); border-radius: var(--radius-sm); border-left: 3px solid {{ $verif->status == 'disetujui' ? 'var(--brand-500)' : 'var(--text-muted)' }}">
-                            <div style="font-size: 0.85rem; font-weight: 600;">Tahap {{ $verif->level }}: {{ $verif->verifikator->name ?? 'Verifikator' }}</div>
+                            <div style="font-size: 0.85rem; font-weight: 600;">Tahap {{ $verif->level }}: {{ $verif->resolvedDecisionMaker()?->name ?? $verif->verifikator->name ?? 'Verifikator' }}</div>
                             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
                                 Status: <span style="text-transform: capitalize;">{{ $verif->status }}</span>
+                                @include('verifikasi.closed-peer-summary', ['tickets' => $document->verifications, 'decision' => $verif])
                                 @if($verif->catatan)
                                     <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border-light); font-style: italic;">
                                         "{{ $verif->catatan }}"
@@ -151,6 +169,7 @@
 
 </div>
 
+@unless($finalizationPending || $signingUnavailable)
 <script>
     document.getElementById('form-tte').addEventListener('submit', function () {
         this.querySelectorAll('button').forEach(button => button.disabled = true);
@@ -213,8 +232,10 @@
         });
     }
 </script>
+@endunless
 
 {{-- Modal Tolak --}}
+@unless($finalizationPending)
 <div id="modal-tolak" class="signature-return-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modal-tolak-title" aria-hidden="true">
     <div class="signature-return-dialog">
         <div class="signature-return-header">
@@ -261,5 +282,6 @@
         modal.setAttribute('aria-hidden', 'true');
     }
 </script>
+@endunless
 
 @endsection

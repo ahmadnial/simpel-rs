@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class WorkflowStep extends Model
 {
@@ -18,9 +18,13 @@ class WorkflowStep extends Model
     protected function casts(): array
     {
         return [
-            'sla_hari_kerja' => 'integer', 
-            'urutan'         => 'integer',
-            'min_approval'   => 'integer',
+            // sqlsrv dapat menghidrasi BIGINT/NUMERIC sebagai string. FK ini
+            // dibandingkan dengan documents.workflow_template_id saat menentukan
+            // apakah tiket verifikasi masih aktif.
+            'workflow_template_id' => 'integer',
+            'sla_hari_kerja' => 'integer',
+            'urutan' => 'integer',
+            'min_approval' => 'integer',
         ];
     }
 
