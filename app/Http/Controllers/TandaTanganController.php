@@ -9,6 +9,8 @@ use App\Services\SigningOtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Throwable;
 
 class TandaTanganController extends Controller
 {
@@ -167,8 +169,12 @@ class TandaTanganController extends Controller
             abort_if($reauthenticationAge === null || $reauthenticationAge > config('tte.otp.reauthentication_max_age_seconds'), 423, 'Konfirmasi ulang password diperlukan sebelum tanda tangan.');
             $this->documentService->tandaTangani($document, $request->otp, $request->session()->getId(), $reauthenticationAge);
             return redirect()->route('ttd.index')->with('success', "Dokumen '{$document->judul}' berhasil disahkan secara elektronik di SIMPEL-RS.");
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        } catch (HttpExceptionInterface $exception) {
+            return back()->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Pengesahan belum dapat diselesaikan. Sistem akan mencoba memulihkan proses secara otomatis.');
         }
     }
 
@@ -189,8 +195,12 @@ class TandaTanganController extends Controller
             $this->documentService->tolakTandaTangan($document, $request->alasan_tolak);
             return redirect()->route('ttd.index')
                 ->with('success', "Dokumen dikembalikan. Verifikator terkait telah dinotifikasi.");
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        } catch (HttpExceptionInterface $exception) {
+            return back()->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Dokumen belum dapat dikembalikan. Silakan coba kembali atau hubungi administrator.');
         }
     }
 }

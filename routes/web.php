@@ -1,19 +1,25 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\DocumentTypeController;
+use App\Http\Controllers\Admin\UnitController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WorkflowController;
+use App\Http\Controllers\ArsipController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\VerifikasiController;
-use App\Http\Controllers\TandaTanganController;
-use App\Http\Controllers\PublikasiController;
-use App\Http\Controllers\ArsipController;
 use App\Http\Controllers\DelegasiController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\Admin\AdminController;
-use App\Http\Controllers\PublicVerifyController;
-use App\Http\Controllers\PublicKeyController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnlyOfficeController;
+use App\Http\Controllers\PublicKeyController;
+use App\Http\Controllers\PublicVerifyController;
+use App\Http\Controllers\PublikasiController;
+use App\Http\Controllers\TandaTanganController;
+use App\Http\Controllers\VerifikasiController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // ==========================================
 // Public Routes
@@ -43,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
     // Halaman editor/form dapat dibiarkan terbuka cukup lama tanpa request lain.
     // Endpoint ringan ini dipanggil periodik oleh layout untuk mempertahankan
     // sesi dan token CSRF selama pengguna masih membuka aplikasi.
-    Route::get('/session/keep-alive', function (\Illuminate\Http\Request $request) {
+    Route::get('/session/keep-alive', function (Request $request) {
         $request->session()->put('_last_keep_alive_at', now()->timestamp);
 
         return response()->json(['ok' => true]);
@@ -126,26 +132,26 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin
     Route::prefix('admin')->name('admin.')->middleware('role:super_admin')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Admin\AdminController::class, 'index'])->name('index');
-        Route::resource('units', \App\Http\Controllers\Admin\UnitController::class);
-        Route::resource('users', \App\Http\Controllers\Admin\UserController::class);
-        
-        Route::post('jenis-naskah/{jenis_naskah}/reset-nomor', [\App\Http\Controllers\Admin\DocumentTypeController::class, 'resetNomor'])->name('jenis-naskah.reset-nomor');
-        Route::resource('jenis-naskah', \App\Http\Controllers\Admin\DocumentTypeController::class);
-        
-        Route::resource('workflows', \App\Http\Controllers\Admin\WorkflowController::class);
-        
-        Route::get('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'steps'])->name('workflows.steps');
-        Route::post('workflows/{workflow}/steps', [\App\Http\Controllers\Admin\WorkflowController::class, 'storeStep'])->name('workflows.steps.store');
-        Route::put('workflows/steps/{step}', [\App\Http\Controllers\Admin\WorkflowController::class, 'updateStep'])->name('workflows.steps.update');
-        Route::delete('workflows/steps/{step}', [\App\Http\Controllers\Admin\WorkflowController::class, 'destroyStep'])->name('workflows.steps.destroy');
+        Route::get('/', [AdminController::class, 'index'])->name('index');
+        Route::resource('units', UnitController::class);
+        Route::resource('users', UserController::class);
+
+        Route::post('jenis-naskah/{jenis_naskah}/reset-nomor', [DocumentTypeController::class, 'resetNomor'])->name('jenis-naskah.reset-nomor');
+        Route::resource('jenis-naskah', DocumentTypeController::class);
+
+        Route::resource('workflows', WorkflowController::class);
+
+        Route::get('workflows/{workflow}/steps', [WorkflowController::class, 'steps'])->name('workflows.steps');
+        Route::post('workflows/{workflow}/steps', [WorkflowController::class, 'storeStep'])->name('workflows.steps.store');
+        Route::put('workflows/steps/{step}', [WorkflowController::class, 'updateStep'])->name('workflows.steps.update');
+        Route::delete('workflows/steps/{step}', [WorkflowController::class, 'destroyStep'])->name('workflows.steps.destroy');
     });
 
     // Notifikasi API
     Route::prefix('notifications')->name('notifications.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\NotificationController::class, 'index'])->name('index');
-        Route::post('/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('read-all');
-        Route::post('/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('read');
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::post('/read-all', [NotificationController::class, 'markAllRead'])->name('read-all');
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
     });
 
 });
@@ -160,7 +166,8 @@ Route::prefix('onlyoffice')->name('onlyoffice.')->group(function () {
         ->name('download')
         ->middleware('signed');
 
-    // 'callback' diamankan dengan verifikasi JWT OnlyOffice (lihat OnlyOfficeController::callback),
-    // bukan signed URL, karena URL callback statis sedangkan JWT-nya berbeda tiap request.
-    Route::post('/callback/{document}', [OnlyOfficeController::class, 'callback'])->name('callback');
+    // Callback memakai dua lapisan: signed URL per sesi editor dan JWT dari Document Server.
+    Route::post('/callback/{document}', [OnlyOfficeController::class, 'callback'])
+        ->name('callback')
+        ->middleware('signed');
 });

@@ -99,7 +99,7 @@ class DocumentNumberingCollisionTest extends TestCase
         $this->actingAs($signer);
         $otpA = $this->requestSigningOtp($signer, $documentA, 'numbering-session-a');
         $signedA = $service->tandaTangani($documentA, $otpA['otp'], $otpA['session_id']);
-        $this->assertSame('001/SK-Dir/RSNR/VIII/2026', $signedA->nomor_surat);
+        $this->assertSame($typeA->generateNomor($unit, 1, now()), $signedA->nomor_surat);
         $signatureA = $signedA->signature;
         $this->assertNotNull($signatureA->file_signed_path);
         $this->assertTrue(Storage::disk('local')->exists($signatureA->file_signed_path));
@@ -117,7 +117,7 @@ class DocumentNumberingCollisionTest extends TestCase
         // generateNomorSurat() harus mendeteksi ini lalu otomatis lompat ke nomor urut 2 milik
         // type B sendiri, BUKAN melempar error SQL unique constraint mentah ke pengguna.
         $this->assertNotSame($signedA->nomor_surat, $signedB->nomor_surat);
-        $this->assertSame('002/SK-Dir/RSNR/VIII/2026', $signedB->nomor_surat);
+        $this->assertSame($typeB->generateNomor($unit, 2, now()), $signedB->nomor_surat);
     }
 
     private function makeMenungguTtdDocument(DocumentType $type, Unit $unit, User $pengusul): Document

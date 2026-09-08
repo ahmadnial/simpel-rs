@@ -62,6 +62,45 @@ class SigningCeremonyStateMachineTest extends TestCase
         $this->assertSame(SigningCeremony::STATE_FAILED, SigningCeremony::firstOrFail()->state);
     }
 
+    public function test_missing_source_document_fails_closed_without_generating_replacement_content(): void
+    {
+        $fixture = $this->fixture();
+        $source = $fixture['document']->currentVersion->file_path;
+        Storage::disk('local')->delete($source);
+        $this->actingAs($fixture['signer']);
+
+        try {
+            app(DocumentService::class)->prepareOtpContext($fixture['document'], $fixture['signer'], 'missing-source-session');
+            $this->fail('Berkas sumber yang hilang harus menghentikan ceremony.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        $this->assertFalse(Storage::disk('local')->exists($source));
+        $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
+        $this->assertSame(SigningCeremony::STATE_FAILED, SigningCeremony::firstOrFail()->state);
+        $this->assertDatabaseCount('document_signatures', 0);
+    }
+
+    public function test_corrupt_source_document_fails_closed_before_candidate_pdf_is_created(): void
+    {
+        $fixture = $this->fixture();
+        Storage::disk('local')->put($fixture['document']->currentVersion->file_path, 'corrupt-docx-bytes');
+        $this->actingAs($fixture['signer']);
+
+        try {
+            app(DocumentService::class)->prepareOtpContext($fixture['document'], $fixture['signer'], 'corrupt-source-session');
+            $this->fail('DOCX rusak harus menghentikan ceremony.');
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $this->assertArrayHasKey('file_dokumen', $exception->errors());
+        }
+
+        $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
+        $this->assertSame(SigningCeremony::STATE_FAILED, SigningCeremony::firstOrFail()->state);
+        $this->assertDatabaseCount('document_signatures', 0);
+        $this->assertDatabaseCount('signature_evidence', 0);
+    }
+
     public function test_failed_ceremony_is_reused_for_the_same_idempotency_lineage(): void
     {
         Storage::disk('local')->put('fixtures/candidate.pdf', "%PDF-1.4\nfixed candidate bytes");
@@ -92,6 +131,7 @@ class SigningCeremonyStateMachineTest extends TestCase
     {
         Storage::disk('local')->put('fixtures/candidate.pdf', "%PDF-1.4\nfixed candidate bytes");
         $fixture = $this->fixture();
+        $fixture['signer']->update(['otp_email' => 'otp-director@example.test']);
         $pdf = new ControllableDocumentPdfService(Storage::disk('local')->path('fixtures/candidate.pdf'));
         $pdf->failPersistOnce = true;
         app()->instance(DocumentPdfService::class, $pdf);
@@ -113,12 +153,14 @@ class SigningCeremonyStateMachineTest extends TestCase
         $this->assertDatabaseCount('signature_evidence', 0);
         $this->assertSame('pending', SigningOutboxMessage::firstOrFail()->state);
 
-        $sealed = $service->resumeFinalization($ceremony);
+        $this->artisan('tte:process-signing-outbox')->assertSuccessful();
+        $sealed = $fixture['document']->fresh();
         $this->assertSame(Document::STATUS_DITANDATANGANI, $sealed->status);
         $this->assertSame(SigningCeremony::STATE_SEALED, $ceremony->fresh()->state);
         $this->assertDatabaseCount('document_signatures', 1);
         $this->assertDatabaseCount('signature_evidence', 1);
         $this->assertSame('processed', SigningOutboxMessage::firstOrFail()->state);
+        $this->assertSame('ot**********@example.test', SignatureEvidence::firstOrFail()->signer_snapshot['email_destination_masked']);
 
         $again = $service->resumeFinalization($ceremony);
         $this->assertSame($sealed->id, $again->id);
@@ -223,6 +265,11 @@ class SigningCeremonyStateMachineTest extends TestCase
             'document_id' => $document->id, 'versi' => 1, 'file_path' => "documents/{$document->id}/state-machine.docx",
             'file_name' => 'state-machine.docx', 'uploaded_by' => $proposer->id, 'is_current' => true,
         ]);
+        Storage::disk('local')->makeDirectory("documents/{$document->id}");
+        app(DocumentService::class)->createDocxFileFromHtml(
+            '<p>Naskah pengujian state machine.</p>',
+            Storage::disk('local')->path("documents/{$document->id}/state-machine.docx"),
+        );
 
         return compact('signer') + ['document' => $document->fresh(['currentVersion', 'workflowTemplate'])];
     }

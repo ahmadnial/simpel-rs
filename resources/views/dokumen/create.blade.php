@@ -59,9 +59,9 @@
                 <div class="create-section-heading"><span class="create-section-number">02</span><div><h2>Unggah naskah asli</h2><p>Format dan susunan halaman dipertahankan di pratinjau.</p></div></div>
                 <div class="upload-zone create-upload-zone" id="upload-box" role="button" tabindex="0" aria-controls="file_dokumen">
                     <div class="upload-zone-icon">↑</div>
-                    <div><div class="upload-zone-text" id="file-label">Pilih atau tarik berkas ke sini</div><div class="upload-zone-hint">DOCX · maksimal 10 MB</div></div>
+                    <div><div class="upload-zone-text" id="file-label">Pilih atau tarik berkas ke sini</div><div class="upload-zone-hint">DOCX atau DOC · maksimal 10 MB</div></div>
                     <span class="upload-zone-action">Pilih berkas</span>
-                    <input type="file" name="file_dokumen" id="file_dokumen" class="visually-hidden" accept=".docx,.doc,.pdf" required>
+                    <input type="file" name="file_dokumen" id="file_dokumen" class="visually-hidden" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" required>
                 </div>
                 @error('file_dokumen') <div class="form-error">{{ $message }}</div> @enderror
             </section>
@@ -93,7 +93,7 @@
             <div class="preview-panel-body">
                 <div class="preview-panel-empty" id="preview-empty-state"><div class="preview-panel-empty-icon">▧</div><div class="preview-panel-empty-text">Pilih berkas <strong>.docx</strong> untuk melihat tata letak naskah, variabel template, dan posisi QR sebelum diajukan.</div></div>
                 <div class="docx-paper-wrapper create-docx-wrapper" id="preview-wrapper" style="display:none"><div id="live-docx-container" class="docx-render-target"></div></div>
-                <div class="preview-panel-note" id="pdf-preview-note" style="display:none"><span>ℹ</span><span>Berkas PDF tetap dapat diunggah. Untuk menilai posisi variabel dan QR, gunakan naskah sumber <strong>.docx</strong>.</span></div>
+                <div class="preview-panel-note" id="pdf-preview-note" style="display:none"><span>ℹ</span><span>Berkas DOC akan dikonversi otomatis menjadi DOCX setelah diunggah. Pratinjau langsung tersedia untuk berkas <strong>.docx</strong>.</span></div>
             </div>
         </aside>
     </div>

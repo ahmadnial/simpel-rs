@@ -1,6 +1,6 @@
-# SIMPEL-RS — Rencana Setup OnlyOffice Docs + JWT
+# SIMPEL-RS — Setup Text Editor (OnlyOffice Docs) + JWT
 
-Dokumen ini adalah runbook persiapan. **Belum ada container, service, DNS, firewall, atau environment production yang diubah.** Eksekusi dilakukan pada sesi terpisah setelah backup dan akses server dikonfirmasi.
+Integrasi aplikasi sudah tersedia sebagai fitur **Text Editor**. Dokumen ini adalah runbook deployment; container, DNS, TLS, firewall, dan environment production tetap harus diterapkan operator server setelah backup dan change approval.
 
 ## Kontrak konfigurasi
 
@@ -10,11 +10,11 @@ Laravel dan OnlyOffice Document Server harus memakai secret JWT yang sama.
 |---|---|---|
 | `APP_URL` | `http://host.docker.internal:8000` | `https://simpel.example.com` |
 | `ONLYOFFICE_URL` | `http://localhost:8080` | `https://office.example.com` |
-| `ONLYOFFICE_ALLOWED_HOSTS` | `localhost` | `office.example.com` |
+| `ONLYOFFICE_ALLOWED_HOSTS` | `localhost` | hostname yang muncul pada URL hasil callback Document Server |
 | `ONLYOFFICE_JWT_SECRET` | secret lokal | secret production berbeda |
 | Document Server port publik | `8080` (lokal) | hanya melalui HTTPS reverse proxy |
 
-`APP_URL` wajib dapat dijangkau oleh container OnlyOffice karena dipakai untuk signed download dan callback. `ONLYOFFICE_ALLOWED_HOSTS` adalah hostname tempat URL file callback OnlyOffice berasal.
+`APP_URL` wajib dapat dijangkau oleh container OnlyOffice karena dipakai untuk signed download dan callback. Callback dilindungi JWT serta signed URL sementara. `ONLYOFFICE_ALLOWED_HOSTS` adalah allowlist hostname URL hasil edit yang diunduh Laravel dari Document Server.
 
 ## Generate secret
 
@@ -103,11 +103,23 @@ APP_URL=https://simpel.example.com
 ONLYOFFICE_URL=https://office.example.com
 ONLYOFFICE_JWT_SECRET=<SECRET_PRODUCTION>
 ONLYOFFICE_ALLOWED_HOSTS=office.example.com
+ONLYOFFICE_DOWNLOAD_URL_TTL_MINUTES=60
+ONLYOFFICE_CALLBACK_URL_TTL_MINUTES=1440
+ONLYOFFICE_CALLBACK_TIMEOUT_SECONDS=30
+ONLYOFFICE_MAX_DOCUMENT_KILOBYTES=10240
 ```
 
 ### Container Document Server
 
-Simpan `/etc/onlyoffice/onlyoffice.env` dengan permission terbatas:
+Gunakan manifest [`deploy/onlyoffice/compose.yaml`](deploy/onlyoffice/compose.yaml). Tentukan image dengan tag immutable atau digest yang sudah diuji; jangan melakukan upgrade major/minor tanpa staging.
+
+```bash
+sudo install -d -m 750 /etc/simpel-rs
+sudo cp deploy/onlyoffice/onlyoffice.env.example /etc/simpel-rs/onlyoffice.env
+sudo chmod 600 /etc/simpel-rs/onlyoffice.env
+```
+
+Isi `/etc/simpel-rs/onlyoffice.env` dengan secret yang sama seperti `ONLYOFFICE_JWT_SECRET` Laravel:
 
 ```env
 JWT_ENABLED=true
@@ -116,37 +128,17 @@ JWT_HEADER=Authorization
 JWT_IN_BODY=true
 ```
 
+Kemudian jalankan:
+
 ```bash
-sudo chmod 600 /etc/onlyoffice/onlyoffice.env
-sudo docker run -d \
-  --name onlyoffice-documentserver \
-  --restart always \
-  -p 127.0.0.1:8080:80 \
-  --env-file /etc/onlyoffice/onlyoffice.env \
-  onlyoffice/documentserver
+export ONLYOFFICE_IMAGE='onlyoffice/documentserver@sha256:<DIGEST_YANG_DISETUJUI>'
+sudo --preserve-env=ONLYOFFICE_IMAGE docker compose -f deploy/onlyoffice/compose.yaml pull
+sudo --preserve-env=ONLYOFFICE_IMAGE docker compose -f deploy/onlyoffice/compose.yaml up -d
 ```
 
 ### Nginx reverse proxy
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name office.example.com;
-
-    client_max_body_size 20m;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_read_timeout 3600;
-        proxy_send_timeout 3600;
-    }
-}
-```
+Salin [`deploy/onlyoffice/nginx.conf.example`](deploy/onlyoffice/nginx.conf.example), ganti `office.example.com`, tambahkan konfigurasi sertifikat sesuai standar server, lalu aktifkan site.
 
 Setelah DNS dan sertifikat aktif:
 
@@ -155,9 +147,11 @@ sudo nginx -t
 sudo systemctl reload nginx
 php artisan optimize:clear
 php artisan config:cache
-sudo docker restart onlyoffice-documentserver
 curl -fsS https://office.example.com/healthcheck
+sudo docker exec simpel-rs-documentserver curl -fsS https://simpel.example.com/up
 ```
+
+Perintah kedua wajib berhasil dari dalam container. Jika gagal, Text Editor tidak dapat mengambil signed download URL atau mengirim callback penyimpanan.
 
 ## Checklist sebelum eksekusi
 
@@ -168,6 +162,8 @@ curl -fsS https://office.example.com/healthcheck
 - [ ] Pastikan `office.example.com` resolve ke VPS dan TLS valid.
 - [ ] Pastikan firewall hanya membuka 80/443; port 8080 tetap loopback.
 - [ ] Uji membuka editor, menyimpan DOCX, dan menerima callback status 2/6.
+- [ ] Pastikan penyimpanan menghasilkan versi dokumen baru dan catatan “Disunting melalui Text Editor”.
+- [ ] Pastikan dokumen yang sudah diajukan tidak dapat menerima callback edit baru.
 - [ ] Periksa `docker logs onlyoffice-documentserver` dan log Laravel bila callback gagal.
 
 ## Troubleshooting singkat

@@ -5,24 +5,28 @@ namespace App\Services;
 use App\Contracts\EvidenceSigner;
 use App\Contracts\ImmutableEvidenceStore;
 use App\Models\AuditLog;
+use App\Models\Delegation;
 use App\Models\Document;
+use App\Models\DocumentDistribution;
 use App\Models\DocumentSignature;
+use App\Models\DocumentType;
 use App\Models\DocumentVerification;
 use App\Models\DocumentVersion;
+use App\Models\EvidenceStorageCopy;
 use App\Models\NumberingSequence;
 use App\Models\SignatureEvidence;
-use App\Models\EvidenceStorageCopy;
+use App\Models\SignatureOtpChallenge;
 use App\Models\SigningCeremony;
 use App\Models\SigningOutboxMessage;
 use App\Models\User;
-use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Notifications\DokumenNotification;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class DocumentService
 {
@@ -37,44 +41,54 @@ class DocumentService
         private readonly AuditCheckpointService $auditCheckpointService,
         private readonly EvidenceStorageService $evidenceStorageService,
         private readonly ImmutableEvidenceStore $immutableEvidenceStore,
-    ) {
-    }
+        private readonly WordDocumentNormalizer $wordDocumentNormalizer,
+    ) {}
 
     /**
      * Upload dokumen baru dan simpan versi pertama.
      */
     public function uploadDraft(array $data, ?UploadedFile $file = null): Document
     {
-        return DB::transaction(function () use ($data, $file) {
-            $user = auth()->user();
+        $documentId = null;
 
-            $isRahasia = $data['is_rahasia'] ?? false;
-            $document = Document::create([
-                'judul'               => $data['judul'],
-                'document_type_id'    => $data['document_type_id'],
-                'unit_id'             => $data['unit_id'] ?? $user->unit_id,
-                'pengusul_id'         => $user->id,
-                'workflow_template_id'=> $data['workflow_template_id'] ?? null,
-                'perihal'             => $data['perihal'] ?? null,
-                'keterangan'          => $data['keterangan'] ?? null,
-                'is_rahasia'          => $isRahasia,
-                // Selalu mulai dari 'terbatas' (hanya unit sendiri yang bisa lihat), apapun status
-                // is_rahasia — dokumen yang belum diverifikasi/dipublikasikan tidak semestinya
-                // langsung terlihat semua unit. Visibilitas yang lebih luas baru dibuka lewat
-                // publikasi() setelah dokumen final & sah. Ini juga jadi dasar "Arsip Internal
-                // Unit": dokumen yang tidak pernah diajukan ke verifikator tetap 'terbatas' selamanya.
-                'visibility_scope'    => 'terbatas',
-                'status'              => Document::STATUS_DRAFT,
-            ]);
+        try {
+            return DB::transaction(function () use ($data, $file, &$documentId) {
+                $user = auth()->user();
 
-            if ($file) {
-                $this->simpanVersi($document, $file, $data['catatan'] ?? 'Upload awal');
+                $isRahasia = $data['is_rahasia'] ?? false;
+                $document = Document::create([
+                    'judul' => $data['judul'],
+                    'document_type_id' => $data['document_type_id'],
+                    'unit_id' => $data['unit_id'] ?? $user->unit_id,
+                    'pengusul_id' => $user->id,
+                    'workflow_template_id' => $data['workflow_template_id'] ?? null,
+                    'perihal' => $data['perihal'] ?? null,
+                    'keterangan' => $data['keterangan'] ?? null,
+                    'is_rahasia' => $isRahasia,
+                    // Selalu mulai dari 'terbatas' (hanya unit sendiri yang bisa lihat), apapun status
+                    // is_rahasia — dokumen yang belum diverifikasi/dipublikasikan tidak semestinya
+                    // langsung terlihat semua unit. Visibilitas yang lebih luas baru dibuka lewat
+                    // publikasi() setelah dokumen final & sah. Ini juga jadi dasar "Arsip Internal
+                    // Unit": dokumen yang tidak pernah diajukan ke verifikator tetap 'terbatas' selamanya.
+                    'visibility_scope' => 'terbatas',
+                    'status' => Document::STATUS_DRAFT,
+                ]);
+                $documentId = $document->id;
+
+                if ($file) {
+                    $this->simpanVersi($document, $file, $data['catatan'] ?? 'Upload awal');
+                }
+
+                AuditLog::catat('upload_draft', "Dokumen baru dibuat: {$document->judul}", $document);
+
+                return $document;
+            });
+        } catch (\Throwable $exception) {
+            if ($documentId !== null) {
+                Storage::disk('local')->deleteDirectory("documents/{$documentId}");
             }
-
-            AuditLog::catat('upload_draft', "Dokumen baru dibuat: {$document->judul}", $document);
-
-            return $document;
-        });
+            throw $exception;
+        }
     }
 
     /**
@@ -82,31 +96,42 @@ class DocumentService
      */
     public function simpanVersi(Document $document, UploadedFile $file, ?string $catatan = null, ?int $uploadedById = null): DocumentVersion
     {
-        abort_unless(strtolower($file->getClientOriginalExtension()) === 'docx', 422, 'Dokumen utama wajib berformat DOCX.');
+        $normalized = $this->wordDocumentNormalizer->normalize($file);
+        $storageFile = $normalized['file'];
+        $storedName = $normalized['stored_name'];
 
-        $version = DB::transaction(function () use ($document, $file, $catatan, $uploadedById) {
-            Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
-            $versiTerbaru = (int) ($document->versions()->lockForUpdate()->max('versi') ?? 0) + 1;
-            $path = $file->store("documents/{$document->id}", 'local');
+        try {
+            $version = DB::transaction(function () use ($document, $storageFile, $storedName, $catatan, $uploadedById) {
+                $lockedDocument = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+                abort_unless(
+                    in_array($lockedDocument->status, [Document::STATUS_DRAFT, Document::STATUS_REVISI], true),
+                    409,
+                    'Dokumen tidak lagi dapat disunting karena statusnya telah berubah.'
+                );
+                $versiTerbaru = (int) ($document->versions()->lockForUpdate()->max('versi') ?? 0) + 1;
+                $path = $storageFile->store("documents/{$document->id}", 'local');
 
-            try {
-                $document->versions()->update(['is_current' => false]);
+                try {
+                    $document->versions()->update(['is_current' => false]);
 
-                return DocumentVersion::create([
-                    'document_id' => $document->id,
-                    'versi'       => $versiTerbaru,
-                    'file_path'   => $path,
-                    'file_name'   => $file->getClientOriginalName(),
-                    'file_size'   => $file->getSize(),
-                    'uploaded_by' => $uploadedById ?? auth()->id() ?? $document->pengusul_id,
-                    'catatan'     => $catatan,
-                    'is_current'  => true,
-                ]);
-            } catch (\Throwable $e) {
-                Storage::disk('local')->delete($path);
-                throw $e;
-            }
-        });
+                    return DocumentVersion::create([
+                        'document_id' => $document->id,
+                        'versi' => $versiTerbaru,
+                        'file_path' => $path,
+                        'file_name' => $storedName,
+                        'file_size' => $storageFile->getSize(),
+                        'uploaded_by' => $uploadedById ?? auth()->id() ?? $document->pengusul_id,
+                        'catatan' => $catatan,
+                        'is_current' => true,
+                    ]);
+                } catch (\Throwable $e) {
+                    Storage::disk('local')->delete($path);
+                    throw $e;
+                }
+            });
+        } finally {
+            $this->wordDocumentNormalizer->cleanup($normalized['cleanup_dir']);
+        }
 
         // Nilai versi dihitung di dalam transaksi; gunakan hasil transaksi di sini
         // agar tidak mengakses variabel lokal yang berada di luar scope closure.
@@ -165,13 +190,13 @@ class DocumentService
             );
 
             $document->update([
-                'status'              => Document::STATUS_DIAJUKAN,
-                'workflow_template_id'=> $template->id,
-                'current_step'        => $targetStep->urutan,
-                'diajukan_at'         => now(),
+                'status' => Document::STATUS_DIAJUKAN,
+                'workflow_template_id' => $template->id,
+                'current_step' => $targetStep->urutan,
+                'diajukan_at' => now(),
             ]);
 
-            AuditLog::catat('ajukan', "Dokumen diajukan ke verifikasi", $document);
+            AuditLog::catat('ajukan', 'Dokumen diajukan ke verifikasi', $document);
 
             return $document->fresh();
         });
@@ -187,7 +212,7 @@ class DocumentService
      * dokumen ini termasuk di dalamnya, template yang lebih spesifik itu menang atas template
      * default global. Hanya template aktif (is_active=true) yang dipertimbangkan.
      */
-    private function resolveWorkflowTemplate(\App\Models\DocumentType $documentType, int $unitId): ?WorkflowTemplate
+    private function resolveWorkflowTemplate(DocumentType $documentType, int $unitId): ?WorkflowTemplate
     {
         $candidates = $documentType->workflowTemplates()
             ->where('is_active', true)
@@ -221,21 +246,21 @@ class DocumentService
      *   pool, atau serial dengan role_nama terisi) — pilihan manual pengusul akan diabaikan, jadi
      *   form tidak perlu menampilkan picker sama sekali, cukup tombol "Ajukan".
      */
-    public function getFirstStepInfo(\App\Models\DocumentType $documentType, int $unitId): array
+    public function getFirstStepInfo(DocumentType $documentType, int $unitId): array
     {
         $template = $this->resolveWorkflowTemplate($documentType, $unitId);
         $firstStep = $template?->steps()->first();
 
-        if (!$firstStep) {
+        if (! $firstStep) {
             return ['configured' => false, 'needsManual' => false, 'stepName' => null];
         }
 
         $needsManual = $firstStep->mode_verifikasi === 'serial' && empty($firstStep->role_nama);
 
         return [
-            'configured'  => true,
+            'configured' => true,
             'needsManual' => $needsManual,
-            'stepName'    => $firstStep->nama_tahap,
+            'stepName' => $firstStep->nama_tahap,
         ];
     }
 
@@ -244,11 +269,11 @@ class DocumentService
      * dipakai form pengajuan dokumen supaya pengusul tahu siapa saja yang akan memeriksa &
      * menandatangani SEBELUM mengklik ajukan, bukan baru tahu setelah diajukan.
      */
-    public function getWorkflowChainPreview(\App\Models\DocumentType $documentType, int $unitId): array
+    public function getWorkflowChainPreview(DocumentType $documentType, int $unitId): array
     {
         $template = $this->resolveWorkflowTemplate($documentType, $unitId);
 
-        if (!$template) {
+        if (! $template) {
             return ['configured' => false, 'steps' => []];
         }
 
@@ -262,23 +287,23 @@ class DocumentService
 
             $people = collect();
 
-            if (!$manual) {
+            if (! $manual) {
                 if ($step->isParallelQuorum()) {
                     foreach ($step->verifierPool as $pool) {
                         if ($pool->tipe_pool === 'user' && $pool->user) {
                             $people->push($this->personEntry($pool->user));
                         } elseif ($pool->tipe_pool === 'role' && $pool->role_nama) {
-                            \App\Models\User::role($pool->role_nama)->where('is_active', true)->get()
+                            User::role($pool->role_nama)->where('is_active', true)->get()
                                 ->each(fn ($u) => $people->push($this->personEntry($u)));
                         }
                     }
                 } elseif ($step->role_nama) {
-                    \App\Models\User::role($step->role_nama)->where('is_active', true)->get()
+                    User::role($step->role_nama)->where('is_active', true)->get()
                         ->each(fn ($u) => $people->push($this->personEntry($u)));
                 }
             }
 
-            $people = $people->unique(fn ($p) => $p['name'] . '|' . $p['sub'])->values();
+            $people = $people->unique(fn ($p) => $p['name'].'|'.$p['sub'])->values();
             $min = $step->min_approval ?? 1;
 
             if ($manual) {
@@ -288,7 +313,7 @@ class DocumentService
             } elseif ($step->isParallelQuorum() && $min < $people->count()) {
                 $note = "Min. {$min} dari {$people->count()} orang menyetujui";
             } elseif ($people->count() > 1) {
-                $note = 'Salah satu dari ' . $people->count() . ' orang';
+                $note = 'Salah satu dari '.$people->count().' orang';
             } else {
                 $note = null;
             }
@@ -309,23 +334,23 @@ class DocumentService
             }
 
             return [
-                'label'      => $label,
+                'label' => $label,
                 'nama_tahap' => $step->nama_tahap,
-                'tipe'       => $step->tipe,
-                'manual'     => $manual,
-                'note'       => $note,
-                'commonSub'  => $commonSub,
-                'people'     => $people->map(fn ($p) => [
+                'tipe' => $step->tipe,
+                'manual' => $manual,
+                'note' => $note,
+                'commonSub' => $commonSub,
+                'people' => $people->map(fn ($p) => [
                     'name' => $p['name'],
-                    'sub'  => $commonSub ? null : $p['sub'],
+                    'sub' => $commonSub ? null : $p['sub'],
                 ])->values()->all(),
             ];
         })->values()->all();
 
-        return ['configured' => !empty($stepsPreview), 'steps' => $stepsPreview];
+        return ['configured' => ! empty($stepsPreview), 'steps' => $stepsPreview];
     }
 
-    private function personEntry(\App\Models\User $user): array
+    private function personEntry(User $user): array
     {
         return ['name' => $user->name, 'sub' => $user->jabatan ?: $user->unit?->nama];
     }
@@ -335,26 +360,32 @@ class DocumentService
      */
     private function createVerificationsForStep(Document $document, $currentVersion, $step, $level, array $defaultVerifikatorIds = [])
     {
-        if (!$step) return;
+        if (! $step) {
+            return;
+        }
         $verifiers = [];
 
         if ($step->isParallelQuorum()) {
             $pools = $step->verifierPool;
             foreach ($pools as $pool) {
                 if ($pool->tipe_pool === 'user' && $pool->user_id) {
-                    if ($pool->user) $verifiers[] = $pool->user;
+                    if ($pool->user) {
+                        $verifiers[] = $pool->user;
+                    }
                 } elseif ($pool->tipe_pool === 'role' && $pool->role_nama) {
-                    $users = \App\Models\User::role($pool->role_nama)->where('is_active', true)->get();
-                    foreach ($users as $u) { $verifiers[] = $u; }
+                    $users = User::role($pool->role_nama)->where('is_active', true)->get();
+                    foreach ($users as $u) {
+                        $verifiers[] = $u;
+                    }
                 }
             }
         } else {
-            if (!empty($defaultVerifikatorIds)) {
+            if (! empty($defaultVerifikatorIds)) {
                 // Multi-verifikator "salah satu approve = sah": setiap ID yang dipilih pengusul
                 // divalidasi kelayakannya sendiri-sendiri, lalu semua dapat tiket di level yang
                 // sama — begitu satu approve, sisanya otomatis dibatalkan (lihat setujui()).
                 foreach ($defaultVerifikatorIds as $verifikatorId) {
-                    $target = \App\Models\User::find($verifikatorId);
+                    $target = User::find($verifikatorId);
 
                     // Cegah pengusul menugaskan dirinya sendiri (atau user tanpa role
                     // 'asesor_internal') sebagai verifikator — mencegah self-approval, dan
@@ -374,8 +405,10 @@ class DocumentService
                     $verifiers[] = $target;
                 }
             } elseif ($step->role_nama) {
-                $users = \App\Models\User::role($step->role_nama)->where('is_active', true)->get();
-                foreach ($users as $u) { $verifiers[] = $u; }
+                $users = User::role($step->role_nama)->where('is_active', true)->get();
+                foreach ($users as $u) {
+                    $verifiers[] = $u;
+                }
             }
         }
 
@@ -389,21 +422,21 @@ class DocumentService
 
         foreach ($uniqueVerifiers as $v) {
             $verif = DocumentVerification::updateOrCreate([
-                'document_id'         => $document->id,
+                'document_id' => $document->id,
                 'document_version_id' => $currentVersion->id,
-                'workflow_step_id'    => $step->id,
-                'verifikator_id'      => $v->id,
-                'level'               => $level,
+                'workflow_step_id' => $step->id,
+                'verifikator_id' => $v->id,
+                'level' => $level,
             ], [
-                'status'              => DocumentVerification::STATUS_MENUNGGU,
-                'batas_waktu'         => $this->addBusinessDays($step->sla_hari_kerja ?? 2),
-                'catatan'             => null,
-                'direspon_at'         => null,
-                'direset_alasan'      => null,
-                'direset_at'          => null,
+                'status' => DocumentVerification::STATUS_MENUNGGU,
+                'batas_waktu' => $this->addBusinessDays($step->sla_hari_kerja ?? 2),
+                'catatan' => null,
+                'direspon_at' => null,
+                'direset_alasan' => null,
+                'direset_at' => null,
             ]);
 
-            $v->notify(new \App\Notifications\DokumenNotification(
+            $v->notify(new DokumenNotification(
                 $document,
                 'diajukan',
                 'Antrian Verifikasi Dokumen',
@@ -423,12 +456,12 @@ class DocumentService
             $currentVersionId = $document->currentVersion->id;
 
             $verification->update([
-                'status'      => DocumentVerification::STATUS_DISETUJUI,
-                'catatan'     => $catatan,
+                'status' => DocumentVerification::STATUS_DISETUJUI,
+                'catatan' => $catatan,
                 'direspon_at' => now(),
             ]);
 
-            AuditLog::catat('setujui', "Dokumen disetujui oleh " . auth()->user()->name, $document);
+            AuditLog::catat('setujui', 'Dokumen disetujui oleh '.auth()->user()->name, $document);
 
             $step = $verification->workflowStep;
             if ($step && $step->isParallelQuorum()) {
@@ -447,6 +480,7 @@ class DocumentService
                     if ($document->status === Document::STATUS_DITOLAK_TTD) {
                         $document->update(['status' => Document::STATUS_VERIFIKASI]);
                     }
+
                     return $document->fresh();
                 }
             }
@@ -473,41 +507,42 @@ class DocumentService
                 $this->createVerificationsForStep($document, $document->currentVersion, $nextVerificationStep, $nextLevel);
 
                 $document->update([
-                    'status'       => Document::STATUS_VERIFIKASI,
+                    'status' => Document::STATUS_VERIFIKASI,
                     'current_step' => $nextLevel,
                 ]);
             } else {
                 // Semua verifikasi selesai → Menunggu TTD Direktur / Penandatangan
                 $penandatanganStep = $template?->steps()->where('tipe', 'penandatangan')->first();
                 $document->update([
-                    'status'       => Document::STATUS_MENUNGGU_TTD,
+                    'status' => Document::STATUS_MENUNGGU_TTD,
                     'current_step' => $penandatanganStep?->urutan ?? ($verification->level + 1),
                     'ditolak_ttd_alasan' => null,
                     'ditolak_ttd_at' => null,
                     'ditolak_ttd_oleh' => null,
                 ]);
-                AuditLog::catat('lolos_verifikasi', "Dokumen lolos semua verifikasi, menunggu pengesahan internal", $document);
+                AuditLog::catat('lolos_verifikasi', 'Dokumen lolos semua verifikasi, menunggu pengesahan internal', $document);
 
                 // Notifikasi Penandatangan: filter berdasarkan role spesifik jika terdefinisi
                 $targetPenandatangans = collect();
                 if ($penandatanganStep && $penandatanganStep->role_nama) {
-                    $targetPenandatangans = \App\Models\User::role($penandatanganStep->role_nama)->where('is_active', true)->get();
+                    $targetPenandatangans = User::role($penandatanganStep->role_nama)->where('is_active', true)->get();
                 }
-                
+
                 if ($targetPenandatangans->isEmpty()) {
-                    $targetPenandatangans = \App\Models\User::permission('dokumen.tanda_tangan')->where('is_active', true)->get();
+                    $targetPenandatangans = User::permission('dokumen.tanda_tangan')->where('is_active', true)->get();
                 }
 
                 // Pengganti Plt/Plh juga harus menerima notifikasi. Sebelumnya hanya
                 // pejabat pemilik role yang diberi notifikasi, sehingga akun delegasi
                 // dapat melihat antrian tetapi tidak pernah mendapat pemberitahuan.
-                $delegatedPenandatangans = \App\Models\User::where('is_active', true)
+                $delegatedPenandatangans = User::where('is_active', true)
                     ->get()
                     ->filter(function ($candidate) use ($penandatanganStep) {
                         $delegation = $candidate->activeDelegation();
+
                         return $delegation
                             && $delegation->pejabat
-                            && (!$penandatanganStep?->role_nama
+                            && (! $penandatanganStep?->role_nama
                                 || $delegation->pejabat->hasRole($penandatanganStep->role_nama));
                     });
                 $targetPenandatangans = $targetPenandatangans
@@ -515,7 +550,7 @@ class DocumentService
                     ->unique('id');
 
                 foreach ($targetPenandatangans as $p) {
-                    $p->notify(new \App\Notifications\DokumenNotification(
+                    $p->notify(new DokumenNotification(
                         $document,
                         'menunggu_ttd',
                         'Dokumen Menunggu Pengesahan',
@@ -525,7 +560,7 @@ class DocumentService
                 }
 
                 // Notifikasi Pengusul
-                $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+                $document->pengusul?->notify(new DokumenNotification(
                     $document,
                     'menunggu_ttd',
                     'Verifikasi Dokumen Selesai',
@@ -547,8 +582,8 @@ class DocumentService
             [$verification, $document] = $this->lockAndValidateVerificationAction($verification);
 
             $verification->update([
-                'status'      => DocumentVerification::STATUS_REVISI,
-                'catatan'     => $catatan,
+                'status' => DocumentVerification::STATUS_REVISI,
+                'catatan' => $catatan,
                 'direspon_at' => now(),
             ]);
 
@@ -570,7 +605,7 @@ class DocumentService
             $document->update(['status' => Document::STATUS_REVISI]);
 
             AuditLog::catat('minta_revisi', "Revisi diminta: {$catatan}", $document);
-            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+            $document->pengusul?->notify(new DokumenNotification(
                 $document,
                 'revisi',
                 'Dokumen Perlu Revisi',
@@ -723,6 +758,7 @@ class DocumentService
     {
         $document->loadMissing(['documentType', 'unit', 'pengusul', 'workflowTemplate', 'currentVersion']);
         $sourcePath = $this->ensureDocxFileExists($document, $version);
+        $this->wordDocumentNormalizer->assertProcessableDocx($sourcePath);
         $candidateDocument = $document->replicate();
         $candidateDocument->setAttribute('id', $document->id);
         $candidateDocument->exists = true;
@@ -783,7 +819,7 @@ class DocumentService
         }, 3);
     }
 
-    private function finalizeConsumedCeremony(SigningCeremony $ceremony, \App\Models\SignatureOtpChallenge $receipt, User $user): Document
+    private function finalizeConsumedCeremony(SigningCeremony $ceremony, SignatureOtpChallenge $receipt, User $user): Document
     {
         $transition = DB::transaction(function () use ($ceremony, $receipt, $user) {
             $locked = SigningCeremony::lockForUpdate()->findOrFail($ceremony->id);
@@ -792,7 +828,7 @@ class DocumentService
             }
             abort_unless($locked->state === SigningCeremony::STATE_AWAITING_USER_SIGNATURE, 409, 'Ceremony tidak berada pada state yang dapat difinalisasi.');
             abort_unless($locked->intended_actor_id === (int) $user->id, 403, 'Aktor ceremony tidak cocok.');
-            abort_unless($receipt->state === \App\Models\SignatureOtpChallenge::STATE_CONSUMED, 409, 'Receipt OTP belum dikonsumsi.');
+            abort_unless($receipt->state === SignatureOtpChallenge::STATE_CONSUMED, 409, 'Receipt OTP belum dikonsumsi.');
             abort_unless($receipt->signing_ceremony_id === $locked->uuid, 409, 'Receipt OTP tidak terikat pada ceremony ini.');
             $locked->update([
                 'state' => SigningCeremony::STATE_USER_SIGNED,
@@ -834,7 +870,7 @@ class DocumentService
         return $this->completeFinalization($ceremony, $ceremony->otpChallenge, $ceremony->intendedActor);
     }
 
-    private function completeFinalization(SigningCeremony $ceremony, \App\Models\SignatureOtpChallenge $receipt, User $user): Document
+    private function completeFinalization(SigningCeremony $ceremony, SignatureOtpChallenge $receipt, User $user): Document
     {
         $ceremony->loadMissing('delegation.pejabat');
         $document = Document::with(['currentVersion', 'documentType', 'unit', 'pengusul', 'workflowTemplate.steps', 'verifications.verifikator'])->findOrFail($ceremony->document_id);
@@ -997,7 +1033,7 @@ class DocumentService
                 ]);
             }
 
-            $delegation = $lockedCeremony->delegation_id ? \App\Models\Delegation::find($lockedCeremony->delegation_id) : null;
+            $delegation = $lockedCeremony->delegation_id ? Delegation::find($lockedCeremony->delegation_id) : null;
             DocumentSignature::create([
                 'document_id' => $lockedDocument->id,
                 'document_version_id' => $version->id,
@@ -1036,7 +1072,7 @@ class DocumentService
         }, 3);
 
         try {
-            $sealedDocument->pengusul?->notify(new \App\Notifications\DokumenNotification(
+            $sealedDocument->pengusul?->notify(new DokumenNotification(
                 $sealedDocument,
                 'ditandatangani',
                 'Dokumen Berhasil Disahkan',
@@ -1104,7 +1140,7 @@ class DocumentService
             'file' => ['mime_type' => 'application/pdf', 'sha256' => $pdfHash, 'size' => $pdfSize],
             'schema_version' => '2.0',
             'signer_snapshot' => [
-                'email_destination_masked' => $this->maskEmail($user->email),
+                'email_destination_masked' => $this->maskEmail($user->otpDeliveryEmail()),
                 'name' => $user->name,
                 'nip' => $user->nip,
                 'organization_role' => $user->jabatan,
@@ -1121,7 +1157,7 @@ class DocumentService
         ];
     }
 
-    private function otpReceiptSnapshot(\App\Models\SignatureOtpChallenge $receipt, $sealedAt): array
+    private function otpReceiptSnapshot(SignatureOtpChallenge $receipt, $sealedAt): array
     {
         return [
             'action' => $receipt->action,
@@ -1181,7 +1217,7 @@ class DocumentService
     {
         $row = DB::selectOne('SELECT CURRENT_TIMESTAMP AS database_utc');
 
-        return \Illuminate\Support\Carbon::parse($row->database_utc)->utc()->format('Y-m-d\TH:i:s\Z');
+        return Carbon::parse($row->database_utc)->utc()->format('Y-m-d\TH:i:s\Z');
     }
 
     /**
@@ -1189,7 +1225,7 @@ class DocumentService
      * Dipakai bersama oleh tandaTangani() dan tolakTandaTangan() agar aturan otorisasi
      * tidak bisa berbeda/lupa disinkronkan antara aksi tanda tangan dan aksi tolak.
      */
-    private function assertAuthorizedSigner(Document $document, \App\Models\User $user): void
+    private function assertAuthorizedSigner(Document $document, User $user): void
     {
         $signerRoles = $user->getRoleNames()->toArray();
         if ($delegated = $user->activeDelegation()) {
@@ -1199,14 +1235,14 @@ class DocumentService
         }
 
         $isAuthorizedSigner = $document->workflowTemplate?->steps()
-                ->where('tipe', 'penandatangan')
-                ->whereIn('role_nama', $signerRoles)
-                ->exists() ?? false;
+            ->where('tipe', 'penandatangan')
+            ->whereIn('role_nama', $signerRoles)
+            ->exists() ?? false;
 
         abort_unless($isAuthorizedSigner, 403, 'Anda bukan penandatangan yang sah untuk dokumen ini.');
     }
 
-    public function assertCanSign(Document $document, \App\Models\User $user): void
+    public function assertCanSign(Document $document, User $user): void
     {
         abort_unless($document->status === Document::STATUS_MENUNGGU_TTD, 403, 'Dokumen tidak berada dalam antrian pengesahan.');
         $this->assertAuthorizedSigner($document, $user);
@@ -1223,27 +1259,27 @@ class DocumentService
             $scope = $data['visibility_scope'] ?? ($document->is_rahasia ? 'terbatas' : 'internal');
 
             $document->update([
-                'status'            => Document::STATUS_DIPUBLIKASIKAN,
+                'status' => Document::STATUS_DIPUBLIKASIKAN,
                 'dipublikasikan_at' => now(),
-                'visibility_scope'  => $scope,
+                'visibility_scope' => $scope,
             ]);
 
             // Hapus distribusi lama jika ada
             $document->distributions()->delete();
 
             // Simpan unit sebar jika scope adalah 'unit'
-            if ($scope === 'unit' && !empty($data['unit_ids']) && is_array($data['unit_ids'])) {
+            if ($scope === 'unit' && ! empty($data['unit_ids']) && is_array($data['unit_ids'])) {
                 foreach ($data['unit_ids'] as $unitId) {
-                    \App\Models\DocumentDistribution::create([
+                    DocumentDistribution::create([
                         'document_id' => $document->id,
-                        'unit_id'     => $unitId,
+                        'unit_id' => $unitId,
                     ]);
                 }
             }
 
             AuditLog::catat('publikasi', "Dokumen dipublikasikan [{$scope}]: {$document->nomor_surat}", $document);
 
-            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+            $document->pengusul?->notify(new DokumenNotification(
                 $document,
                 'dipublikasikan',
                 'Dokumen Resmi Dipublikasikan',
@@ -1269,9 +1305,9 @@ class DocumentService
 
         return DB::transaction(function () use ($document, $alasan, $penggantiDocumentId) {
             $document->update([
-                'status'                => Document::STATUS_DITARIK,
-                'ditarik_at'            => now(),
-                'alasan_penarikan'      => $alasan,
+                'status' => Document::STATUS_DITARIK,
+                'ditarik_at' => now(),
+                'alasan_penarikan' => $alasan,
                 'pengganti_document_id' => $penggantiDocumentId,
             ]);
 
@@ -1303,21 +1339,21 @@ class DocumentService
             $scope = $data['visibility_scope'] ?? $document->visibility_scope ?? 'internal';
 
             $document->update([
-                'status'                => Document::STATUS_DIPUBLIKASIKAN,
-                'dipublikasikan_at'     => now(),
-                'visibility_scope'      => $scope,
-                'ditarik_at'            => null,
-                'alasan_penarikan'      => null,
+                'status' => Document::STATUS_DIPUBLIKASIKAN,
+                'dipublikasikan_at' => now(),
+                'visibility_scope' => $scope,
+                'ditarik_at' => null,
+                'alasan_penarikan' => null,
                 'pengganti_document_id' => null,
             ]);
 
             // Hapus distribusi lama dan simpan baru jika scope = 'unit'
             $document->distributions()->delete();
-            if ($scope === 'unit' && !empty($data['unit_ids']) && is_array($data['unit_ids'])) {
+            if ($scope === 'unit' && ! empty($data['unit_ids']) && is_array($data['unit_ids'])) {
                 foreach ($data['unit_ids'] as $unitId) {
-                    \App\Models\DocumentDistribution::create([
+                    DocumentDistribution::create([
                         'document_id' => $document->id,
-                        'unit_id'     => $unitId,
+                        'unit_id' => $unitId,
                     ]);
                 }
             }
@@ -1333,8 +1369,8 @@ class DocumentService
      */
     private function generateNomorSurat(Document $document): string
     {
-        $type  = $document->documentType;
-        $unit  = $document->unit;
+        $type = $document->documentType;
+        $unit = $document->unit;
         $tahun = (int) now()->format('Y');
 
         // Format Nomor sudah divalidasi unik antar Jenis Naskah sejak Admin > Jenis Naskah (lihat
@@ -1346,7 +1382,7 @@ class DocumentService
             $nomorUrut = NumberingSequence::getNextNomor($type, $tahun);
             $nomor = $type->generateNomor($unit, $nomorUrut, now());
 
-            if (!Document::where('nomor_surat', $nomor)->exists()) {
+            if (! Document::where('nomor_surat', $nomor)->exists()) {
                 return $nomor;
             }
         }
@@ -1365,32 +1401,8 @@ class DocumentService
         if ($fileRelativePath && Storage::disk('local')->exists($fileRelativePath)) {
             return Storage::disk('local')->path($fileRelativePath);
         }
-        if ($fileRelativePath && file_exists(storage_path('app/' . $fileRelativePath))) {
-            return storage_path('app/' . $fileRelativePath);
-        }
-        if ($fileRelativePath && file_exists(storage_path('app/private/' . $fileRelativePath))) {
-            return storage_path('app/private/' . $fileRelativePath);
-        }
-        if ($fileRelativePath && file_exists($fileRelativePath)) {
-            return $fileRelativePath;
-        }
 
-        // Auto-generate file .docx fisik jika tidak ditemukan di disk
-        $targetPath = storage_path('app/private/' . ($fileRelativePath ?: "documents/{$document->id}/naskah_v1.docx"));
-        $dir = dirname($targetPath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        $htmlContent = "<h1>" . htmlspecialchars($document->judul) . "</h1>"
-            . "<p><b>Perihal:</b> " . htmlspecialchars($document->perihal ?? '-') . "</p>"
-            . "<p><b>Jenis Naskah:</b> " . htmlspecialchars($document->documentType?->nama ?? 'Naskah Dinas') . "</p>"
-            . "<hr/>"
-            . "<p>" . htmlspecialchars($document->keterangan ?? 'Isi naskah dinas SIMPEL-RS.') . "</p>";
-
-        $this->createDocxFileFromHtml($htmlContent, $targetPath);
-
-        return $targetPath;
+        abort(422, 'Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.');
     }
 
     /**
@@ -1400,8 +1412,8 @@ class DocumentService
     {
         $cleanHtml = strip_tags($html, '<p><br><b><strong><i><em><u><h1><h2><h3><h4><h5><h6><ul><ol><li><table><tr><td><th><span><div><hr>');
 
-        $dom = new \DOMDocument();
-        @$dom->loadHTML('<?xml encoding="UTF-8"><body>' . $cleanHtml . '</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8"><body>'.$cleanHtml.'</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
         $bodyXml = '';
         $bodyNode = $dom->getElementsByTagName('body')->item(0);
@@ -1409,16 +1421,16 @@ class DocumentService
             foreach ($bodyNode->childNodes as $node) {
                 if ($node->nodeType === XML_TEXT_NODE) {
                     if (trim($node->nodeValue) !== '') {
-                        $bodyXml .= '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($node->nodeValue) . '</w:t></w:r></w:p>';
+                        $bodyXml .= '<w:p><w:r><w:t xml:space="preserve">'.htmlspecialchars($node->nodeValue).'</w:t></w:r></w:p>';
                     }
                 } elseif ($node->nodeType === XML_ELEMENT_NODE) {
                     $tag = strtolower($node->nodeName);
                     if (in_array($tag, ['h1', 'h2', 'h3', 'h4'])) {
-                        $bodyXml .= '<w:p><w:pPr><w:pStyle w:val="Heading' . substr($tag, 1) . '"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' . htmlspecialchars($node->textContent) . '</w:t></w:r></w:p>';
+                        $bodyXml .= '<w:p><w:pPr><w:pStyle w:val="Heading'.substr($tag, 1).'"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">'.htmlspecialchars($node->textContent).'</w:t></w:r></w:p>';
                     } elseif ($tag === 'hr') {
                         $bodyXml .= '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr></w:pPr></w:p>';
                     } else {
-                        $bodyXml .= '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($node->textContent) . '</w:t></w:r></w:p>';
+                        $bodyXml .= '<w:p><w:r><w:t xml:space="preserve">'.htmlspecialchars($node->textContent).'</w:t></w:r></w:p>';
                     }
                 }
             }
@@ -1428,7 +1440,7 @@ class DocumentService
             $bodyXml = '<w:p><w:r><w:t xml:space="preserve">DRAFT NASKAH DINAS SIMPEL-RS</w:t></w:r></w:p>';
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         $zip->open($outputPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
 
         $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1449,7 +1461,7 @@ class DocumentService
 
         $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>' . $bodyXml . '
+  <w:body>'.$bodyXml.'
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
       <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
@@ -1481,10 +1493,10 @@ class DocumentService
             $currentVersionId = $document->currentVersion?->id;
 
             $document->update([
-                'status'             => Document::STATUS_DITOLAK_TTD,
+                'status' => Document::STATUS_DITOLAK_TTD,
                 'ditolak_ttd_alasan' => $alasanTolak,
-                'ditolak_ttd_at'     => now(),
-                'ditolak_ttd_oleh'   => $user->id,
+                'ditolak_ttd_at' => now(),
+                'ditolak_ttd_oleh' => $user->id,
             ]);
 
             // Cari verifikasi yang levelnya tertinggi dan disetujui pada versi aktif
@@ -1507,31 +1519,31 @@ class DocumentService
                 ]);
 
             $verificationsToReset = DocumentVerification::where('document_id', $document->id)
-                    ->where('level', $highestLevel)
-                    ->where('document_version_id', $currentVersionId);
+                ->where('level', $highestLevel)
+                ->where('document_version_id', $currentVersionId);
 
             foreach ($verificationsToReset->get() as $verif) {
-                    $verif->update([
-                        'status'         => DocumentVerification::STATUS_MENUNGGU,
-                        'direset_alasan' => "Dikembalikan penandatangan: {$alasanTolak}",
-                        'direset_at'     => now(),
-                        'direspon_at'    => null,
-                    ]);
+                $verif->update([
+                    'status' => DocumentVerification::STATUS_MENUNGGU,
+                    'direset_alasan' => "Dikembalikan penandatangan: {$alasanTolak}",
+                    'direset_at' => now(),
+                    'direspon_at' => null,
+                ]);
 
-                    $verif->verifikator?->notify(new \App\Notifications\DokumenNotification(
-                        $document,
-                        'ditolak_penandatangan',
-                        'Dokumen Dikembalikan Penandatangan',
-                        "Dokumen '{$document->judul}' dikembalikan. Catatan: {$alasanTolak}",
-                        route('verifikasi.show', $verif)
-                    ));
+                $verif->verifikator?->notify(new DokumenNotification(
+                    $document,
+                    'ditolak_penandatangan',
+                    'Dokumen Dikembalikan Penandatangan',
+                    "Dokumen '{$document->judul}' dikembalikan. Catatan: {$alasanTolak}",
+                    route('verifikasi.show', $verif)
+                ));
             }
 
             $document->update(['current_step' => $highestLevel]);
 
             AuditLog::catat('tolak_ttd', "Dikembalikan penandatangan: {$alasanTolak}", $document);
 
-            $document->pengusul?->notify(new \App\Notifications\DokumenNotification(
+            $document->pengusul?->notify(new DokumenNotification(
                 $document,
                 'ditolak_penandatangan',
                 'Dokumen Dikembalikan Penandatangan',
@@ -1561,10 +1573,10 @@ class DocumentService
 
             if ($lowerLevel) {
                 $verification->update([
-                    'status'         => DocumentVerification::STATUS_DIBATALKAN,
+                    'status' => DocumentVerification::STATUS_DIBATALKAN,
                     'direset_alasan' => "Ditangguhkan karena dikembalikan ke level {$lowerLevel}: {$alasan}",
-                    'direset_at'     => now(),
-                    'direspon_at'    => now(),
+                    'direset_at' => now(),
+                    'direspon_at' => now(),
                 ]);
 
                 DocumentVerification::where('document_id', $document->id)
@@ -1583,14 +1595,14 @@ class DocumentService
 
                 foreach ($lowerVerifications->get() as $lowerVerif) {
                     $lowerVerif->update([
-                        'status'         => DocumentVerification::STATUS_MENUNGGU,
+                        'status' => DocumentVerification::STATUS_MENUNGGU,
                         'direset_alasan' => "Dikembalikan dari level atas: {$alasan}",
-                        'direset_at'     => now(),
-                        'direspon_at'    => null,
-                        'catatan'        => null,
+                        'direset_at' => now(),
+                        'direspon_at' => null,
+                        'catatan' => null,
                     ]);
 
-                    $lowerVerif->verifikator?->notify(new \App\Notifications\DokumenNotification(
+                    $lowerVerif->verifikator?->notify(new DokumenNotification(
                         $document,
                         'dikembalikan_verifikator',
                         'Dokumen Dikembalikan ke Tahap Sebelumnya',
@@ -1598,7 +1610,7 @@ class DocumentService
                         route('verifikasi.show', $lowerVerif)
                     ));
                 }
-                
+
                 $document->update([
                     'status' => Document::STATUS_VERIFIKASI,
                     'current_step' => $lowerLevel,
@@ -1649,19 +1661,19 @@ class DocumentService
 
         $signer = $steps->last();
         abort_unless(
-            $signer->role_nama && \App\Models\User::role($signer->role_nama)->where('is_active', true)->exists(),
+            $signer->role_nama && User::role($signer->role_nama)->where('is_active', true)->exists(),
             422,
             'Role penandatangan belum memiliki pengguna aktif.'
         );
     }
 
-    private function addBusinessDays(int $days): \Illuminate\Support\Carbon
+    private function addBusinessDays(int $days): Carbon
     {
         $deadline = now();
         $remaining = max(1, $days);
         while ($remaining > 0) {
             $deadline->addDay();
-            if (!$deadline->isWeekend()) {
+            if (! $deadline->isWeekend()) {
                 $remaining--;
             }
         }

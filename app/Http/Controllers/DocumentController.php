@@ -5,18 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\User;
-use App\Models\WorkflowTemplate;
-use App\Services\DocxParserService;
-use App\Services\DocumentService;
 use App\Services\DocumentPdfService;
+use App\Services\DocumentService;
+use App\Services\DocxParserService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use chillerlan\QRCode\Output\QRGdImagePNG;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Validation\ValidationException;
 
 class DocumentController extends Controller
 {
@@ -39,7 +41,7 @@ class DocumentController extends Controller
         }
 
         if ($request->filled('search')) {
-            $query->where('judul', 'like', '%' . $request->search . '%');
+            $query->where('judul', 'like', '%'.$request->search.'%');
         }
 
         $documents = $query->latest()->paginate(10);
@@ -81,23 +83,23 @@ class DocumentController extends Controller
         Gate::authorize('create', Document::class);
 
         $validated = $request->validate([
-            'judul'             => 'required|string|max:255',
-            'document_type_id'  => 'required|exists:document_types,id',
-            'perihal'           => 'nullable|string|max:255',
-            'keterangan'        => 'nullable|string',
-            'file_dokumen'      => 'required|file|mimes:docx|max:10240',
-            'submit_mode'       => 'nullable|in:ajukan,internal',
-            'verifikator_ids'   => 'nullable|array',
+            'judul' => 'required|string|max:255',
+            'document_type_id' => 'required|exists:document_types,id',
+            'perihal' => 'nullable|string|max:255',
+            'keterangan' => 'nullable|string',
+            'file_dokumen' => 'required|file|mimes:doc,docx|extensions:doc,docx|max:10240',
+            'submit_mode' => 'nullable|in:ajukan,internal',
+            'verifikator_ids' => 'nullable|array',
             'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
             // Dipakai saat tahap 1 workflow jenis naskah ini sudah otomatis (pool/role_nama) —
             // tidak ada picker manual untuk dipilih, cukup konfirmasi mau langsung diajukan.
-            'ajukan_langsung'   => 'nullable|boolean',
-            'is_rahasia'        => 'nullable|boolean',
+            'ajukan_langsung' => 'nullable|boolean',
+            'is_rahasia' => 'nullable|boolean',
         ]);
 
         $verifikatorIds = $validated['verifikator_ids'] ?? [];
         $wantsAjukan = ($validated['submit_mode'] ?? 'ajukan') === 'ajukan';
-        if ($wantsAjukan && empty($verifikatorIds) && !$request->boolean('ajukan_langsung')) {
+        if ($wantsAjukan && empty($verifikatorIds) && ! $request->boolean('ajukan_langsung')) {
             throw ValidationException::withMessages([
                 'submit_mode' => 'Dokumen belum disimpan karena alur verifikasi atau verifikator tahap pertama belum tersedia.',
             ]);
@@ -107,12 +109,12 @@ class DocumentController extends Controller
         try {
             DB::transaction(function () use ($validated, $request, $verifikatorIds, $wantsAjukan, &$document) {
                 $document = $this->documentService->uploadDraft([
-                    'judul'            => $validated['judul'],
+                    'judul' => $validated['judul'],
                     'document_type_id' => $validated['document_type_id'],
-                    'unit_id'          => auth()->user()->unit_id,
-                    'perihal'          => $validated['perihal'] ?? null,
-                    'keterangan'       => $validated['keterangan'] ?? null,
-                    'is_rahasia'       => $request->boolean('is_rahasia'),
+                    'unit_id' => auth()->user()->unit_id,
+                    'perihal' => $validated['perihal'] ?? null,
+                    'keterangan' => $validated['keterangan'] ?? null,
+                    'is_rahasia' => $request->boolean('is_rahasia'),
                 ], $request->file('file_dokumen'));
 
                 if ($wantsAjukan) {
@@ -147,7 +149,7 @@ class DocumentController extends Controller
             'documentType', 'unit', 'pengusul',
             'versions.uploader', 'verifications.verifikator',
             'signature.penandatangan', 'distributions.unit',
-            'penggantiDocument', 'auditLogs'
+            'penggantiDocument', 'auditLogs',
         ]);
 
         // Khusus role 'asesor_internal' — pool tahap 1 yang dipilih manual pengusul dengan
@@ -183,17 +185,17 @@ class DocumentController extends Controller
 
         // Convert HTML content to a minimal .docx file using ZipArchive
         $tempDir = storage_path('app/temp');
-        if (!is_dir($tempDir)) {
+        if (! is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
-        $tempFile = $tempDir . '/' . uniqid('editor_') . '.docx';
+        $tempFile = $tempDir.'/'.uniqid('editor_').'.docx';
 
         $this->createDocxFromHtml($htmlContent, $tempFile);
 
         // Simpan sebagai versi baru menggunakan UploadedFile
-        $uploadedFile = new \Illuminate\Http\UploadedFile(
+        $uploadedFile = new UploadedFile(
             $tempFile,
-            $document->judul . '.docx',
+            $document->judul.'.docx',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             null,
             true // test mode agar tidak validasi is_uploaded_file()
@@ -220,7 +222,7 @@ class DocumentController extends Controller
         // Convert HTML ke WordprocessingML paragraf
         $bodyXml = $this->htmlToWordXml($cleanHtml);
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         $zip->open($outputPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
 
         // [Content_Types].xml
@@ -256,7 +258,7 @@ class DocumentController extends Controller
             xmlns:w10="urn:schemas-microsoft-com:office:word"
             xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
             xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml">
-  <w:body>' . $bodyXml . '
+  <w:body>'.$bodyXml.'
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
       <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
@@ -278,14 +280,15 @@ class DocumentController extends Controller
         $html = str_replace(["\r\n", "\r"], "\n", $html);
 
         // Parse HTML
-        $dom = new \DOMDocument();
-        @$dom->loadHTML('<?xml encoding="UTF-8"><body>' . $html . '</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8"><body>'.$html.'</body>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
         $body = $dom->getElementsByTagName('body')->item(0);
-        if (!$body) {
+        if (! $body) {
             // Fallback: buat paragraf dari plain text
             $text = strip_tags($html);
-            return '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($text) . '</w:t></w:r></w:p>';
+
+            return '<w:p><w:r><w:t xml:space="preserve">'.htmlspecialchars($text).'</w:t></w:r></w:p>';
         }
 
         foreach ($body->childNodes as $node) {
@@ -302,11 +305,16 @@ class DocumentController extends Controller
     {
         if ($node->nodeType === XML_TEXT_NODE) {
             $text = $node->nodeValue;
-            if (trim($text) === '') return '';
-            return '<w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($text) . '</w:t></w:r></w:p>';
+            if (trim($text) === '') {
+                return '';
+            }
+
+            return '<w:p><w:r><w:t xml:space="preserve">'.htmlspecialchars($text).'</w:t></w:r></w:p>';
         }
 
-        if ($node->nodeType !== XML_ELEMENT_NODE) return '';
+        if ($node->nodeType !== XML_ELEMENT_NODE) {
+            return '';
+        }
 
         $tag = strtolower($node->nodeName);
         $xml = '';
@@ -319,8 +327,8 @@ class DocumentController extends Controller
                 $level = substr($tag, 1);
                 $text = $node->textContent;
                 $xml .= '<w:p>';
-                $xml .= '<w:pPr><w:pStyle w:val="Heading' . $level . '"/></w:pPr>';
-                $xml .= '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' . htmlspecialchars($text) . '</w:t></w:r>';
+                $xml .= '<w:pPr><w:pStyle w:val="Heading'.$level.'"/></w:pPr>';
+                $xml .= '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">'.htmlspecialchars($text).'</w:t></w:r>';
                 $xml .= '</w:p>';
                 break;
 
@@ -340,7 +348,7 @@ class DocumentController extends Controller
                 foreach ($node->childNodes as $li) {
                     if ($li->nodeType === XML_ELEMENT_NODE && strtolower($li->nodeName) === 'li') {
                         $xml .= '<w:p>';
-                        $xml .= '<w:r><w:t xml:space="preserve">• ' . htmlspecialchars($li->textContent) . '</w:t></w:r>';
+                        $xml .= '<w:r><w:t xml:space="preserve">• '.htmlspecialchars($li->textContent).'</w:t></w:r>';
                         $xml .= '</w:p>';
                     }
                 }
@@ -364,7 +372,7 @@ class DocumentController extends Controller
                                 $xml .= '<w:tr>';
                                 foreach ($row->childNodes as $cell) {
                                     if ($cell->nodeType === XML_ELEMENT_NODE && in_array(strtolower($cell->nodeName), ['td', 'th'])) {
-                                        $xml .= '<w:tc><w:p><w:r><w:t xml:space="preserve">' . htmlspecialchars($cell->textContent) . '</w:t></w:r></w:p></w:tc>';
+                                        $xml .= '<w:tc><w:p><w:r><w:t xml:space="preserve">'.htmlspecialchars($cell->textContent).'</w:t></w:r></w:p></w:tc>';
                                     }
                                 }
                                 $xml .= '</w:tr>';
@@ -400,25 +408,32 @@ class DocumentController extends Controller
             if ($child->nodeType === XML_TEXT_NODE) {
                 $text = $child->nodeValue;
                 if ($text !== '') {
-                    $runs .= '<w:r><w:t xml:space="preserve">' . htmlspecialchars($text) . '</w:t></w:r>';
+                    $runs .= '<w:r><w:t xml:space="preserve">'.htmlspecialchars($text).'</w:t></w:r>';
                 }
             } elseif ($child->nodeType === XML_ELEMENT_NODE) {
                 $tag = strtolower($child->nodeName);
                 $rPr = '';
 
-                if (in_array($tag, ['b', 'strong'])) $rPr .= '<w:b/>';
-                if (in_array($tag, ['i', 'em'])) $rPr .= '<w:i/>';
-                if ($tag === 'u') $rPr .= '<w:u w:val="single"/>';
+                if (in_array($tag, ['b', 'strong'])) {
+                    $rPr .= '<w:b/>';
+                }
+                if (in_array($tag, ['i', 'em'])) {
+                    $rPr .= '<w:i/>';
+                }
+                if ($tag === 'u') {
+                    $rPr .= '<w:u w:val="single"/>';
+                }
 
                 if ($rPr) {
-                    $runs .= '<w:r><w:rPr>' . $rPr . '</w:rPr><w:t xml:space="preserve">' . htmlspecialchars($child->textContent) . '</w:t></w:r>';
+                    $runs .= '<w:r><w:rPr>'.$rPr.'</w:rPr><w:t xml:space="preserve">'.htmlspecialchars($child->textContent).'</w:t></w:r>';
                 } elseif ($tag === 'br') {
                     $runs .= '<w:r><w:br/></w:r>';
                 } else {
-                    $runs .= '<w:r><w:t xml:space="preserve">' . htmlspecialchars($child->textContent) . '</w:t></w:r>';
+                    $runs .= '<w:r><w:t xml:space="preserve">'.htmlspecialchars($child->textContent).'</w:t></w:r>';
                 }
             }
         }
+
         return $runs;
     }
 
@@ -427,19 +442,19 @@ class DocumentController extends Controller
         abort_unless($document->isAccessibleBy(auth()->user()), 403, 'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.');
 
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
-        if (!$version) {
+        if (! $version) {
             $version = $document->versions()->first();
         }
-        if (!$version) {
+        if (! $version) {
             abort(404, 'File versi tidak ditemukan.');
         }
 
         $path = $this->documentService->ensureDocxFileExists($document, $version);
-        $processedPath = (new \App\Services\DocxParserService())->processDocxTemplate($path, $document);
+        $processedPath = (new DocxParserService)->processDocxTemplate($path, $document);
 
         return response()->file($processedPath, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'Content-Disposition' => 'inline; filename="' . $version->file_name . '"',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition' => 'inline; filename="'.$version->file_name.'"',
             'Access-Control-Allow-Origin' => '*',
         ]);
     }
@@ -449,22 +464,22 @@ class DocumentController extends Controller
         abort_unless($document->isAccessibleBy(auth()->user()), 403, 'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.');
 
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
-        if (!$version) {
+        if (! $version) {
             $version = $document->versions()->first();
         }
-        if (!$version) {
+        if (! $version) {
             abort(404, 'File versi tidak ditemukan.');
         }
 
         $path = $this->documentService->ensureDocxFileExists($document, $version);
-        $processedDocxPath = (new \App\Services\DocxParserService())->processDocxTemplate($path, $document);
+        $processedDocxPath = (new DocxParserService)->processDocxTemplate($path, $document);
         $pdfPath = $document->signature && $version->id === $document->signature->document_version_id && $document->signature->file_signed_path
             ? Storage::disk('local')->path($document->signature->file_signed_path)
             : $this->pdfService->render($processedDocxPath, $document, $version);
 
         return response()->file($pdfPath, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . pathinfo($version->file_name, PATHINFO_FILENAME) . '.pdf"',
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.pathinfo($version->file_name, PATHINFO_FILENAME).'.pdf"',
             'Access-Control-Allow-Origin' => '*',
         ]);
     }
@@ -472,13 +487,13 @@ class DocumentController extends Controller
     private function convertDocxToPdf(string $docxPath, Document $document, $version): string
     {
         $cacheDir = storage_path('app/private/pdf_cache');
-        if (!file_exists($cacheDir)) {
+        if (! file_exists($cacheDir)) {
             @mkdir($cacheDir, 0755, true);
         }
 
-        $hash = md5_file($docxPath) . '_' . ($document->updated_at ? $document->updated_at->timestamp : 0) . '_' . ($document->signature ? $document->signature->id : 0);
-        $pdfFilename = 'pdf_' . $document->id . '_' . $version->id . '_' . $hash . '.pdf';
-        $pdfPath = $cacheDir . '/' . $pdfFilename;
+        $hash = md5_file($docxPath).'_'.($document->updated_at ? $document->updated_at->timestamp : 0).'_'.($document->signature ? $document->signature->id : 0);
+        $pdfFilename = 'pdf_'.$document->id.'_'.$version->id.'_'.$hash.'.pdf';
+        $pdfPath = $cacheDir.'/'.$pdfFilename;
 
         if (file_exists($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
@@ -487,19 +502,21 @@ class DocumentController extends Controller
         // Cek 1: Jika Gotenberg Docker API service tersedia di server (0.2s ultra fast server-side)
         try {
             $gotenbergUrl = env('GOTENBERG_URL', 'http://localhost:3000');
-            $response = \Illuminate\Support\Facades\Http::timeout(10)
+            $response = Http::timeout(10)
                 ->attach('files', file_get_contents($docxPath), basename($docxPath))
-                ->post($gotenbergUrl . '/forms/libreoffice/convert');
+                ->post($gotenbergUrl.'/forms/libreoffice/convert');
 
             if ($response->successful() && strlen($response->body()) > 500) {
                 file_put_contents($pdfPath, $response->body());
+
                 return $pdfPath;
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         // Cek 2: Jika soffice (LibreOffice CLI) tersedia di server
         $sofficeBin = env('LIBREOFFICE_PATH');
-        if (!$sofficeBin || !file_exists($sofficeBin)) {
+        if (! $sofficeBin || ! file_exists($sofficeBin)) {
             if (file_exists('/Applications/LibreOffice.app/Contents/MacOS/soffice')) {
                 $sofficeBin = '/Applications/LibreOffice.app/Contents/MacOS/soffice';
             } elseif (file_exists('/usr/bin/soffice')) {
@@ -515,20 +532,21 @@ class DocumentController extends Controller
         }
 
         if ($sofficeBin) {
-            $tempDir = storage_path('app/private/temp_pdf_' . uniqid());
-            $profileDir = storage_path('app/private/soffice_prof_' . uniqid());
+            $tempDir = storage_path('app/private/temp_pdf_'.uniqid());
+            $profileDir = storage_path('app/private/soffice_prof_'.uniqid());
             @mkdir($tempDir, 0777, true);
             @mkdir($profileDir, 0777, true);
 
-            $cmd = escapeshellcmd($sofficeBin) . ' "-env:UserInstallation=file://' . $profileDir . '" --headless --convert-to pdf --outdir ' . escapeshellarg($tempDir) . ' ' . escapeshellarg($docxPath) . ' 2>&1';
+            $cmd = escapeshellcmd($sofficeBin).' "-env:UserInstallation=file://'.$profileDir.'" --headless --convert-to pdf --outdir '.escapeshellarg($tempDir).' '.escapeshellarg($docxPath).' 2>&1';
             exec($cmd);
 
-            $generatedPdf = $tempDir . '/' . pathinfo($docxPath, PATHINFO_FILENAME) . '.pdf';
+            $generatedPdf = $tempDir.'/'.pathinfo($docxPath, PATHINFO_FILENAME).'.pdf';
             if (file_exists($generatedPdf) && filesize($generatedPdf) > 0) {
                 @copy($generatedPdf, $pdfPath);
                 @unlink($generatedPdf);
                 @rmdir($tempDir);
                 @rmdir($profileDir);
+
                 return $pdfPath;
             }
             @rmdir($tempDir);
@@ -536,40 +554,42 @@ class DocumentController extends Controller
         }
 
         // Fallback: Menggunakan DomPDF via DocxParserService
-        $parser = new \App\Services\DocxParserService();
+        $parser = new DocxParserService;
         $bodyHtml = $parser->parseToHtml($docxPath, $document);
 
         $signature = $document->signature;
         $penandatanganUser = $signature?->penandatangan
             ?? User::role('penandatangan')->first()
-            ?? User::whereHas('roles', fn($q) => $q->where('name', 'like', '%direktur%'))->first()
+            ?? User::whereHas('roles', fn ($q) => $q->where('name', 'like', '%direktur%'))->first()
             ?? $document->pengusul;
 
         $qrCodeBase64 = null;
         if ($signature) {
             $verifyUrl = route('public.verify', $signature->qr_token);
             try {
-                $options = new \chillerlan\QRCode\QROptions([
-                    'outputInterface' => \chillerlan\QRCode\Output\QRGdImagePNG::class,
+                $options = new QROptions([
+                    'outputInterface' => QRGdImagePNG::class,
                     'scale' => 5,
                     'addQuietzone' => false,
                 ]);
                 $qrCodeBase64 = (new \chillerlan\QRCode\QRCode($options))->render($verifyUrl);
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
         }
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.naskah', [
-            'document'          => $document,
-            'version'           => $version,
-            'bodyHtml'          => $bodyHtml,
-            'signature'         => $signature,
+        $pdf = Pdf::loadView('pdf.naskah', [
+            'document' => $document,
+            'version' => $version,
+            'bodyHtml' => $bodyHtml,
+            'signature' => $signature,
             'penandatanganUser' => $penandatanganUser,
-            'qrCodeBase64'      => $qrCodeBase64,
+            'qrCodeBase64' => $qrCodeBase64,
         ])->setPaper('A4', 'portrait')
-          ->setOption('isRemoteEnabled', true)
-          ->setOption('isHtml5ParserEnabled', true);
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true);
 
         $pdf->save($pdfPath);
+
         return $pdfPath;
     }
 
@@ -578,8 +598,8 @@ class DocumentController extends Controller
         Gate::authorize('update', $document);
 
         $request->validate([
-            'file_dokumen' => 'required|file|mimes:docx|max:10240',
-            'catatan'      => 'nullable|string|max:500',
+            'file_dokumen' => 'required|file|mimes:doc,docx|extensions:doc,docx|max:10240',
+            'catatan' => 'nullable|string|max:500',
         ]);
 
         $this->documentService->simpanVersi(
@@ -596,14 +616,14 @@ class DocumentController extends Controller
         Gate::authorize('update', $document);
 
         $validated = $request->validate([
-            'verifikator_ids'   => 'nullable|array',
+            'verifikator_ids' => 'nullable|array',
             'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
-            'ajukan_langsung'   => 'nullable|boolean',
+            'ajukan_langsung' => 'nullable|boolean',
         ]);
 
         $verifikatorIds = $validated['verifikator_ids'] ?? [];
         abort_unless(
-            !empty($verifikatorIds) || $request->boolean('ajukan_langsung'),
+            ! empty($verifikatorIds) || $request->boolean('ajukan_langsung'),
             422,
             'Pilih minimal 1 Asesor Internal, atau konfirmasi pengajuan langsung.'
         );
@@ -627,7 +647,7 @@ class DocumentController extends Controller
                 && $target->id !== auth()->id()
                 && $target->hasRole('asesor_internal');
 
-            if (!$isEligible) {
+            if (! $isEligible) {
                 $fail('Verifikator yang dipilih tidak valid, tidak aktif, atau tidak memiliki wewenang verifikasi.');
             }
         };
@@ -649,7 +669,7 @@ class DocumentController extends Controller
         $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
         $version = $version ?? $document->currentVersion ?? $document->versions()->first();
 
-        if (!$version) {
+        if (! $version) {
             abort(444, 'File dokumen tidak ditemukan.');
         }
 
@@ -660,7 +680,7 @@ class DocumentController extends Controller
         $path = $this->documentService->ensureDocxFileExists($document, $version);
 
         // Process DOCX template variables & Barcode QR Code TTE inside native XML
-        $parser = new DocxParserService();
+        $parser = new DocxParserService;
         $processedDocxPath = $parser->processDocxTemplate($path, $document);
 
         // Convert processed DOCX to PDF using LibreOffice Headless (100% presisi)
@@ -669,7 +689,7 @@ class DocumentController extends Controller
             : $this->pdfService->render($processedDocxPath, $document, $version);
 
         $suffix = $document->signature ? '_TTE' : '_DRAFT';
-        $safeFilename = Str::slug($document->nomor_surat ?? $document->judul) . $suffix . '.pdf';
+        $safeFilename = Str::slug($document->nomor_surat ?? $document->judul).$suffix.'.pdf';
 
         return response()->download($pdfPath, $safeFilename, [
             'Content-Type' => 'application/pdf',

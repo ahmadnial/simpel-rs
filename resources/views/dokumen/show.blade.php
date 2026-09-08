@@ -52,9 +52,9 @@
         @endif
 
         @if($document->isDraft() || $document->isRevisi() || $document->status === 'dikembalikan')
-            <a href="{{ route('onlyoffice.editor', $document) }}" class="btn btn-warning" title="Buka Editor OnlyOffice">
+            <a href="{{ route('onlyoffice.editor', $document) }}" class="btn btn-warning" title="Sunting naskah langsung">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit Web (OnlyOffice)
+                Text Editor
             </a>
             <button class="btn btn-secondary" onclick="document.getElementById('modal-upload-versi').style.display='flex'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -136,8 +136,8 @@
                     <input type="text" name="catatan" id="catatan_revisi" class="form-control" placeholder="mis: Memperbaiki tata bahasa pasal 3 sesuai arahan verifikator">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Pilih File Baru (.docx)</label>
-                    <input type="file" name="file_dokumen" class="form-control" accept=".docx,.doc,.pdf" required>
+                    <label class="form-label">Pilih File Baru (.docx atau .doc)</label>
+                    <input type="file" name="file_dokumen" class="form-control" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" required>
                 </div>
                 <button type="submit" class="btn btn-secondary btn-sm">Unggah Versi Baru</button>
             </form>
@@ -420,11 +420,11 @@
             @csrf
             <div class="modal-body">
                 <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:1rem">
-                    Unggah file perbaikan naskah dinas dalam format <code>.docx</code> yang telah disunting.
+                    Unggah file perbaikan naskah dinas dalam format <code>.docx</code> atau <code>.doc</code> yang telah disunting.
                 </p>
                 <div class="form-group" style="margin-bottom:1rem">
-                    <label for="file_dokumen" class="form-label">Berkas Naskah Baru (.docx)</label>
-                    <input type="file" name="file_dokumen" id="file_dokumen" class="form-control" accept=".docx,.doc" required>
+                    <label for="file_dokumen" class="form-label">Berkas Naskah Baru (.docx atau .doc)</label>
+                    <input type="file" name="file_dokumen" id="file_dokumen" class="form-control" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" required>
                 </div>
                 <div class="form-group">
                     <label for="catatan_revisi" class="form-label">Catatan Perbaikan</label>

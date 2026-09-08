@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('tte:audit-verify --json')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('evidence:reconcile --json')->dailyAt('02:30')->withoutOverlapping();
+Schedule::command('tte:process-signing-outbox --limit=25')->everyMinute()->withoutOverlapping(10);

@@ -148,6 +148,22 @@ class SigningOtpV2Test extends TestCase
         }
     }
 
+    public function test_otp_cannot_be_consumed_after_signing_ceremony_expires(): void
+    {
+        $fixture = $this->fixture();
+        $context = $this->context($fixture, 'expired-ceremony-session');
+        $challenge = app(SigningOtpService::class)->request($fixture['signer'], $fixture['document'], $context);
+        $otp = $this->otpFor($fixture['signer'], $challenge);
+        $challenge->ceremony()->update(['expires_at' => now()->subSecond()]);
+
+        $this->expectOtpFailure(
+            fn () => app(SigningOtpService::class)->verifyAndConsume($fixture['signer'], $fixture['document'], $otp, $context)
+        );
+
+        $this->assertSame(SignatureOtpChallenge::STATE_EXPIRED, $challenge->fresh()->state);
+        $this->assertNull($challenge->fresh()->active_binding_key);
+    }
+
     public function test_email_change_and_explicit_security_revocation_invalidate_active_challenge(): void
     {
         $fixture = $this->fixture();

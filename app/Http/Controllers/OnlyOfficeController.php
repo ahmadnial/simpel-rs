@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Document;
-use App\Models\DocumentVersion;
 use App\Services\DocumentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class OnlyOfficeController extends Controller
@@ -26,57 +26,61 @@ class OnlyOfficeController extends Controller
     public function editor(Request $request, Document $document)
     {
         Gate::authorize('view', $document);
-        abort_unless(config('onlyoffice.jwt_secret'), 503, 'OnlyOffice belum aman digunakan. Administrator harus mengatur JWT secret terlebih dahulu.');
+        abort_unless(config('onlyoffice.jwt_secret'), 503, 'Text Editor belum aman digunakan. Administrator harus mengatur JWT secret terlebih dahulu.');
 
         $document->load(['currentVersion', 'documentType', 'unit', 'pengusul']);
         $version = $document->currentVersion;
 
         abort_unless($version, 404, 'File versi naskah tidak ditemukan.');
 
-        $mode = $request->get('mode', 'edit'); // edit | view
+        $mode = $request->get('mode') === 'view' ? 'view' : 'edit';
         $user = auth()->user();
         if ($mode === 'edit') {
             Gate::authorize('update', $document);
         }
 
         // Unique document key for OnlyOffice caching
-        $documentKey = md5($document->id . '-' . $version->id . '-' . $version->updated_at->timestamp);
+        $documentKey = md5($document->id.'-'.$version->id.'-'.$version->updated_at->timestamp);
 
         // Signed URL: route 'download' & 'callback' TIDAK memakai middleware 'auth' (Document Server
         // memanggilnya server-to-server tanpa cookie sesi), jadi 'download' diamankan lewat signature
         // sementara ini, bukan lewat sesi login.
         $downloadUrl = URL::temporarySignedRoute(
             'onlyoffice.download',
-            now()->addHours(4),
+            now()->addMinutes((int) config('onlyoffice.download_url_ttl_minutes')),
             [$document->id, $version->id]
         );
-        $callbackUrl = route('onlyoffice.callback', $document);
+        $callbackUrl = URL::temporarySignedRoute(
+            'onlyoffice.callback',
+            now()->addMinutes((int) config('onlyoffice.callback_url_ttl_minutes')),
+            [$document->id]
+        );
 
         $onlyofficeConfig = [
             'documentType' => 'word',
             'document' => [
                 'fileType' => 'docx',
-                'key'      => $documentKey,
-                'title'    => $document->judul . '.docx',
-                'url'      => $downloadUrl,
+                'key' => $documentKey,
+                'title' => $document->judul.'.docx',
+                'url' => $downloadUrl,
                 'permissions' => [
-                    'edit'    => $mode === 'edit' && !$document->isLocked(),
-                    'download'=> true,
-                    'print'   => true,
+                    'edit' => $mode === 'edit' && ! $document->isLocked(),
+                    'download' => true,
+                    'print' => true,
                 ],
             ],
             'editorConfig' => [
-                'mode'        => $mode,
-                'lang'        => 'id',
+                'mode' => $mode,
+                'lang' => 'id',
                 'callbackUrl' => $callbackUrl,
-                'user'        => [
-                    'id'   => (string) $user->id,
+                'user' => [
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                 ],
                 'customization' => [
                     'forcesave' => true,
-                    'autosave'  => true,
-                    'goback'    => [
+                    'autosave' => true,
+                    'goback' => [
                         'url' => route('dokumen.show', $document),
                     ],
                 ],
@@ -93,31 +97,19 @@ class OnlyOfficeController extends Controller
     public function download(Document $document, $versionId)
     {
         $version = $document->versions()->findOrFail($versionId);
-        $filePath = $version->file_path;
-
-        if (Storage::disk('local')->exists($filePath)) {
-            $path = Storage::disk('local')->path($filePath);
-        } elseif (file_exists(storage_path('app/' . $filePath))) {
-            $path = storage_path('app/' . $filePath);
-        } elseif (file_exists(storage_path('app/private/' . $filePath))) {
-            $path = storage_path('app/private/' . $filePath);
-        } else {
-            abort(404, 'File tidak ditemukan.');
-        }
+        $path = $this->documentService->ensureDocxFileExists($document, $version);
 
         return response()->file($path, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'Content-Disposition' => 'inline; filename="' . $version->file_name . '"',
+            'Content-Disposition' => 'inline; filename="'.$version->file_name.'"',
         ]);
     }
 
     public function callback(Request $request, Document $document)
     {
         // Route ini tidak dilindungi sesi login (dipanggil server-to-server oleh OnlyOffice
-        // Document Server) — verifikasi JWT bawaan OnlyOffice adalah satu-satunya lapisan
-        // otentikasi. Sebelumnya tidak pernah divalidasi meski config('onlyoffice.jwt_secret')
-        // sudah disediakan, sehingga siapa pun yang tahu ID dokumen bisa memicu penyimpanan
-        // versi baru (bahkan dari URL sembarang / SSRF).
+        // Document Server). Route memakai signed URL per sesi editor, lalu request callback
+        // diverifikasi lagi dengan JWT Document Server sebelum hasil suntingan diproses.
         abort_unless($this->verifyOnlyOfficeJwt($request), 403, 'Invalid OnlyOffice JWT signature.');
 
         // Konten yang sudah lolos verifikasi/TTE tidak boleh ditimpa lewat editor lagi.
@@ -126,58 +118,76 @@ class OnlyOfficeController extends Controller
         if ($document->isLocked()) {
             logger()->warning('OnlyOffice callback ditolak: dokumen terkunci.', [
                 'document_id' => $document->id,
-                'status'      => $document->status,
+                'status' => $document->status,
             ]);
+
             return response()->json(['error' => 1, 'message' => 'Dokumen terkunci, tidak dapat disimpan.']);
         }
 
-        $status = $request->input('status');
+        $status = (int) $request->input('status');
         $fileUrl = $request->input('url');
 
-        if (($status === 2 || $status === 6) && (!$fileUrl || !$this->isAllowedOnlyOfficeUrl($fileUrl))) {
+        if (($status === 2 || $status === 6) && (! $fileUrl || ! $this->isAllowedOnlyOfficeUrl($fileUrl))) {
             return response()->json(['error' => 1, 'message' => 'URL sumber OnlyOffice tidak diizinkan.']);
         }
 
         // Status 2 = Editing finished & saved, Status 6 = Force save
         if (($status === 2 || $status === 6) && $fileUrl && $this->isAllowedOnlyOfficeUrl($fileUrl)) {
-            $callbackKey = 'onlyoffice-save:'.hash('sha256', $document->id.'|'.$fileUrl);
-            if (!Cache::add($callbackKey, true, now()->addMinutes(10))) {
-                return response()->json(['error' => 0]);
-            }
+            $callbackKey = null;
+            $tempPath = null;
             try {
-                $response = Http::timeout(15)->withOptions(['allow_redirects' => false])->get($fileUrl);
-                if ($response->successful()) {
-                    abort_unless(str_starts_with($response->body(), "PK"), 422, 'Berkas callback bukan DOCX yang valid.');
-                    abort_unless(strlen($response->body()) <= 10 * 1024 * 1024, 422, 'Berkas callback melebihi batas 10 MB.');
-                    $fileName = 'onlyoffice_edited_' . time() . '.docx';
-                    $tempPath = storage_path('app/temp/' . $fileName);
-                    Storage::disk('local')->makeDirectory('temp');
-                    file_put_contents($tempPath, $response->body());
+                $response = Http::connectTimeout(5)
+                    ->timeout((int) config('onlyoffice.callback_timeout_seconds'))
+                    ->withOptions(['allow_redirects' => false])
+                    ->get($fileUrl);
+                abort_unless($response->successful(), 502, 'Text Editor belum dapat mengirim hasil penyuntingan.');
+                $body = $response->body();
+                abort_unless(strlen($body) <= (int) config('onlyoffice.max_document_kilobytes') * 1024, 422, 'Berkas hasil penyuntingan melebihi batas ukuran.');
+                abort_unless(str_starts_with($body, 'PK'), 422, 'Berkas hasil penyuntingan bukan DOCX yang valid.');
 
-                    // Buat Illuminate UploadedFile dummy untuk simpanVersi
-                    $file = new \Illuminate\Http\UploadedFile(
-                        $tempPath,
-                        $document->judul . '.docx',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        null,
-                        true
-                    );
+                // URL hasil edit dapat dipakai ulang oleh Document Server untuk beberapa force-save.
+                // Deduplicate berdasarkan byte hasil, bukan URL, agar perubahan berikutnya tidak hilang.
+                $callbackKey = 'onlyoffice-save:'.hash('sha256', implode('|', [
+                    $document->id,
+                    (string) $request->input('key'),
+                    hash('sha256', $body),
+                ]));
+                if (! Cache::add($callbackKey, true, now()->addDay())) {
+                    return response()->json(['error' => 0]);
+                }
 
-                    $this->documentService->simpanVersi(
-                        $document,
-                        $file,
-                        'Disunting via OnlyOffice Docs Web Application',
-                        $document->pengusul_id
-                    );
+                $fileName = 'text_editor_'.Str::uuid().'.docx';
+                Storage::disk('local')->makeDirectory('temp');
+                $tempPath = Storage::disk('local')->path('temp/'.$fileName);
+                abort_unless(file_put_contents($tempPath, $body) !== false, 500, 'Berkas hasil penyuntingan gagal disimpan sementara.');
 
-                    AuditLog::catat('onlyoffice_save', "Naskah disunting dan disimpan via OnlyOffice Docs", $document);
+                $file = new UploadedFile(
+                    $tempPath,
+                    $document->judul.'.docx',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    null,
+                    true
+                );
 
+                $this->documentService->simpanVersi(
+                    $document,
+                    $file,
+                    'Disunting melalui Text Editor',
+                    $document->pengusul_id
+                );
+
+                AuditLog::catat('onlyoffice_save', 'Naskah disunting dan disimpan melalui Text Editor', $document);
+            } catch (\Throwable $exception) {
+                if ($callbackKey) {
+                    Cache::forget($callbackKey);
+                }
+                report($exception);
+
+                return response()->json(['error' => 1, 'message' => 'Hasil penyuntingan belum dapat disimpan.']);
+            } finally {
+                if ($tempPath && is_file($tempPath)) {
                     @unlink($tempPath);
                 }
-            } catch (\Exception $e) {
-                Cache::forget($callbackKey);
-                logger()->error('OnlyOffice callback error: ' . $e->getMessage());
-                return response()->json(['error' => 1, 'message' => $e->getMessage()]);
             }
         }
 
@@ -192,18 +202,18 @@ class OnlyOfficeController extends Controller
     private function verifyOnlyOfficeJwt(Request $request): bool
     {
         $secret = config('onlyoffice.jwt_secret');
-        if (!$secret) {
+        if (! $secret) {
             return false;
         }
 
         $token = $request->bearerToken() ?? $request->input('token');
-        if (!$token || substr_count($token, '.') !== 2) {
+        if (! $token || substr_count($token, '.') !== 2) {
             return false;
         }
 
         [$header, $body, $signature] = explode('.', $token);
         $expected = $this->base64UrlEncode(hash_hmac('sha256', "{$header}.{$body}", $secret, true));
-        if (!hash_equals($expected, $signature)) {
+        if (! hash_equals($expected, $signature)) {
             return false;
         }
 
@@ -213,7 +223,7 @@ class OnlyOfficeController extends Controller
             return false;
         }
 
-        return !isset($bodyData['exp']) || (int) $bodyData['exp'] >= now()->timestamp;
+        return ! isset($bodyData['exp']) || (int) $bodyData['exp'] >= now()->timestamp;
     }
 
     private function isAllowedOnlyOfficeUrl(string $url): bool

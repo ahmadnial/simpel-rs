@@ -1,0 +1,27 @@
+services:
+  documentserver:
+    image: ${ONLYOFFICE_IMAGE:?Set ONLYOFFICE_IMAGE ke versi atau digest yang telah disetujui}
+    container_name: simpel-rs-documentserver
+    restart: unless-stopped
+    env_file:
+      - /etc/simpel-rs/onlyoffice.env
+    ports:
+      - "127.0.0.1:8080:80"
+    shm_size: 2gb
+    volumes:
+      - onlyoffice-data:/var/www/onlyoffice/Data
+      - onlyoffice-logs:/var/log/onlyoffice
+      - onlyoffice-lib:/var/lib/onlyoffice
+      - onlyoffice-postgresql:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+volumes:
+  onlyoffice-data:
+  onlyoffice-logs:
+  onlyoffice-lib:
+  onlyoffice-postgresql:

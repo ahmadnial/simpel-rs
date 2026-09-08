@@ -211,6 +211,11 @@ class EvidenceBundleVerificationTest extends TestCase
             'document_id' => $document->id, 'versi' => 1, 'file_path' => "documents/{$document->id}/bundle.docx",
             'file_name' => 'bundle.docx', 'uploaded_by' => $proposer->id, 'is_current' => true,
         ]);
+        Storage::disk('local')->makeDirectory("documents/{$document->id}");
+        app(DocumentService::class)->createDocxFileFromHtml(
+            '<p>Naskah pengujian evidence bundle.</p>',
+            Storage::disk('local')->path("documents/{$document->id}/bundle.docx"),
+        );
         $document = $document->fresh(['currentVersion', 'workflowTemplate']);
         $this->actingAs($signer);
         $otp = $this->requestSigningOtp($signer, $document, 'bundle-session');

@@ -208,6 +208,11 @@ class PublicPdfVerificationTest extends TestCase
             'document_id' => $document->id, 'versi' => 1, 'file_path' => "documents/{$document->id}/public-verify.docx",
             'file_name' => 'public-verify.docx', 'uploaded_by' => $proposer->id, 'is_current' => true,
         ]);
+        Storage::disk('local')->makeDirectory("documents/{$document->id}");
+        app(DocumentService::class)->createDocxFileFromHtml(
+            '<p>Naskah pengujian verifikasi publik.</p>',
+            Storage::disk('local')->path("documents/{$document->id}/public-verify.docx"),
+        );
         $document = $document->fresh(['currentVersion', 'workflowTemplate']);
         $this->actingAs($signer);
         $otp = $this->requestSigningOtp($signer, $document, 'public-verifier-session');

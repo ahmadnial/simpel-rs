@@ -33,6 +33,7 @@ class SigningOtpService
         abort_unless(
             $ceremony
             && $ceremony->state === SigningCeremony::STATE_AWAITING_USER_SIGNATURE
+            && $ceremony->expires_at->isFuture()
             && $ceremony->document_id === (int) $document->id
             && $ceremony->document_version_id === (int) $context['document_version_id']
             && $ceremony->intended_actor_id === (int) $user->id
@@ -174,6 +175,18 @@ class SigningOtpService
                 ->first();
 
             abort_unless($challenge, 422, 'OTP tidak valid, sudah dipakai, dicabut, atau kedaluwarsa.');
+
+            $ceremony = SigningCeremony::query()
+                ->where('uuid', $challenge->signing_ceremony_id)
+                ->lockForUpdate()
+                ->first();
+            if (! $ceremony
+                || $ceremony->state !== SigningCeremony::STATE_AWAITING_USER_SIGNATURE
+                || now()->greaterThanOrEqualTo($ceremony->expires_at)) {
+                $this->transitionToTerminal($challenge, SignatureOtpChallenge::STATE_EXPIRED, 'ceremony_expired');
+
+                return ['challenge' => null, 'error' => 'Sesi pengesahan sudah kedaluwarsa. Konfirmasi ulang dan mintalah OTP baru.'];
+            }
 
             if ($challenge->state !== SignatureOtpChallenge::STATE_SENT) {
                 abort(422, 'OTP belum siap digunakan atau sudah tidak aktif.');
