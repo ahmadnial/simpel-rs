@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Services\DocumentService;
 use App\Services\SigningOtpService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -30,6 +31,7 @@ class TandaTanganController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
+        $activeTab = $request->string('tab')->toString() === 'riwayat' ? 'riwayat' : 'antrian';
 
         // Roles yang dimiliki (termasuk delegasi Plt/Plh)
         $signerRoles = $user->getRoleNames()->toArray();
@@ -68,13 +70,77 @@ class TandaTanganController extends Controller
             });
         }
 
-        $antrian = $antrianQuery->latest()->paginate(10)->withQueryString();
+        $antrian = $antrianQuery->latest()->paginate(10, ['*'], 'antrian_page')->withQueryString();
+
+        // Riwayat keputusan bersumber dari rekaman peristiwa, bukan status dokumen saat ini.
+        // Status dokumen dapat berubah setelah diteruskan atau dikembalikan, sedangkan kedua
+        // sumber di bawah tetap menunjukkan keputusan yang benar-benar dibuat oleh akun ini.
+        $signedEvents = DB::table('document_signatures')
+            ->where('penandatangan_id', $user->id)
+            ->selectRaw("'signed' as event_type, id as event_id, document_id, ditandatangani_at as event_at, NULL as note");
+
+        $returnedEvents = DB::table('audit_logs')
+            ->where('user_id', $user->id)
+            ->where('aksi', 'tolak_ttd')
+            ->where('model_type', Document::class)
+            ->selectRaw("'returned' as event_type, id as event_id, model_id as document_id, created_at as event_at, deskripsi as note");
+
+        $historyQuery = DB::query()
+            ->fromSub($signedEvents->unionAll($returnedEvents), 'signing_history')
+            ->join('documents', 'documents.id', '=', 'signing_history.document_id')
+            ->leftJoin('users as proposers', 'proposers.id', '=', 'documents.pengusul_id')
+            ->select('signing_history.*');
+
+        if ($request->filled('document_type_id')) {
+            $historyQuery->where('documents.document_type_id', $request->integer('document_type_id'));
+        }
+
+        if ($request->filled('unit_id')) {
+            $historyQuery->where('documents.unit_id', $request->integer('unit_id'));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $historyQuery->where(function ($query) use ($search) {
+                $query->where('documents.judul', 'like', "%{$search}%")
+                    ->orWhere('documents.nomor_surat', 'like', "%{$search}%")
+                    ->orWhere('proposers.name', 'like', "%{$search}%");
+            });
+        }
+
+        $historyCounts = [
+            'signed' => (clone $historyQuery)->where('signing_history.event_type', 'signed')->count(),
+            'returned' => (clone $historyQuery)->where('signing_history.event_type', 'returned')->count(),
+        ];
+
+        $history = $historyQuery
+            ->orderByDesc('signing_history.event_at')
+            ->orderByDesc('signing_history.event_id')
+            ->paginate(10, ['*'], 'riwayat_page')
+            ->withQueryString();
+
+        $historyDocuments = Document::withTrashed()
+            ->with(['documentType', 'unit', 'pengusul', 'signature'])
+            ->whereIn('id', $history->getCollection()->pluck('document_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        $history->setCollection($history->getCollection()->map(function ($event) use ($historyDocuments) {
+            $event->document = $historyDocuments->get($event->document_id);
+            $event->note = $event->event_type === 'returned'
+                ? preg_replace('/^Dikembalikan penandatangan:\s*/u', '', (string) $event->note)
+                : null;
+
+            return $event;
+        }));
 
         // Data Master untuk Filter Dropdown
         $documentTypes = DocumentType::orderBy('nama')->get();
         $units = Unit::orderBy('nama')->get();
 
-        return view('tanda-tangan.index', compact('antrian', 'documentTypes', 'units'));
+        return view('tanda-tangan.index', compact(
+            'activeTab', 'antrian', 'history', 'historyCounts', 'documentTypes', 'units'
+        ));
     }
 
     public function show(Request $request, Document $document)
