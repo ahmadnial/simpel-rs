@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Delegation;
 use App\Models\Document;
 use App\Models\DocumentType;
@@ -419,6 +420,27 @@ class WorkflowSecurityTest extends TestCase
             ->assertOk()
             ->assertSee('Tiket Riwayat · Tidak Aktif')
             ->assertDontSee('id="form-setuju"', false);
+    }
+
+    public function test_return_to_previous_level_preserves_a_long_revision_note_in_the_audit_log(): void
+    {
+        $fixture = $this->verificationFixture();
+        $reason = str_repeat('Perbaiki substansi dan dasar kebijakan. ', 20);
+
+        $this->actingAs($fixture['upper'])
+            ->post(route('verifikasi.teruskan-bawah', $fixture['upperTicket']), [
+                'catatan' => $reason,
+            ])
+            ->assertRedirect(route('verifikasi.index'));
+
+        $this->assertSame(
+            'Diturunkan ke level bawah: '.$reason,
+            AuditLog::where('aksi', 'turunkan_verifikasi')->sole()->deskripsi,
+        );
+        $this->assertSame(
+            $reason,
+            $fixture['upperTicket']->fresh()->catatan,
+        );
     }
 
     public function test_super_admin_without_configured_signer_role_cannot_sign(): void
