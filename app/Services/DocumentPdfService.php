@@ -2,130 +2,115 @@
 
 namespace App\Services;
 
+use App\Exceptions\DocumentConversionException;
 use App\Models\Document;
 use App\Models\DocumentVersion;
-use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 
 class DocumentPdfService
 {
     public function render(string $docxPath, Document $document, DocumentVersion $version): string
     {
-        $cacheDir = storage_path('app/private/pdf_cache');
-        if (!is_dir($cacheDir)) {
-            mkdir($cacheDir, 0755, true);
-        }
-
-        $cacheKey = md5_file($docxPath).'_'.($document->updated_at?->timestamp ?? 0).'_'.($document->signature?->id ?? 0);
-        $pdfPath = $cacheDir."/pdf_{$document->id}_{$version->id}_{$cacheKey}.pdf";
+        $key = hash('sha256', hash_file('sha256', $docxPath).'|'.config('documents.renderer').'|'.config('documents.render_revision'));
+        $directory = Storage::disk('local')->path('pdf_cache');
+        File::ensureDirectoryExists($directory);
+        $pdfPath = $directory.'/office_'.$key.'.pdf';
         if (is_file($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
         }
 
-        if ($this->renderWithGotenberg($docxPath, $pdfPath) || $this->renderWithLibreOffice($docxPath, $pdfPath)) {
+        // Concurrent viewers share one conversion. Partial output is never served.
+        $lock = Cache::lock('document-pdf:'.$key, (int) config('documents.conversion_timeout') + 15);
+        if (! $lock->get()) {
+            throw new DocumentConversionException('PDF sedang diproses. Tunggu sebentar lalu muat ulang pratinjau.');
+        }
+        $temporary = $pdfPath.'.'.bin2hex(random_bytes(8)).'.tmp';
+        try {
+            if (is_file($pdfPath) && filesize($pdfPath) > 0) {
+                return $pdfPath;
+            }
+            $this->convert($docxPath, $temporary);
+            if (! is_file($temporary) || file_get_contents($temporary, false, null, 0, 5) !== '%PDF-') {
+                throw new DocumentConversionException('Layanan konversi tidak menghasilkan PDF yang valid. Coba lagi atau hubungi administrator.');
+            }
+            if (! rename($temporary, $pdfPath)) {
+                throw new DocumentConversionException('PDF belum dapat disimpan. Hubungi administrator.');
+            }
+
             return $pdfPath;
+        } catch (DocumentConversionException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw new DocumentConversionException(previous: $exception);
+        } finally {
+            File::delete($temporary);
+            $lock->release();
+        }
+    }
+
+    protected function convert(string $source, string $destination): void
+    {
+        if (config('documents.renderer') === 'gotenberg') {
+            $response = Http::connectTimeout(5)->timeout((int) config('documents.conversion_timeout'))
+                ->attach('files', file_get_contents($source), basename($source))
+                ->post(rtrim(config('documents.gotenberg_url'), '/').'/forms/libreoffice/convert');
+            if (! $response->successful()) {
+                logger()->warning('Office PDF conversion failed.', ['renderer' => 'gotenberg', 'status' => $response->status()]);
+                throw new DocumentConversionException('Layanan konversi gagal memproses dokumen. Penyebab belum dapat dipastikan; coba lagi atau hubungi administrator.');
+            }
+            File::put($destination, $response->body());
+
+            return;
+        }
+        if (config('documents.renderer') !== 'libreoffice') {
+            throw new DocumentConversionException('Konfigurasi layanan konversi belum benar. Hubungi administrator.');
         }
 
-        $parser = new DocxParserService();
-        $signature = $document->signature;
-        $signer = $signature?->penandatangan
-            ?? User::role('penandatangan')->first()
-            ?? $document->pengusul;
-        $qrCodeBase64 = null;
+        $binary = $this->libreOfficeBinary();
+        $directory = dirname($destination).'/work_'.bin2hex(random_bytes(8));
+        File::ensureDirectoryExists($directory);
+        try {
+            $process = new Process([
+                $binary, '-env:UserInstallation=file://'.$directory.'/profile',
+                '--headless', '--convert-to', 'pdf:writer_pdf_Export', '--outdir', $directory, $source,
+            ]);
+            $process->setTimeout((int) config('documents.conversion_timeout'));
+            $process->run();
+            $output = $directory.'/'.pathinfo($source, PATHINFO_FILENAME).'.pdf';
+            if (! $process->isSuccessful() || ! is_file($output)) {
+                logger()->warning('Office PDF conversion failed.', ['renderer' => 'libreoffice', 'exit_code' => $process->getExitCode()]);
+                throw new DocumentConversionException('Konversi dokumen belum berhasil. Penyebab belum dapat dipastikan; coba simpan ulang melalui Word atau hubungi administrator.');
+            }
+            File::copy($output, $destination);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
 
-        if ($signature) {
-            try {
-                $options = new \chillerlan\QRCode\QROptions([
-                    'outputInterface' => \chillerlan\QRCode\Output\QRGdImagePNG::class,
-                    'scale' => 5,
-                    'addQuietzone' => false,
-                ]);
-                $qrCodeBase64 = (new \chillerlan\QRCode\QRCode($options))->render(route('public.verify', $signature->qr_token));
-            } catch (\Throwable) {
+    public function libreOfficeBinary(): string
+    {
+        $configured = config('documents.libreoffice_path');
+        $candidates = $configured ? [$configured] : ['/Applications/LibreOffice.app/Contents/MacOS/soffice', '/usr/bin/soffice', '/usr/bin/libreoffice'];
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate) && is_executable($candidate)) {
+                return $candidate;
             }
         }
-
-        Pdf::loadView('pdf.naskah', [
-            'document' => $document,
-            'version' => $version,
-            'bodyHtml' => $parser->parseToHtml($docxPath, $document),
-            'signature' => $signature,
-            'penandatanganUser' => $signer,
-            'qrCodeBase64' => $qrCodeBase64,
-        ])->setPaper('A4', 'portrait')
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('isHtml5ParserEnabled', true)
-            ->save($pdfPath);
-
-        abort_unless(is_file($pdfPath) && filesize($pdfPath) > 0, 500, 'PDF final gagal dibuat. Pengesahan dibatalkan.');
-
-        return $pdfPath;
+        throw new DocumentConversionException('Layanan LibreOffice belum tersedia. Administrator perlu mengatur layanan konversi; berkas Anda belum dinyatakan rusak.');
     }
 
     public function persistOfficial(Document $document, DocumentVersion $version, string $renderedPdfPath, string $token): array
     {
         abort_unless(is_file($renderedPdfPath) && filesize($renderedPdfPath) > 0, 500, 'PDF final tidak tersedia.');
-
         $relativePath = "documents/{$document->id}/signed/{$token}.pdf";
         Storage::disk('local')->put($relativePath, file_get_contents($renderedPdfPath));
         $officialPath = Storage::disk('local')->path($relativePath);
 
-        return [
-            'path' => $relativePath,
-            'hash' => hash_file('sha256', $officialPath),
-            'size' => filesize($officialPath),
-        ];
-    }
-
-    private function renderWithGotenberg(string $docxPath, string $pdfPath): bool
-    {
-        try {
-            $url = rtrim((string) env('GOTENBERG_URL', 'http://localhost:3000'), '/');
-            $response = Http::timeout(10)->attach('files', file_get_contents($docxPath), basename($docxPath))
-                ->post($url.'/forms/libreoffice/convert');
-            if ($response->successful() && str_starts_with($response->body(), '%PDF')) {
-                file_put_contents($pdfPath, $response->body());
-                return true;
-            }
-        } catch (\Throwable) {
-        }
-
-        return false;
-    }
-
-    private function renderWithLibreOffice(string $docxPath, string $pdfPath): bool
-    {
-        $binary = env('LIBREOFFICE_PATH');
-        foreach ([$binary, '/Applications/LibreOffice.app/Contents/MacOS/soffice', '/usr/bin/soffice', '/usr/bin/libreoffice'] as $candidate) {
-            if ($candidate && is_file($candidate)) {
-                $binary = $candidate;
-                break;
-            }
-        }
-        if (!$binary || !is_file($binary)) {
-            return false;
-        }
-
-        $tempDir = storage_path('app/private/temp_pdf_'.uniqid());
-        $profileDir = storage_path('app/private/soffice_prof_'.uniqid());
-        mkdir($tempDir, 0755, true);
-        mkdir($profileDir, 0755, true);
-        $command = escapeshellarg($binary).' '.escapeshellarg('-env:UserInstallation=file://'.$profileDir)
-            .' --headless --convert-to pdf --outdir '.escapeshellarg($tempDir).' '.escapeshellarg($docxPath);
-        exec($command, $output, $exitCode);
-        $generated = $tempDir.'/'.pathinfo($docxPath, PATHINFO_FILENAME).'.pdf';
-        $success = $exitCode === 0 && is_file($generated) && filesize($generated) > 0;
-        if ($success) {
-            copy($generated, $pdfPath);
-        }
-        if (is_file($generated)) {
-            unlink($generated);
-        }
-        @rmdir($tempDir);
-        @rmdir($profileDir);
-
-        return $success;
+        return ['path' => $relativePath, 'hash' => hash_file('sha256', $officialPath), 'size' => filesize($officialPath)];
     }
 }

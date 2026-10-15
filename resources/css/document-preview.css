@@ -1,0 +1,30 @@
+/* Hallmark · component: document preview · theme: existing SIMPEL-RS tokens
+ * pre-emit critique: P4 H4 E4 S5 R5 V4 */
+.document-detail-grid { display:grid; grid-template-columns:minmax(0, 1fr) minmax(260px, 320px); gap:var(--space-6); }
+.document-detail-grid > div { min-width:0; }
+.document-preview-card { min-width:0; }
+.document-preview-filename { margin:0 0 var(--space-4); color:var(--text-secondary); font-size:.85rem; overflow-wrap:anywhere; }
+.naskah-preview-wrapper { width:100%; min-width:0; }
+.naskah-preview-wrapper [hidden] { display:none !important; }
+.document-preview-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:var(--radius-md) var(--radius-md) 0 0; font-size:.8rem; }
+.document-preview-tools { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-4); }
+.document-preview-count { color:var(--text-secondary); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.document-preview-toggle { display:flex; align-items:center; gap:var(--space-2); cursor:pointer; color:var(--text-secondary); }
+.document-preview-toggle input { accent-color:var(--brand-600); }
+.document-preview-toggle:focus-within { outline:2px solid var(--brand-500); outline-offset:4px; }
+.document-preview-toolbar .btn { white-space:nowrap; }
+.document-preview-status { margin:0; padding:var(--space-3) var(--space-4); font-size:.85rem; color:var(--text-secondary); background:var(--bg-elevated); }
+.document-preview-status:empty { display:none; }
+.document-preview-note { margin:var(--space-3) 0 0; color:var(--text-muted); font-size:.78rem; line-height:1.6; }
+.document-preview-warning { color:var(--status-revisi); font-size:.85rem; margin:var(--space-3) 0; }
+.document-preview-scroll { height:clamp(360px, 70vh, 860px); overflow:auto; overscroll-behavior-y:contain; overflow-anchor:none; padding:var(--space-5); background:var(--bg-base); border:1px solid var(--border-default); border-top:0; border-radius:0 0 var(--radius-md) var(--radius-md); }
+.document-preview-scroll:focus-visible { outline:2px solid var(--brand-500); outline-offset:2px; }
+.document-preview-page { position:relative; max-width:920px; width:100%; margin:0 auto var(--space-5); background:var(--bg-surface); box-shadow:var(--shadow-sm); }
+.document-preview-page:last-child { margin-bottom:0; }
+.document-preview-page:empty::after { content:'Halaman ' attr(data-page-number); position:absolute; inset:0; display:grid; place-items:center; color:var(--text-muted); font-size:.8rem; }
+.document-preview-page canvas { display:block; width:100%; height:auto; }
+.document-preview-date { position:absolute; box-sizing:border-box; border:1px solid var(--status-batal); }
+.document-preview-frame { display:block; width:100%; height:70vh; min-height:360px; border:1px solid var(--border-default); }
+.document-preview-frame[hidden] { display:none; }
+@media(max-width:1100px) { .document-detail-grid { grid-template-columns:minmax(0, 1fr); } }
+@media(max-width:480px) { .document-preview-scroll { padding:var(--space-2); } .document-preview-toolbar { padding:var(--space-3); } .document-preview-tools { gap:var(--space-3); } }

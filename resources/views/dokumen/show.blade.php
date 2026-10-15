@@ -10,6 +10,11 @@
 @endsection
 
 @section('content')
+@if($errors->any())
+    <div class="alert alert-error" role="alert">
+        <div><strong>Perubahan belum diproses.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+    </div>
+@endif
 
 <div class="page-header" style="display:flex; align-items:flex-start; justify-content:space-between; gap: var(--space-4)">
     <div>
@@ -51,20 +56,22 @@
             </a>
         @endif
 
-        @if($document->isDraft() || $document->isRevisi() || $document->status === 'dikembalikan')
+        @can('update', $document)
+            @if(config('onlyoffice.enabled', false))
             <a href="{{ route('onlyoffice.editor', $document) }}" class="btn btn-warning" title="Sunting naskah langsung">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Text Editor
             </a>
-            <button class="btn btn-secondary" onclick="document.getElementById('modal-upload-versi').style.display='flex'">
+            @endif
+            <a class="btn btn-secondary" href="#unggah-perbaikan">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Unggah Berkas Perbaikan
-            </button>
-            <button class="btn btn-primary" onclick="document.getElementById('modal-ajukan').style.display='flex'">
+                Upload ulang
+            </a>
+            <a class="btn btn-primary" href="#pengajuan-dokumen">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Ajukan ke Verifikator
-            </button>
-        @endif
+            </a>
+        @endcan
     </div>
 </div>
 
@@ -86,21 +93,95 @@
 </div>
 @endif
 
-<div style="display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-6)">
+<div class="document-detail-grid">
 
     {{-- Main Detail --}}
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
 
         {{-- Pratinjau Naskah Dinas --}}
-        <div class="card">
+        <div class="card document-preview-card">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center">
-                <span class="card-title">Pratinjau Lembar Dokumen</span>
+                <span class="card-title">Pratinjau dokumen</span>
                 <span class="badge badge-indigo">Versi v{{ $document->currentVersion->versi ?? 1 }}</span>
             </div>
-            <div class="docx-paper-wrapper">
-                <x-naskah-preview :document="$document" />
-            </div>
+            <p class="document-preview-filename">{{ $document->currentVersion?->file_name }}</p>
+            <x-naskah-preview :document="$document" :reviewable="auth()->user()->can('update', $document)" />
         </div>
+
+        @can('update', $document)
+        <div class="card" id="pengajuan-dokumen">
+            <div class="card-header"><span class="card-title">Ajukan ke Verifikator</span></div>
+        <form method="POST" action="{{ route('dokumen.ajukan', $document) }}">
+            @csrf
+            <input type="hidden" name="review_token" value="" data-document-review-token>
+            @error('review_token') <p class="form-error">{{ $message }}</p> @enderror
+            <p>Periksa PDF di atas. Jika belum sesuai, upload ulang dokumen sebelum mengajukan.</p>
+            <div class="modal-body">
+                @if(!$firstStepInfo['configured'])
+                    <div class="alert alert-error" style="margin:0">
+                        Jenis naskah ini belum bisa diajukan ke verifikator. Hubungi Admin untuk mengatur alurnya.
+                    </div>
+                @else
+                    @if(!empty($workflowChain['steps']))
+                        <div class="workflow-chain" style="margin-bottom: var(--space-4)">
+                            @foreach($workflowChain['steps'] as $i => $step)
+                                <div class="workflow-chain-step {{ $step['tipe'] === 'penandatangan' ? 'workflow-chain-step-sign' : '' }}">
+                                    <div class="workflow-chain-step-badge">{{ $step['tipe'] === 'penandatangan' ? '✓' : (preg_replace('/\D/', '', $step['label']) ?: ($i + 1)) }}</div>
+                                    <div class="workflow-chain-step-body">
+                                        <div class="workflow-chain-step-label">
+                                            <span>{{ $step['label'] }}</span>
+                                            @if($step['commonSub'])
+                                                <span class="workflow-chain-step-sub">&middot; {{ $step['commonSub'] }}</span>
+                                            @endif
+                                        </div>
+                                        @if($step['note'])
+                                            <div class="workflow-chain-step-note {{ !$step['manual'] && empty($step['people']) ? 'is-warning' : '' }}">{{ $step['note'] }}</div>
+                                        @endif
+                                        @if(!empty($step['people']))
+                                            <div class="workflow-chain-people">
+                                                @foreach($step['people'] as $person)
+                                                    <span class="workflow-chain-person">
+                                                        <span>{{ $person['name'] }}</span>
+                                                        @if($person['sub'])
+                                                            <span class="workflow-chain-person-sub">({{ $person['sub'] }})</span>
+                                                        @endif
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if($firstStepInfo['needsManual'])
+                        <div class="form-group" style="margin-bottom:0">
+                            <label for="verifikator_ids_modal" class="form-label">Pilih Verifikator</label>
+                            <select name="verifikator_ids[]" id="verifikator_ids_modal" class="form-control" multiple required data-tomselect data-placeholder="Cari & pilih verifikator...">
+                                @foreach($verifikators as $v)
+                                    <option value="{{ $v->id }}" @selected(in_array($v->id, old('verifikator_ids', session('document_submission.'.$document->id.'.verifikator_ids', []))))>{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }})</option>
+                                @endforeach
+                            </select>
+                            <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih siapa yang akan memeriksa dokumen ini terlebih dahulu.</small>
+                        </div>
+                    @else
+                        <input type="hidden" name="ajukan_langsung" value="1">
+                        <p style="font-size:0.875rem; color:var(--text-secondary); margin:0">
+                            Dokumen akan otomatis diproses sesuai alur yang berlaku untuk jenis naskah ini.
+                        </p>
+                    @endif
+                @endif
+            </div>
+            <div class="modal-footer">
+
+                @unless(!$firstStepInfo['configured'])
+                    <button type="submit" class="btn btn-primary" data-document-submit disabled>Ajukan dokumen</button>
+                @endunless
+            </div>
+        </form>
+        </div>
+        @endcan
 
         {{-- Detail Meta Card --}}
         <div class="card">
@@ -123,26 +204,26 @@
             </div>
         </div>
 
-        {{-- Upload Versi Baru (jika revisi/draft) --}}
-        @if($document->isDraft() || $document->isRevisi())
-        <div class="card">
+        {{-- Ganti berkas draft atau unggah perbaikan setelah revisi --}}
+        @can('update', $document)
+        <div class="card" id="unggah-perbaikan">
             <div class="card-header">
-                <span class="card-title">Unggah Perbaikan / Versi Baru</span>
+                <span class="card-title">Upload ulang dokumen</span>
             </div>
-            <form method="POST" action="{{ route('dokumen.upload-versi', $document) }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ route('dokumen.upload-versi', $document) }}" enctype="multipart/form-data" data-document-reupload>
                 @csrf
                 <div class="form-group">
-                    <label for="catatan_revisi" class="form-label">Catatan Perubahan (Versi {{ ($document->currentVersion?->versi ?? 0) + 1 }})</label>
+                    <label for="catatan_revisi" class="form-label">Catatan perubahan</label>
                     <input type="text" name="catatan" id="catatan_revisi" class="form-control" placeholder="mis: Memperbaiki tata bahasa pasal 3 sesuai arahan verifikator">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Pilih File Baru (.docx atau .doc)</label>
                     <input type="file" name="file_dokumen" class="form-control" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" required>
                 </div>
-                <button type="submit" class="btn btn-secondary btn-sm">Unggah Versi Baru</button>
+                <button type="submit" class="btn btn-secondary btn-sm">Unggah dokumen</button>
             </form>
         </div>
-        @endif
+        @endcan
 
         {{-- Riwayat Versi Dokumen --}}
         <div class="card">
@@ -337,109 +418,4 @@
 
 </div>
 
-{{-- Modal Ajukan Dokumen --}}
-<div class="modal-overlay" id="modal-ajukan" style="display:none">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title">Ajukan Dokumen ke Verifikator</div>
-            <button type="button" class="btn btn-secondary btn-icon" onclick="document.getElementById('modal-ajukan').style.display='none'">&times;</button>
-        </div>
-        <form method="POST" action="{{ route('dokumen.ajukan', $document) }}">
-            @csrf
-            <div class="modal-body">
-                @if(!$firstStepInfo['configured'])
-                    <div class="alert alert-error" style="margin:0">
-                        Jenis naskah ini belum bisa diajukan ke verifikator. Hubungi Admin untuk mengatur alurnya.
-                    </div>
-                @else
-                    @if(!empty($workflowChain['steps']))
-                        <div class="workflow-chain" style="margin-bottom: var(--space-4)">
-                            @foreach($workflowChain['steps'] as $i => $step)
-                                <div class="workflow-chain-step {{ $step['tipe'] === 'penandatangan' ? 'workflow-chain-step-sign' : '' }}">
-                                    <div class="workflow-chain-step-badge">{{ $step['tipe'] === 'penandatangan' ? '✓' : (preg_replace('/\D/', '', $step['label']) ?: ($i + 1)) }}</div>
-                                    <div class="workflow-chain-step-body">
-                                        <div class="workflow-chain-step-label">
-                                            <span>{{ $step['label'] }}</span>
-                                            @if($step['commonSub'])
-                                                <span class="workflow-chain-step-sub">&middot; {{ $step['commonSub'] }}</span>
-                                            @endif
-                                        </div>
-                                        @if($step['note'])
-                                            <div class="workflow-chain-step-note {{ !$step['manual'] && empty($step['people']) ? 'is-warning' : '' }}">{{ $step['note'] }}</div>
-                                        @endif
-                                        @if(!empty($step['people']))
-                                            <div class="workflow-chain-people">
-                                                @foreach($step['people'] as $person)
-                                                    <span class="workflow-chain-person">
-                                                        <span>{{ $person['name'] }}</span>
-                                                        @if($person['sub'])
-                                                            <span class="workflow-chain-person-sub">({{ $person['sub'] }})</span>
-                                                        @endif
-                                                    </span>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    @if($firstStepInfo['needsManual'])
-                        <div class="form-group" style="margin-bottom:0">
-                            <label for="verifikator_ids_modal" class="form-label">Pilih Verifikator</label>
-                            <select name="verifikator_ids[]" id="verifikator_ids_modal" class="form-control" multiple required data-tomselect data-placeholder="Cari & pilih verifikator...">
-                                @foreach($verifikators as $v)
-                                    <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }})</option>
-                                @endforeach
-                            </select>
-                            <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih siapa yang akan memeriksa dokumen ini terlebih dahulu.</small>
-                        </div>
-                    @else
-                        <input type="hidden" name="ajukan_langsung" value="1">
-                        <p style="font-size:0.875rem; color:var(--text-secondary); margin:0">
-                            Dokumen akan otomatis diproses sesuai alur yang berlaku untuk jenis naskah ini.
-                        </p>
-                    @endif
-                @endif
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-ajukan').style.display='none'">Batal</button>
-                @unless(!$firstStepInfo['configured'])
-                    <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
-                @endunless
-            </div>
-        </form>
-    </div>
-</div>
-
-{{-- Modal Upload Versi Perbaikan --}}
-<div class="modal-overlay" id="modal-upload-versi" style="display:none">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title">Unggah Berkas Naskah Perbaikan</div>
-            <button type="button" class="btn btn-secondary btn-icon" onclick="document.getElementById('modal-upload-versi').style.display='none'">&times;</button>
-        </div>
-        <form method="POST" action="{{ route('dokumen.upload-versi', $document) }}" enctype="multipart/form-data">
-            @csrf
-            <div class="modal-body">
-                <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:1rem">
-                    Unggah file perbaikan naskah dinas dalam format <code>.docx</code> atau <code>.doc</code> yang telah disunting.
-                </p>
-                <div class="form-group" style="margin-bottom:1rem">
-                    <label for="file_dokumen" class="form-label">Berkas Naskah Baru (.docx atau .doc)</label>
-                    <input type="file" name="file_dokumen" id="file_dokumen" class="form-control" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" required>
-                </div>
-                <div class="form-group">
-                    <label for="catatan_revisi" class="form-label">Catatan Perbaikan</label>
-                    <textarea name="catatan" id="catatan_revisi" class="form-control" rows="3" placeholder="Contoh: Perbaikan tata bahasa dan perbaikan tabel perihal..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-upload-versi').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-primary">Simpan Versi Baru</button>
-            </div>
-        </form>
-    </div>
-</div>
 @endsection

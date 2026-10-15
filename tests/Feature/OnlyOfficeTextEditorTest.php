@@ -46,7 +46,7 @@ class OnlyOfficeTextEditorTest extends TestCase
             ->assertDontSee('Edit Web (OnlyOffice)');
     }
 
-    public function test_signed_jwt_callback_saves_valid_docx_as_new_version(): void
+    public function test_signed_jwt_callback_replaces_unsubmitted_draft_file(): void
     {
         [, $document] = $this->fixture();
         $editedBytes = $this->validDocxBytes('Isi hasil penyuntingan');
@@ -65,9 +65,9 @@ class OnlyOfficeTextEditorTest extends TestCase
             'token' => $this->jwt(['status' => 2]),
         ])->assertOk()->assertExactJson(['error' => 0]);
 
-        $this->assertSame(2, $document->versions()->count());
+        $this->assertSame(1, $document->versions()->count());
         $latest = $document->currentVersion()->firstOrFail();
-        $this->assertSame(2, $latest->versi);
+        $this->assertSame(1, $latest->versi);
         $this->assertSame('Disunting melalui Text Editor', $latest->catatan);
         $this->assertTrue(Storage::disk('local')->exists($latest->file_path));
         $this->assertSame([], Storage::disk('local')->allFiles('temp'));
@@ -86,7 +86,7 @@ class OnlyOfficeTextEditorTest extends TestCase
         $this->assertSame(1, $document->versions()->count());
     }
 
-    public function test_force_saves_using_same_url_keep_distinct_content_without_duplicating_same_bytes(): void
+    public function test_force_saves_replace_draft_content_without_increasing_version(): void
     {
         [, $document] = $this->fixture();
         $firstBytes = $this->validDocxBytes('Perubahan pertama');
@@ -110,8 +110,9 @@ class OnlyOfficeTextEditorTest extends TestCase
         $this->postJson($callbackUrl, $payload)->assertOk()->assertJsonPath('error', 0);
         $this->postJson($callbackUrl, $payload)->assertOk()->assertJsonPath('error', 0);
 
-        $this->assertSame(3, $document->versions()->count());
-        $this->assertSame(3, $document->currentVersion()->firstOrFail()->versi);
+        $this->assertSame(1, $document->versions()->count());
+        $this->assertSame(1, $document->currentVersion()->firstOrFail()->versi);
+        $this->assertSame($secondBytes, Storage::disk('local')->get($document->currentVersion()->firstOrFail()->file_path));
     }
 
     public function test_callback_cannot_save_after_document_is_locked(): void

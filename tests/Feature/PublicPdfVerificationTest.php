@@ -29,6 +29,7 @@ class PublicPdfVerificationTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        app()->instance(\App\Services\DocumentPdfService::class, new \Tests\Support\FakeDocumentPdfService);
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'penandatangan', 'guard_name' => 'web']);
     }

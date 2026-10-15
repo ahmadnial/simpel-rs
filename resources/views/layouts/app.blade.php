@@ -7,8 +7,6 @@
     <title>@yield('title', 'Dashboard') — SIMPEL-RS</title>
     <meta name="description" content="Sistem Informasi Manajemen Persuratan Elektronik Rumah Sakit">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @livewireStyles
     @stack('styles')

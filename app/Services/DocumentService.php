@@ -54,9 +54,11 @@ class DocumentService
     public function uploadDraft(array $data, ?UploadedFile $file = null): Document
     {
         $documentId = null;
+        // DOC conversion may take seconds: finish it before opening a database transaction.
+        $normalized = $file ? $this->wordDocumentNormalizer->normalize($file) : null;
 
         try {
-            return DB::transaction(function () use ($data, $file, &$documentId) {
+            return DB::transaction(function () use ($data, $file, $normalized, &$documentId) {
                 $user = auth()->user();
 
                 $isRahasia = $data['is_rahasia'] ?? false;
@@ -80,7 +82,7 @@ class DocumentService
                 $documentId = $document->id;
 
                 if ($file) {
-                    $this->simpanVersi($document, $file, $data['catatan'] ?? 'Upload awal');
+                    $this->storeNormalizedVersion($document, $file, $normalized, $data['catatan'] ?? 'Upload awal');
                 }
 
                 AuditLog::catat('upload_draft', "Dokumen baru dibuat: {$document->judul}", $document);
@@ -92,56 +94,89 @@ class DocumentService
                 Storage::disk('local')->deleteDirectory("documents/{$documentId}");
             }
             throw $exception;
+        } finally {
+            $this->wordDocumentNormalizer->cleanup($normalized['cleanup_dir'] ?? null);
         }
     }
 
     /**
-     * Simpan versi baru dokumen.
+     * Ganti berkas yang belum diajukan; buat versi baru untuk revisi versi yang sudah diperiksa.
      */
     public function simpanVersi(Document $document, UploadedFile $file, ?string $catatan = null, ?int $uploadedById = null): DocumentVersion
     {
         $normalized = $this->wordDocumentNormalizer->normalize($file);
-        $storageFile = $normalized['file'];
-        $storedName = $normalized['stored_name'];
-
         try {
-            $version = DB::transaction(function () use ($document, $storageFile, $storedName, $catatan, $uploadedById) {
-                $lockedDocument = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
-                abort_unless(
-                    in_array($lockedDocument->status, [Document::STATUS_DRAFT, Document::STATUS_REVISI], true),
-                    409,
-                    'Dokumen tidak lagi dapat disunting karena statusnya telah berubah.'
-                );
-                $versiTerbaru = (int) ($document->versions()->lockForUpdate()->max('versi') ?? 0) + 1;
-                $path = $storageFile->store("documents/{$document->id}", 'local');
-
-                try {
-                    $document->versions()->update(['is_current' => false]);
-
-                    return DocumentVersion::create([
-                        'document_id' => $document->id,
-                        'versi' => $versiTerbaru,
-                        'file_path' => $path,
-                        'file_name' => $storedName,
-                        'file_size' => $storageFile->getSize(),
-                        'uploaded_by' => $uploadedById ?? auth()->id() ?? $document->pengusul_id,
-                        'catatan' => $catatan,
-                        'is_current' => true,
-                    ]);
-                } catch (Throwable $e) {
-                    Storage::disk('local')->delete($path);
-                    throw $e;
-                }
-            });
+            return $this->storeNormalizedVersion($document, $file, $normalized, $catatan, $uploadedById);
         } finally {
             $this->wordDocumentNormalizer->cleanup($normalized['cleanup_dir']);
         }
+    }
 
-        // Nilai versi dihitung di dalam transaksi; gunakan hasil transaksi di sini
-        // agar tidak mengakses variabel lokal yang berada di luar scope closure.
-        AuditLog::catat('upload_versi', "Versi {$version->versi} diunggah untuk dokumen: {$document->judul}", $document);
+    private function storeNormalizedVersion(Document $document, UploadedFile $file, array $normalized, ?string $catatan = null, ?int $uploadedById = null): DocumentVersion
+    {
+        $storageFile = $normalized['file'];
+        $storedName = $normalized['stored_name'];
 
-        return $version;
+        return DB::transaction(function () use ($document, $file, $storageFile, $storedName, $catatan, $uploadedById) {
+            $lockedDocument = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                in_array($lockedDocument->status, [Document::STATUS_DRAFT, Document::STATUS_REVISI], true),
+                409,
+                'Dokumen tidak lagi dapat disunting karena statusnya telah berubah.'
+            );
+            $current = $lockedDocument->currentVersion()->lockForUpdate()->first();
+            // Reviewed versions are immutable. Repeated edits within the same draft/revision
+            // replace its unpublished version, rather than creating upload-by-upload history.
+            $replaceCurrent = $current
+                && ! $current->file_pdf_path
+                && ! $current->verifications()->exists()
+                && ($lockedDocument->isRevisi() || $lockedDocument->diajukan_at === null);
+            $versiTerbaru = $replaceCurrent
+                ? $current->versi
+                : (int) ($lockedDocument->versions()->max('versi') ?? 0) + 1;
+            $path = $storageFile->storeAs("documents/{$document->id}", Str::random(40).'.docx', 'local');
+            abort_unless($path, 503, 'Berkas belum dapat disimpan. Coba lagi atau hubungi administrator.');
+
+            try {
+                // Preserve the uploaded DOC alongside its normalized DOCX for traceability.
+                if (strtolower($file->getClientOriginalExtension()) === 'doc') {
+                    abort_unless(Storage::disk('local')->put($path.'.original.doc', file_get_contents($file->getRealPath())), 503, 'Berkas asli belum dapat disimpan. Coba lagi.');
+                }
+                $attributes = [
+                    'document_id' => $document->id,
+                    'versi' => $versiTerbaru,
+                    'file_path' => $path,
+                    'file_name' => $storedName,
+                    'file_size' => $storageFile->getSize(),
+                    'uploaded_by' => $uploadedById ?? auth()->id() ?? $document->pengusul_id,
+                    'catatan' => $catatan,
+                    'is_current' => true,
+                ];
+                if ($replaceCurrent) {
+                    $previousPath = $current->file_path;
+                    $current->update($attributes);
+                    $version = $current;
+                    // Keep the previous source until the database commits successfully.
+                    DB::afterCommit(function () use ($previousPath) {
+                        try {
+                            Storage::disk('local')->delete([$previousPath, $previousPath.'.original.doc']);
+                        } catch (Throwable $exception) {
+                            report($exception);
+                        }
+                    });
+                    AuditLog::catat('ganti_berkas_draft', "Berkas versi {$version->versi} yang belum diajukan diganti: {$document->judul}", $document);
+                } else {
+                    $lockedDocument->versions()->update(['is_current' => false]);
+                    $version = DocumentVersion::create($attributes);
+                    AuditLog::catat('upload_versi', "Versi {$version->versi} diunggah untuk dokumen: {$document->judul}", $document);
+                }
+
+                return $version;
+            } catch (Throwable $e) {
+                Storage::disk('local')->delete([$path, $path.'.original.doc']);
+                throw $e;
+            }
+        });
     }
 
     /**

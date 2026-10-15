@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Exceptions\DocumentConversionException;
 use App\Services\WordDocumentNormalizer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ class WordDocumentNormalizerTest extends TestCase
                 return true;
             }
         };
-        $upload = UploadedFile::fake()->createWithContent('surat-ms-word.doc', 'legacy-word-content');
+        $upload = UploadedFile::fake()->createWithContent('surat-ms-word.doc', hex2bin('d0cf11e0a1b11ae1').'legacy-word-content');
 
         $result = $normalizer->normalize($upload);
 
@@ -74,6 +75,34 @@ class WordDocumentNormalizerTest extends TestCase
 
         $this->expectException(ValidationException::class);
 
+        (new WordDocumentNormalizer)->normalize($upload);
+    }
+
+    public function test_uppercase_extension_and_generic_mime_are_accepted_for_valid_docx(): void
+    {
+        $upload = $this->validDocxUpload('NASKAH.DOCX');
+        try {
+            $result = (new WordDocumentNormalizer)->normalize($upload);
+            $this->assertSame($upload, $result['file']);
+        } finally {
+            @unlink($upload->getRealPath());
+        }
+    }
+
+    public function test_unavailable_converter_is_not_reported_as_corrupt_doc(): void
+    {
+        config(['documents.libreoffice_path' => '/missing/soffice']);
+        $upload = UploadedFile::fake()->createWithContent('surat.doc', hex2bin('d0cf11e0a1b11ae1').'content');
+        $this->expectException(DocumentConversionException::class);
+        $this->expectExceptionMessage('LibreOffice belum tersedia');
+        (new WordDocumentNormalizer)->normalize($upload);
+    }
+
+    public function test_renaming_a_pdf_to_doc_does_not_bypass_content_validation(): void
+    {
+        $upload = UploadedFile::fake()->createWithContent('surat.doc', '%PDF-1.4');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('bukan format Word DOC biner');
         (new WordDocumentNormalizer)->normalize($upload);
     }
 

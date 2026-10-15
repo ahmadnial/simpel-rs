@@ -20,7 +20,7 @@
             <span class="badge badge-indigo">Versi v{{ $version->versi }}</span>
         </div>
         <h1 class="page-title">{{ $document->judul }}</h1>
-        <p class="page-subtitle">Sunting naskah Word langsung dan simpan sebagai versi baru</p>
+        <p class="page-subtitle">Sunting naskah Word langsung dan simpan perubahan</p>
     </div>
     <div style="display:flex; gap:10px">
         <a href="{{ route('dokumen.show', $document) }}" class="btn btn-secondary">
@@ -38,7 +38,7 @@
             <strong>Layanan Text Editor</strong>
         </div>
         <div style="color:var(--text-muted); font-size:0.78rem">
-            Perubahan dokumen disimpan otomatis sebagai versi baru di SIMPEL-RS.
+            Perubahan dokumen disimpan otomatis di SIMPEL-RS. Versi baru dibuat untuk perbaikan setelah dokumen dikembalikan oleh verifikator.
         </div>
     </div>
 

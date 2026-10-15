@@ -2,21 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\DocumentConversionException;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\User;
 use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
 use App\Services\DocxParserService;
-use Barryvdh\DomPDF\Facade\Pdf;
-use chillerlan\QRCode\Output\QRGdImagePNG;
-use chillerlan\QRCode\QRCode;
-use chillerlan\QRCode\QROptions;
+use App\Services\DocxTemplateProcessor;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -88,7 +86,7 @@ class DocumentController extends Controller
             'document_type_id' => 'required|exists:document_types,id',
             'perihal' => 'nullable|string|max:255',
             'keterangan' => 'nullable|string',
-            'file_dokumen' => 'required|file|mimes:doc,docx|extensions:doc,docx|max:10240',
+            'file_dokumen' => 'required|file|max:10240',
             'submit_mode' => 'nullable|in:ajukan,internal',
             'verifikator_ids' => 'nullable|array',
             'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
@@ -96,7 +94,7 @@ class DocumentController extends Controller
             // tidak ada picker manual untuk dipilih, cukup konfirmasi mau langsung diajukan.
             'ajukan_langsung' => 'nullable|boolean',
             'is_rahasia' => 'nullable|boolean',
-        ]);
+        ], $this->uploadMessages());
 
         $verifikatorIds = $validated['verifikator_ids'] ?? [];
         $wantsAjukan = ($validated['submit_mode'] ?? 'ajukan') === 'ajukan';
@@ -106,33 +104,29 @@ class DocumentController extends Controller
             ]);
         }
 
-        $document = null;
         try {
-            DB::transaction(function () use ($validated, $request, $verifikatorIds, $wantsAjukan, &$document) {
-                $document = $this->documentService->uploadDraft([
-                    'judul' => $validated['judul'],
-                    'document_type_id' => $validated['document_type_id'],
-                    'unit_id' => auth()->user()->unit_id,
-                    'perihal' => $validated['perihal'] ?? null,
-                    'keterangan' => $validated['keterangan'] ?? null,
-                    'is_rahasia' => $request->boolean('is_rahasia'),
-                ], $request->file('file_dokumen'));
-
-                if ($wantsAjukan) {
-                    $this->documentService->ajukanDokumen($document, $verifikatorIds);
-                }
-
-                return $document;
-            });
-        } catch (\Throwable $e) {
-            if ($document?->id) {
-                Storage::disk('local')->deleteDirectory("documents/{$document->id}");
+            $document = $this->documentService->uploadDraft([
+                'judul' => $validated['judul'],
+                'document_type_id' => $validated['document_type_id'],
+                'unit_id' => auth()->user()->unit_id,
+                'perihal' => $validated['perihal'] ?? null,
+                'keterangan' => $validated['keterangan'] ?? null,
+                'is_rahasia' => $request->boolean('is_rahasia'),
+            ], $request->file('file_dokumen'));
+        } catch (DocumentConversionException $exception) {
+            if ($request->expectsJson()) {
+                throw $exception;
             }
-            throw $e;
+
+            return back()->withInput()->withErrors(['file_dokumen' => $exception->getMessage()]);
         }
 
+        $request->session()->put('document_submission.'.$document->id, [
+            'verifikator_ids' => $verifikatorIds,
+            'submit_mode' => $wantsAjukan ? 'ajukan' : 'internal',
+        ]);
         if ($wantsAjukan) {
-            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen berhasil dibuat dan diajukan ke verifikasi.');
+            return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen tersimpan sebagai draft. Periksa pratinjau, lalu ajukan jika sudah sesuai.');
         }
 
         return redirect()->route('dokumen.show', $document)->with('success', 'Dokumen tersimpan sebagai Arsip Internal Unit.');
@@ -211,7 +205,7 @@ class DocumentController extends Controller
             @unlink($tempFile);
         }
 
-        return redirect()->route('dokumen.show', $document)->with('success', 'Perubahan naskah dinas berhasil disimpan sebagai versi baru.');
+        return redirect()->route('dokumen.show', $document)->with('success', 'Perubahan naskah dinas berhasil disimpan. Periksa pratinjau sebelum mengajukan.');
     }
 
     /**
@@ -462,138 +456,48 @@ class DocumentController extends Controller
         ]);
     }
 
-    public function previewPdf(Document $document, $versionId = null)
+    public function previewPdf(Request $request, Document $document, $versionId = null)
     {
-        abort_unless($document->isAccessibleBy(auth()->user()), 403, 'Anda tidak memiliki hak akses untuk melihat naskah dinas ini.');
-
-        $version = $versionId ? $document->versions()->find($versionId) : $document->currentVersion;
-        if (! $version) {
-            $version = $document->versions()->first();
-        }
-        if (! $version) {
-            abort(404, 'File versi tidak ditemukan.');
-        }
-
-        $path = $this->documentService->ensureDocxFileExists($document, $version);
-        $processedDocxPath = (new DocxParserService)->processDocxTemplate($path, $document);
-        $pdfPath = $document->signature && $version->id === $document->signature->document_version_id && $document->signature->file_signed_path
-            ? Storage::disk('local')->path($document->signature->file_signed_path)
-            : $this->pdfService->render($processedDocxPath, $document, $version);
-
-        return response()->file($pdfPath, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.pathinfo($version->file_name, PATHINFO_FILENAME).'.pdf"',
-            'Access-Control-Allow-Origin' => '*',
-        ]);
-    }
-
-    private function convertDocxToPdf(string $docxPath, Document $document, $version): string
-    {
-        $cacheDir = storage_path('app/private/pdf_cache');
-        if (! file_exists($cacheDir)) {
-            @mkdir($cacheDir, 0755, true);
-        }
-
-        $hash = md5_file($docxPath).'_'.($document->updated_at ? $document->updated_at->timestamp : 0).'_'.($document->signature ? $document->signature->id : 0);
-        $pdfFilename = 'pdf_'.$document->id.'_'.$version->id.'_'.$hash.'.pdf';
-        $pdfPath = $cacheDir.'/'.$pdfFilename;
-
-        if (file_exists($pdfPath) && filesize($pdfPath) > 0) {
-            return $pdfPath;
-        }
-
-        // Cek 1: Jika Gotenberg Docker API service tersedia di server (0.2s ultra fast server-side)
-        try {
-            $gotenbergUrl = env('GOTENBERG_URL', 'http://localhost:3000');
-            $response = Http::timeout(10)
-                ->attach('files', file_get_contents($docxPath), basename($docxPath))
-                ->post($gotenbergUrl.'/forms/libreoffice/convert');
-
-            if ($response->successful() && strlen($response->body()) > 500) {
-                file_put_contents($pdfPath, $response->body());
-
-                return $pdfPath;
+        abort_unless($document->isAccessibleBy($request->user()), 403);
+        $version = $versionId ? $document->versions()->findOrFail($versionId) : $document->currentVersion;
+        abort_unless($version, 404, 'File versi tidak ditemukan.');
+        $headers = ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store'];
+        $official = $document->signature;
+        if ($official && $official->document_version_id === $version->id && $official->file_signed_path) {
+            // An official PDF must not depend on a source file or converter still being available.
+            $pdfPath = Storage::disk('local')->path($official->file_signed_path);
+        } elseif ($version->file_pdf_path && ! $document->isDraft() && ! $document->isRevisi()) {
+            $pdfPath = Storage::disk('local')->path($version->file_pdf_path);
+        } else {
+            $source = $this->documentService->ensureDocxFileExists($document, $version);
+            $processor = app(DocxTemplateProcessor::class);
+            $inspection = $processor->inspect($source);
+            $processed = $processor->process($source, $document, $request->boolean('markers', true));
+            $pdfPath = $this->pdfService->render($processed, $document, $version);
+            $warnings = [];
+            if (! $inspection['has_qr']) {
+                $warnings[] = 'Variabel QR belum ditemukan; posisi QR pengesahan belum dapat diperiksa.';
             }
-        } catch (\Throwable $e) {
-        }
-
-        // Cek 2: Jika soffice (LibreOffice CLI) tersedia di server
-        $sofficeBin = env('LIBREOFFICE_PATH');
-        if (! $sofficeBin || ! file_exists($sofficeBin)) {
-            if (file_exists('/Applications/LibreOffice.app/Contents/MacOS/soffice')) {
-                $sofficeBin = '/Applications/LibreOffice.app/Contents/MacOS/soffice';
-            } elseif (file_exists('/usr/bin/soffice')) {
-                $sofficeBin = '/usr/bin/soffice';
-            } elseif (file_exists('/usr/bin/libreoffice')) {
-                $sofficeBin = '/usr/bin/libreoffice';
-            } else {
-                $which = trim(exec('which soffice 2>/dev/null'));
-                if ($which && file_exists($which)) {
-                    $sofficeBin = $which;
-                }
+            if ($inspection['unknown']) {
+                $warnings[] = 'Variabel tidak dikenal: '.implode(', ', $inspection['unknown']).'. Perbaiki sebelum mengajukan.';
+            }
+            $headers['X-Preview-Warnings'] = rawurlencode(implode(' ', $warnings));
+            if (! $inspection['unknown'] && $request->user()->can('update', $document)) {
+                $headers['X-Document-Review'] = Crypt::encryptString(json_encode([
+                    'user_id' => $request->user()->id,
+                    'document_id' => $document->id,
+                    'version_id' => $version->id,
+                    'source_hash' => hash_file('sha256', $source),
+                    'source_path' => $version->file_path,
+                    'pdf_hash' => hash_file('sha256', $pdfPath),
+                    'pdf_path' => $pdfPath,
+                    'expires_at' => now()->addDay()->timestamp,
+                ], JSON_THROW_ON_ERROR));
             }
         }
+        abort_unless(is_file($pdfPath), 404, 'PDF tidak ditemukan. Hubungi administrator.');
 
-        if ($sofficeBin) {
-            $tempDir = storage_path('app/private/temp_pdf_'.uniqid());
-            $profileDir = storage_path('app/private/soffice_prof_'.uniqid());
-            @mkdir($tempDir, 0777, true);
-            @mkdir($profileDir, 0777, true);
-
-            $cmd = escapeshellcmd($sofficeBin).' "-env:UserInstallation=file://'.$profileDir.'" --headless --convert-to pdf --outdir '.escapeshellarg($tempDir).' '.escapeshellarg($docxPath).' 2>&1';
-            exec($cmd);
-
-            $generatedPdf = $tempDir.'/'.pathinfo($docxPath, PATHINFO_FILENAME).'.pdf';
-            if (file_exists($generatedPdf) && filesize($generatedPdf) > 0) {
-                @copy($generatedPdf, $pdfPath);
-                @unlink($generatedPdf);
-                @rmdir($tempDir);
-                @rmdir($profileDir);
-
-                return $pdfPath;
-            }
-            @rmdir($tempDir);
-            @rmdir($profileDir);
-        }
-
-        // Fallback: Menggunakan DomPDF via DocxParserService
-        $parser = new DocxParserService;
-        $bodyHtml = $parser->parseToHtml($docxPath, $document);
-
-        $signature = $document->signature;
-        $penandatanganUser = $signature?->penandatangan
-            ?? User::role('penandatangan')->first()
-            ?? User::whereHas('roles', fn ($q) => $q->where('name', 'like', '%direktur%'))->first()
-            ?? $document->pengusul;
-
-        $qrCodeBase64 = null;
-        if ($signature) {
-            $verifyUrl = route('public.verify', $signature->qr_token);
-            try {
-                $options = new QROptions([
-                    'outputInterface' => QRGdImagePNG::class,
-                    'scale' => 5,
-                    'addQuietzone' => false,
-                ]);
-                $qrCodeBase64 = (new QRCode($options))->render($verifyUrl);
-            } catch (\Throwable $e) {
-            }
-        }
-
-        $pdf = Pdf::loadView('pdf.naskah', [
-            'document' => $document,
-            'version' => $version,
-            'bodyHtml' => $bodyHtml,
-            'signature' => $signature,
-            'penandatanganUser' => $penandatanganUser,
-            'qrCodeBase64' => $qrCodeBase64,
-        ])->setPaper('A4', 'portrait')
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('isHtml5ParserEnabled', true);
-
-        $pdf->save($pdfPath);
-
-        return $pdfPath;
+        return response()->file($pdfPath, $headers);
     }
 
     public function uploadVersi(Request $request, Document $document)
@@ -601,17 +505,21 @@ class DocumentController extends Controller
         Gate::authorize('update', $document);
 
         $request->validate([
-            'file_dokumen' => 'required|file|mimes:doc,docx|extensions:doc,docx|max:10240',
+            'file_dokumen' => 'required|file|max:10240',
             'catatan' => 'nullable|string|max:500',
-        ]);
+        ], $this->uploadMessages());
 
-        $this->documentService->simpanVersi(
-            $document,
-            $request->file('file_dokumen'),
-            $request->catatan
-        );
+        try {
+            $this->documentService->simpanVersi($document, $request->file('file_dokumen'), $request->catatan);
+        } catch (DocumentConversionException $exception) {
+            if ($request->expectsJson()) {
+                throw $exception;
+            }
 
-        return back()->with('success', 'Versi baru dokumen berhasil diunggah.');
+            return back()->withInput()->withErrors(['file_dokumen' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('dokumen.show', $document)->with('success', 'Berkas tersimpan. Periksa pratinjau terbaru sebelum mengajukan.');
     }
 
     public function ajukan(Request $request, Document $document)
@@ -622,7 +530,8 @@ class DocumentController extends Controller
             'verifikator_ids' => 'nullable|array',
             'verifikator_ids.*' => ['exists:users,id', $this->verifikatorRule()],
             'ajukan_langsung' => 'nullable|boolean',
-        ]);
+            'review_token' => 'required|string',
+        ], ['review_token.required' => 'Muat dan periksa pratinjau versi terbaru sebelum mengajukan.']);
 
         $verifikatorIds = $validated['verifikator_ids'] ?? [];
         abort_unless(
@@ -631,7 +540,33 @@ class DocumentController extends Controller
             'Pilih minimal 1 Asesor Internal, atau konfirmasi pengajuan langsung.'
         );
 
-        $this->documentService->ajukanDokumen($document, $verifikatorIds);
+        try {
+            $review = json_decode(Crypt::decryptString($validated['review_token']), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['review_token' => 'Pratinjau tidak valid. Muat ulang pratinjau sebelum mengajukan.']);
+        }
+        DB::transaction(function () use ($document, $request, $review, $verifikatorIds) {
+            $locked = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            $version = $locked->currentVersion;
+            $source = $version ? Storage::disk('local')->path($version->file_path) : null;
+            $valid = ($review['user_id'] ?? null) === $request->user()->id
+                && ($review['document_id'] ?? null) === $locked->id
+                && ($review['version_id'] ?? null) === $version?->id
+                && ($review['source_path'] ?? null) === $version?->file_path
+                && ($review['expires_at'] ?? 0) > now()->timestamp
+                && $source && is_file($source)
+                && hash_equals($review['source_hash'] ?? '', hash_file('sha256', $source))
+                && is_file($review['pdf_path'] ?? '')
+                && hash_equals($review['pdf_hash'] ?? '', hash_file('sha256', $review['pdf_path']));
+            if (! $valid) {
+                throw ValidationException::withMessages(['review_token' => 'Versi dokumen berubah atau pratinjau kedaluwarsa. Muat dan periksa pratinjau terbaru.']);
+            }
+            $snapshot = "documents/{$locked->id}/reviewed/{$version->id}.pdf";
+            abort_unless(Storage::disk('local')->put($snapshot, file_get_contents($review['pdf_path'])), 503, 'PDF yang diperiksa belum dapat disimpan. Coba lagi.');
+            $version->update(['file_pdf_path' => $snapshot]);
+            $this->documentService->ajukanDokumen($locked, $verifikatorIds);
+        });
+        $request->session()->forget('document_submission.'.$document->id);
 
         return back()->with('success', 'Dokumen berhasil diajukan ke verifikator.');
     }
@@ -680,16 +615,15 @@ class DocumentController extends Controller
             abort(403, 'Versi historis bukan naskah resmi yang disahkan. Unduh versi pengesahan yang tercatat.');
         }
 
-        $path = $this->documentService->ensureDocxFileExists($document, $version);
-
-        // Process DOCX template variables & Barcode QR Code TTE inside native XML
-        $parser = new DocxParserService;
-        $processedDocxPath = $parser->processDocxTemplate($path, $document);
-
-        // Convert processed DOCX to PDF using LibreOffice Headless (100% presisi)
-        $pdfPath = $document->signature && $version->id === $document->signature->document_version_id && $document->signature->file_signed_path
-            ? Storage::disk('local')->path($document->signature->file_signed_path)
-            : $this->pdfService->render($processedDocxPath, $document, $version);
+        if ($document->signature?->file_signed_path) {
+            $pdfPath = Storage::disk('local')->path($document->signature->file_signed_path);
+        } elseif ($version->file_pdf_path && ! $document->isDraft() && ! $document->isRevisi()) {
+            $pdfPath = Storage::disk('local')->path($version->file_pdf_path);
+        } else {
+            $path = $this->documentService->ensureDocxFileExists($document, $version);
+            $processed = app(DocxTemplateProcessor::class)->process($path, $document);
+            $pdfPath = $this->pdfService->render($processed, $document, $version);
+        }
 
         $suffix = $document->signature ? '_TTE' : '_DRAFT';
         $safeFilename = Str::slug($document->nomor_surat ?? $document->judul).$suffix.'.pdf';
@@ -697,5 +631,15 @@ class DocumentController extends Controller
         return response()->download($pdfPath, $safeFilename, [
             'Content-Type' => 'application/pdf',
         ]);
+    }
+
+    private function uploadMessages(): array
+    {
+        return [
+            'file_dokumen.required' => 'Pilih berkas Word .doc atau .docx terlebih dahulu.',
+            'file_dokumen.file' => 'Unggahan tidak dapat dibaca. Pilih ulang berkas dan coba lagi.',
+            'file_dokumen.uploaded' => 'Server gagal menerima unggahan. Jika ukuran masih di bawah 10 MB, hubungi administrator untuk memeriksa batas unggahan server.',
+            'file_dokumen.max' => 'Ukuran berkas melebihi batas 10 MB. Kurangi ukuran gambar atau isi berkas sebelum mengunggah kembali.',
+        ];
     }
 }

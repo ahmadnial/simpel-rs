@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\DocumentConversionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\Process\Process;
@@ -21,6 +22,19 @@ class WordDocumentNormalizer
         if (! in_array($extension, ['doc', 'docx'], true)) {
             throw ValidationException::withMessages([
                 'file_dokumen' => 'Berkas harus berupa dokumen Microsoft Word berformat .doc atau .docx.',
+            ]);
+        }
+
+        $header = file_get_contents($file->getRealPath(), false, null, 0, 8);
+        $isCompound = $header === hex2bin('d0cf11e0a1b11ae1');
+        if ($extension === 'docx' && $isCompound) {
+            throw ValidationException::withMessages([
+                'file_dokumen' => 'Berkas DOCX terenkripsi atau berisi format DOC lama. Buka di Word, hapus password jika ada, lalu simpan sebagai DOCX.',
+            ]);
+        }
+        if ($extension === 'doc' && ! $isCompound) {
+            throw ValidationException::withMessages([
+                'file_dokumen' => 'Ekstensi berkas .doc, tetapi isinya bukan format Word DOC biner. Simpan ulang melalui Word sebagai .doc atau .docx; jangan hanya mengganti nama ekstensi.',
             ]);
         }
 
@@ -50,18 +64,20 @@ class WordDocumentNormalizer
 
         try {
             $converted = $this->convertDocToDocx($sourcePath, $outputDir, $profileDir);
-        } catch (\Throwable) {
+        } catch (DocumentConversionException $exception) {
             $this->removeDirectory($tempDir);
-            throw ValidationException::withMessages([
-                'file_dokumen' => 'Konversi berkas .doc gagal. Pastikan dokumen tidak rusak atau terlindungi kata sandi.',
-            ]);
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $this->removeDirectory($tempDir);
+            report($exception);
+            throw new DocumentConversionException('Layanan konversi DOC belum berhasil menyelesaikan proses. Coba lagi atau hubungi administrator.', $exception);
         }
 
         $convertedPath = $outputDir.'/source.docx';
         if (! $converted || ! is_file($convertedPath) || filesize($convertedPath) === 0) {
             $this->removeDirectory($tempDir);
             throw ValidationException::withMessages([
-                'file_dokumen' => 'Berkas .doc tidak dapat dikonversi. Pastikan dokumen valid, tidak rusak, dan tidak terlindungi kata sandi.',
+                'file_dokumen' => 'Berkas DOC belum dapat dikonversi. Penyebab belum dapat dipastikan. Coba buka dan simpan ulang di Word; hapus password jika ada.',
             ]);
         }
 
@@ -70,7 +86,7 @@ class WordDocumentNormalizer
         } catch (ValidationException $exception) {
             $this->removeDirectory($tempDir);
             throw ValidationException::withMessages([
-                'file_dokumen' => 'Hasil konversi berkas .doc tidak valid. Pastikan dokumen tidak rusak atau terlindungi kata sandi.',
+                'file_dokumen' => 'Hasil konversi DOC belum dapat diproses: '.implode(' ', $exception->errors()['file_dokumen'] ?? []),
             ]);
         }
 
@@ -102,13 +118,15 @@ class WordDocumentNormalizer
         $opened = $zip->open($path, ZipArchive::CHECKCONS);
         if ($opened !== true) {
             throw ValidationException::withMessages([
-                'file_dokumen' => 'Berkas DOCX tidak valid, rusak, atau terlindungi kata sandi.',
+                'file_dokumen' => 'Isi berkas tidak dapat dibaca sebagai paket DOCX. Buka dan simpan ulang sebagai DOCX melalui Word atau Google Docs.',
             ]);
         }
 
         try {
-            if ($zip->numFiles > 5000
-                || $zip->locateName('[Content_Types].xml') === false
+            if ($zip->numFiles > 5000) {
+                throw ValidationException::withMessages(['file_dokumen' => 'Dokumen memuat lebih dari 5.000 bagian internal. Sederhanakan dokumen sebelum mengunggah.']);
+            }
+            if ($zip->locateName('[Content_Types].xml') === false
                 || $zip->locateName('word/document.xml') === false) {
                 throw ValidationException::withMessages([
                     'file_dokumen' => 'Struktur berkas DOCX tidak valid atau tidak lengkap.',
@@ -124,21 +142,29 @@ class WordDocumentNormalizer
 
                 if ($name === ''
                     || str_starts_with($name, '/')
-                    || preg_match('#(^|/)\.\.(/|$)#', $name)
-                    || $size > 25 * 1024 * 1024
-                    || $totalUncompressed > 100 * 1024 * 1024) {
+                    || preg_match('#(^|/)\.\.(/|$)#', $name)) {
                     throw ValidationException::withMessages([
-                        'file_dokumen' => 'Isi berkas DOCX tidak aman atau terlalu besar untuk diproses.',
+                        'file_dokumen' => 'Struktur jalur internal DOCX tidak valid. Buka dan simpan ulang berkas melalui Word.',
                     ]);
                 }
 
-                $lowerName = strtolower($name);
-                if ($lowerName === 'encryptedpackage'
-                    || $lowerName === 'word/vbaproject.bin'
-                    || str_starts_with($lowerName, 'word/embeddings/')) {
+                if ($size > 25 * 1024 * 1024 || $totalUncompressed > 100 * 1024 * 1024) {
                     throw ValidationException::withMessages([
-                        'file_dokumen' => 'DOCX terenkripsi, bermakro, atau memiliki objek tertanam tidak dapat diproses.',
+                        'file_dokumen' => 'Isi DOCX setelah dibuka melebihi batas pemrosesan (25 MB per bagian atau 100 MB total). Kurangi ukuran gambar atau objek dalam dokumen.',
                     ]);
+                }
+                if (($stat['encryption_method'] ?? 0) !== 0) {
+                    throw ValidationException::withMessages(['file_dokumen' => 'Paket DOCX menggunakan enkripsi. Hapus password sebelum mengunggah.']);
+                }
+                $lowerName = strtolower($name);
+                $unsupported = match (true) {
+                    $lowerName === 'encryptedpackage' => 'Dokumen menggunakan enkripsi. Hapus password sebelum mengunggah.',
+                    $lowerName === 'word/vbaproject.bin' => 'Dokumen memuat macro. Simpan sebagai DOCX tanpa macro sebelum mengunggah.',
+                    str_starts_with($lowerName, 'word/embeddings/') => 'Dokumen memuat objek tertanam, misalnya file Excel. Ubah objek menjadi tabel atau gambar sebelum mengunggah.',
+                    default => null,
+                };
+                if ($unsupported !== null) {
+                    throw ValidationException::withMessages(['file_dokumen' => $unsupported]);
                 }
             }
 
@@ -157,7 +183,8 @@ class WordDocumentNormalizer
                 libxml_clear_errors();
                 libxml_use_internal_errors($previous);
             }
-            if (! $validXml || $dom->documentElement?->localName !== 'document') {
+            if (! $validXml || $dom->doctype !== null || $dom->documentElement?->localName !== 'document'
+                || ! in_array($dom->documentElement?->namespaceURI, ['http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'http://purl.oclc.org/ooxml/wordprocessingml/main'], true)) {
                 throw ValidationException::withMessages([
                     'file_dokumen' => 'Isi utama berkas DOCX tidak valid.',
                 ]);
@@ -169,10 +196,7 @@ class WordDocumentNormalizer
 
     protected function convertDocToDocx(string $sourcePath, string $outputDir, string $profileDir): bool
     {
-        $binary = $this->libreOfficeBinary();
-        if ($binary === null) {
-            throw new \RuntimeException('LibreOffice tidak tersedia.');
-        }
+        $binary = app(DocumentPdfService::class)->libreOfficeBinary();
 
         $process = new Process([
             $binary,
@@ -184,26 +208,10 @@ class WordDocumentNormalizer
             $outputDir,
             $sourcePath,
         ]);
-        $process->setTimeout(60);
+        $process->setTimeout((int) config('documents.conversion_timeout'));
         $process->run();
 
         return $process->isSuccessful();
-    }
-
-    private function libreOfficeBinary(): ?string
-    {
-        foreach (array_filter([
-            env('LIBREOFFICE_PATH'),
-            '/Applications/LibreOffice.app/Contents/MacOS/soffice',
-            '/usr/bin/soffice',
-            '/usr/bin/libreoffice',
-        ]) as $candidate) {
-            if (is_file($candidate) && is_executable($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
     }
 
     private function removeDirectory(string $directory): void

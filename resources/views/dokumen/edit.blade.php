@@ -12,6 +12,9 @@
 @endsection
 
 @section('content')
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
+
 
 <div class="page-header" style="display:flex; align-items:center; justify-content:space-between">
     <div>
@@ -24,7 +27,7 @@
         <a href="{{ route('dokumen.show', $document) }}" class="btn btn-secondary">Batal</a>
         <button type="button" class="btn btn-primary" id="btn-simpan" onclick="simpanEditorContent()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Simpan & Buat Versi Baru
+            Simpan perubahan
         </button>
     </div>
 </div>
@@ -95,7 +98,7 @@
         // Disable tombol untuk mencegah double submit
         btn.disabled = true;
         btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> Menyimpan...';
-        if (status) status.textContent = 'Sedang menyimpan versi baru...';
+        if (status) status.textContent = 'Sedang menyimpan perubahan...';
 
         document.getElementById('editor-content-input').value = html;
         document.getElementById('form-update-editor').submit();

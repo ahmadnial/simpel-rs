@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'enabled' => (bool) env('ONLYOFFICE_ENABLED', false),
     'url' => env('ONLYOFFICE_URL', 'http://localhost:8080'),
     'jwt_secret' => env('ONLYOFFICE_JWT_SECRET', ''),
     'download_url_ttl_minutes' => (int) env('ONLYOFFICE_DOWNLOAD_URL_TTL_MINUTES', 60),

@@ -186,6 +186,7 @@ class SigningCeremonyStateMachineTest extends TestCase
 
     public function test_signing_page_requires_reauthentication_then_exposes_exact_candidate_pdf_and_hash(): void
     {
+        app()->instance(DocumentPdfService::class, new \Tests\Support\FakeDocumentPdfService);
         $fixture = $this->fixture();
 
         $this->actingAs($fixture['signer'])

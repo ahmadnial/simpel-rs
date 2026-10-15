@@ -1,55 +1,44 @@
-@props(['document', 'hideToolbar' => false])
+@props(['document', 'hideToolbar' => false, 'reviewable' => false])
 
 @php
-    $currentVersion = $document->currentVersion;
-    $previewUrl = $currentVersion ? route('dokumen.preview-pdf', [$document, $currentVersion->id]) : null;
-    if ($previewUrl && $hideToolbar) {
-        $previewUrl .= '#toolbar=0&navpanes=0';
-    }
+    $version = $document->currentVersion;
     $signature = $document->signature;
-    $uniqueId = 'doc_' . $document->id . '_' . uniqid();
+    $previewUrl = $version ? route('dokumen.preview-pdf', [$document, $version->id]) : null;
 @endphp
 
-<div class="naskah-preview-wrapper" style="width:100%; max-width:920px; margin:0 auto;" @if($hideToolbar) oncontextmenu="return false;" @endif>
-
+<div class="naskah-preview-wrapper"
+    @if($previewUrl) data-document-preview data-url="{{ $previewUrl }}" data-reviewable="{{ $reviewable ? '1' : '0' }}" data-hide-toolbar="{{ $hideToolbar ? '1' : '0' }}" @endif>
     @if($previewUrl)
-        <div style="background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.08); padding:0; border:1px solid var(--border-color); position:relative; overflow:hidden;">
-            
-            {{-- Loading Indicator --}}
-            <div id="loading-{{ $uniqueId }}" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; padding:20px 0; color:var(--text-muted, #64748b); z-index:10; background:rgba(255,255,255,0.9); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                <div style="width:2rem; height:2rem; border:3px solid #e2e8f0; border-top-color:var(--brand-500, #3b82f6); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px;"></div>
-                <div style="font-size:0.875rem; font-weight:500; color:#64748b;">Memuat dokumen, harap tunggu...</div>
+        <div class="document-preview-toolbar">
+            <div class="document-preview-tools">
+                <span class="document-preview-count" data-preview-page-count>PDF</span>
+                @if($reviewable)
+                    <label class="document-preview-toggle">
+                        <input type="checkbox" data-preview-markers checked>
+                        Tandai variabel
+                    </label>
+                @endif
             </div>
-
-            {{-- PDF Iframe --}}
-            <iframe id="pdf-frame-{{ $uniqueId }}" src="{{ $previewUrl }}" style="width:100%; height:800px; border:none; display:block;" onload="document.getElementById('loading-{{ $uniqueId }}').style.display='none';"></iframe>
-
+            <div class="document-preview-tools">
+                <button type="button" class="btn btn-secondary btn-sm" data-preview-retry hidden>Coba lagi</button>
+                <a class="btn btn-secondary btn-sm" data-preview-open target="_blank" rel="noopener" hidden>Buka PDF</a>
+            </div>
         </div>
+        <p class="document-preview-status" data-preview-status role="status" aria-live="polite">Memuat pratinjau…</p>
+        <p class="document-preview-warning" data-preview-warnings role="status" hidden></p>
+        @if($reviewable)<div data-preview-pages hidden></div>@endif
+        <iframe class="document-preview-frame" data-preview-frame title="Pratinjau dokumen versi {{ $version->versi }}" hidden></iframe>
+        @if($reviewable)
+            <p class="document-preview-note">Gulir untuk memeriksa dokumen. Variabel ditandai merah; tanggal variabel diberi kotak. QR draft hanya untuk memeriksa posisi.</p>
+        @endif
     @else
-        <div class="card" style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted)">
-            <p>Belum ada versi dokumen yang diunggah.</p>
-        </div>
+        <p>Belum ada versi dokumen yang diunggah.</p>
     @endif
 
     @if($signature)
-        <div style="margin-top:20px; padding:14px 18px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px; display:flex; align-items:center; justify-content:space-between; font-size:0.88rem">
-            <div style="display:flex; align-items:center; gap:12px; color:#166534">
-                <span style="font-size:1.4rem">🔏</span>
-                <div>
-                    <strong style="color:#14532d">Dokumen Disahkan Secara Elektronik Internal</strong> &bull; {{ $signature->penandatangan->name }} ({{ $signature->ditandatangani_at->translatedFormat('d F Y H:i') }} WIB)
-                </div>
-            </div>
-            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" rel="noopener noreferrer" style="color:#15803d; font-weight:700; text-decoration:underline; font-size:0.8rem">Lihat Bukti Pengesahan</a>
-        </div>
+        <p style="font-size:.85rem; margin-top:12px">
+            Disahkan secara elektronik internal oleh {{ $signature->penandatangan->name }}.
+            <a href="{{ route('public.verify', $signature->qr_token) }}" target="_blank" rel="noopener noreferrer">Lihat bukti pengesahan</a>
+        </p>
     @endif
-
 </div>
-
-@if($previewUrl)
-<style>
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-</style>
-@endif
