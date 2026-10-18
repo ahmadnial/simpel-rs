@@ -94,6 +94,53 @@ class DocxTemplateProcessorTest extends TestCase
         $this->assertFalse($inspection['has_qr']);
     }
 
+    public function test_multiple_date_and_qr_tokens_preserve_existing_part_relationships(): void
+    {
+        $tokens = '<w:p><w:r><w:t>${tanggal_draft} ${qr_code} ${tanggal_ttd}</w:t></w:r></w:p>';
+        $relationships = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            .'<Relationship Id="rIdSimpelQr" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/existing.png"/>'
+            .'</Relationships>';
+        $file = $this->wordUpload($tokens, parts: [
+            'word/_rels/document.xml.rels' => $relationships,
+            'word/footer1.xml' => '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'.$tokens.'</w:ftr>',
+            'word/_rels/footer1.xml.rels' => $relationships,
+        ]);
+        $originalHash = hash_file('sha256', $file->getRealPath());
+        $processor = app(DocxTemplateProcessor::class);
+
+        // The same processor may handle more than one document in a worker.
+        foreach ([true, false] as $markers) {
+            $path = $processor->process($file->getRealPath(), $this->document(), $markers);
+            foreach (['document.xml', 'footer1.xml'] as $part) {
+                $dom = new \DOMDocument;
+                $this->assertTrue($dom->loadXML($this->part($path, 'word/_rels/'.$part.'.rels')));
+                $byId = [];
+                foreach ($dom->documentElement->childNodes as $relationship) {
+                    if ($relationship instanceof \DOMElement) {
+                        $id = $relationship->getAttribute('Id');
+                        $this->assertArrayNotHasKey($id, $byId);
+                        $byId[$id] = $relationship->getAttribute('Target');
+                    }
+                }
+                $this->assertSame('styles.xml', $byId['rIdStyles'] ?? null);
+                $this->assertSame('media/existing.png', $byId['rIdSimpelQr'] ?? null);
+                $this->assertSame('media/simpel-qr.png', $byId['rIdSimpelQrX'] ?? null);
+                $this->assertCount(5, $byId);
+
+                $dom->loadXML($this->part($path, 'word/'.$part));
+                $xpath = new \DOMXPath($dom);
+                $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+                $references = $xpath->query('//@r:id | //@r:embed');
+                $this->assertSame(3, $references->length);
+                foreach ($references as $reference) {
+                    $this->assertArrayHasKey($reference->value, $byId);
+                }
+            }
+        }
+        $this->assertSame($originalHash, hash_file('sha256', $file->getRealPath()));
+    }
+
     public function test_draft_qr_is_red_and_scans_as_draft_while_signed_qr_keeps_its_verification_url(): void
     {
         $file = $this->wordUpload('<w:p><w:pPr><w:spacing w:line="360"/></w:pPr><w:r><w:t>${qr_code}</w:t></w:r></w:p>');

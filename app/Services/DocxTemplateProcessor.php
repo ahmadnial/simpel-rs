@@ -44,7 +44,7 @@ class DocxTemplateProcessor
             $values['waktu_ttd'] = null;
         }
         $qrValue = $signature ? route('public.verify', $signature->qr_token) : 'DOKUMEN DRAFT - BELUM DISAHKAN. Bukan bukti pengesahan.';
-        $key = hash('sha256', 'template-v6|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers], JSON_THROW_ON_ERROR));
+        $key = hash('sha256', 'template-v7|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers], JSON_THROW_ON_ERROR));
         $directory = Storage::disk('local')->path('temp_processed');
         File::ensureDirectoryExists($directory);
         $target = $directory.'/'.$key.'.docx';
@@ -69,6 +69,8 @@ class DocxTemplateProcessor
                 $xpath = new DOMXPath($dom);
                 $namespace = $dom->documentElement->namespaceURI;
                 $xpath->registerNamespace('w', $namespace);
+                $relationshipsPath = dirname($part).'/_rels/'.basename($part).'.rels';
+                $relationships = null;
                 $relationship = null;
                 foreach ($xpath->query('//w:p') as $paragraph) {
                     // Do not merge text across tabs, breaks, fields or nested text boxes.
@@ -82,13 +84,23 @@ class DocxTemplateProcessor
                             if ($isQr && $relationship === null) {
                                 $qrPng ??= $this->qrPng($qrValue, ! $signature);
                                 $zip->addFromString('word/media/'.$imageName, $qrPng);
-                                $relationship = $this->addImageRelationship($zip, $part, $imageName);
+                                $relationships ??= $this->xml($zip->getFromName($relationshipsPath) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
+                                $relationship = $this->addImageRelationship($relationships, $imageName);
                             }
                             $isDate = str_starts_with($name, 'tanggal_') || $name === 'waktu_ttd';
-                            $annotation = ! $signature && $isDate ? $this->addDateRelationship($zip, $part, $name) : null;
+                            $annotation = null;
+                            if (! $signature && $isDate) {
+                                $relationships ??= $this->xml($zip->getFromName($relationshipsPath) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
+                                $annotation = $this->addDateRelationship($relationships, $name);
+                            }
                             $this->replaceToken($nodes, $offset, strlen($token), $values[$name] ?? $token, $markers, $annotation, $isQr ? $relationship : null);
                         }
                     }
+                }
+                // Older libzip versions cannot read an entry replaced by addFromString
+                // until the archive is closed. Accumulate edits and write each part once.
+                if ($relationships !== null) {
+                    $zip->addFromString($relationshipsPath, $relationships->saveXML());
                 }
                 $zip->addFromString($part, $dom->saveXML());
             }
@@ -283,10 +295,8 @@ class DocxTemplateProcessor
         return $dom;
     }
 
-    private function addImageRelationship(ZipArchive $zip, string $part, string $imageName): string
+    private function addImageRelationship(DOMDocument $dom, string $imageName): string
     {
-        $path = dirname($part).'/_rels/'.basename($part).'.rels';
-        $dom = $this->xml($zip->getFromName($path) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
         $id = 'rIdSimpelQr';
         while (str_contains($dom->saveXML(), 'Id="'.$id.'"')) {
             $id .= 'X';
@@ -296,15 +306,12 @@ class DocxTemplateProcessor
         $relationship->setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image');
         $relationship->setAttribute('Target', 'media/'.$imageName);
         $dom->documentElement->appendChild($relationship);
-        $zip->addFromString($path, $dom->saveXML());
 
         return $id;
     }
 
-    private function addDateRelationship(ZipArchive $zip, string $part, string $name): string
+    private function addDateRelationship(DOMDocument $dom, string $name): string
     {
-        $path = dirname($part).'/_rels/'.basename($part).'.rels';
-        $dom = $this->xml($zip->getFromName($path) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
         $id = 'rIdSimpelDate'.bin2hex(random_bytes(8));
         $link = $dom->createElementNS(self::REL_NS, 'Relationship');
         $link->setAttribute('Id', $id);
@@ -312,7 +319,6 @@ class DocxTemplateProcessor
         $link->setAttribute('Target', 'https://simpel-preview.invalid/variable/'.rawurlencode($name));
         $link->setAttribute('TargetMode', 'External');
         $dom->documentElement->appendChild($link);
-        $zip->addFromString($path, $dom->saveXML());
 
         return $id;
     }
