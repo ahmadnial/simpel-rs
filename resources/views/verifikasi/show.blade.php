@@ -2,6 +2,16 @@
 
 @section('title', 'Review Verifikasi')
 
+@push('styles')
+<style>
+    .verification-decision-card > summary { cursor:pointer; list-style:none; }
+    .verification-decision-card > summary::-webkit-details-marker { display:none; }
+    .verification-decision-card:not([open]) > summary { margin-bottom:0; padding-bottom:0; border-bottom:0; }
+    .verification-decision-card .decision-chevron { flex-shrink:0; }
+    .verification-decision-card[open] .decision-chevron { transform:rotate(180deg); }
+</style>
+@endpush
+
 @section('breadcrumb')
     <span class="breadcrumb-separator">/</span>
     <a href="{{ route('verifikasi.index') }}" style="color:var(--text-muted)">Antrian Verifikasi</a>
@@ -81,10 +91,11 @@
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
 
         {{-- Form Setujui / Minta Revisi --}}
-        <div class="card">
-            <div class="card-header">
+        <details class="card verification-decision-card">
+            <summary class="card-header">
                 <span class="card-title">{{ $isCurrentTicket ? 'Form Keputusan Verifikasi' : 'Hasil Keputusan Verifikasi' }} · Level {{ $verification->level }}</span>
-            </div>
+                <svg class="decision-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
 
             @if($isCurrentTicket)
             <div class="verification-action-tabs" style="display:flex; gap: var(--space-3); margin-bottom: var(--space-4)">
@@ -160,7 +171,7 @@
                     @endif
                 </div>
             @endif
-        </div>
+        </details>
 
         {{-- Embedded Pratinjau Dokumen Naskah Dinas --}}
         <div class="card">
