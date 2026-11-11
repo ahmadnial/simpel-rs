@@ -9,6 +9,12 @@
     .verification-decision-card:not([open]) > summary { margin-bottom:0; padding-bottom:0; border-bottom:0; }
     .verification-decision-card .decision-chevron { flex-shrink:0; }
     .verification-decision-card[open] .decision-chevron { transform:rotate(180deg); }
+    .verification-review-grid { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1fr); gap:var(--space-6); }
+    .verification-review-grid > * { min-width:0; }
+    .verification-review-grid > .card { overflow-wrap:anywhere; }
+    @media (max-width:1100px) {
+        .verification-review-grid { grid-template-columns:minmax(0, 1fr); }
+    }
 </style>
 @endpush
 
@@ -85,7 +91,7 @@
 </div>
 @endif
 
-<div class="workflow-review-grid" style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
+<div class="workflow-review-grid verification-review-grid">
 
     {{-- Left: Keputusan & Form --}}
     <div style="display:flex; flex-direction:column; gap: var(--space-6)">
