@@ -1,0 +1,1230 @@
+{
+  "word_pages": 100,
+  "new_pages": 109,
+  "word_extracted_words": 19293,
+  "new_extracted_words": 19300,
+  "matched_words": 18720,
+  "matched_words_moved_page": 15083,
+  "word_sha256": "117617e19581260f089f7d92dc3993e620506f1f4c2695293857c2bc1c9c9049",
+  "new_sha256": "70013252dca0927951d31c778d293089512682f89d219ec3f3ed5a6ef142686d",
+  "pages": [
+    {
+      "word_page": 1,
+      "word_words": 8,
+      "matched_words": 8,
+      "pdf_pages": {
+        "1": 8
+      },
+      "same_page_matched_words": 8,
+      "median_y_delta_same_page_pt": -0.579,
+      "max_y_delta_same_page_pt": 0.579
+    },
+    {
+      "word_page": 2,
+      "word_words": 165,
+      "matched_words": 165,
+      "pdf_pages": {
+        "2": 165
+      },
+      "same_page_matched_words": 165,
+      "median_y_delta_same_page_pt": -0.649,
+      "max_y_delta_same_page_pt": 0.979
+    },
+    {
+      "word_page": 3,
+      "word_words": 186,
+      "matched_words": 186,
+      "pdf_pages": {
+        "3": 186
+      },
+      "same_page_matched_words": 186,
+      "median_y_delta_same_page_pt": -0.649,
+      "max_y_delta_same_page_pt": 0.799
+    },
+    {
+      "word_page": 4,
+      "word_words": 108,
+      "matched_words": 108,
+      "pdf_pages": {
+        "4": 108
+      },
+      "same_page_matched_words": 108,
+      "median_y_delta_same_page_pt": -0.599,
+      "max_y_delta_same_page_pt": 0.749
+    },
+    {
+      "word_page": 5,
+      "word_words": 193,
+      "matched_words": 193,
+      "pdf_pages": {
+        "5": 193
+      },
+      "same_page_matched_words": 193,
+      "median_y_delta_same_page_pt": -0.699,
+      "max_y_delta_same_page_pt": 0.799
+    },
+    {
+      "word_page": 6,
+      "word_words": 213,
+      "matched_words": 213,
+      "pdf_pages": {
+        "6": 213
+      },
+      "same_page_matched_words": 213,
+      "median_y_delta_same_page_pt": -0.669,
+      "max_y_delta_same_page_pt": 0.849
+    },
+    {
+      "word_page": 7,
+      "word_words": 276,
+      "matched_words": 276,
+      "pdf_pages": {
+        "7": 276
+      },
+      "same_page_matched_words": 276,
+      "median_y_delta_same_page_pt": -0.669,
+      "max_y_delta_same_page_pt": 0.799
+    },
+    {
+      "word_page": 8,
+      "word_words": 264,
+      "matched_words": 264,
+      "pdf_pages": {
+        "8": 264
+      },
+      "same_page_matched_words": 264,
+      "median_y_delta_same_page_pt": -0.649,
+      "max_y_delta_same_page_pt": 0.799
+    },
+    {
+      "word_page": 9,
+      "word_words": 260,
+      "matched_words": 260,
+      "pdf_pages": {
+        "9": 250,
+        "10": 10
+      },
+      "same_page_matched_words": 250,
+      "median_y_delta_same_page_pt": -0.619,
+      "max_y_delta_same_page_pt": 20.101
+    },
+    {
+      "word_page": 10,
+      "word_words": 198,
+      "matched_words": 198,
+      "pdf_pages": {
+        "10": 198
+      },
+      "same_page_matched_words": 198,
+      "median_y_delta_same_page_pt": 40.721,
+      "max_y_delta_same_page_pt": 40.871
+    },
+    {
+      "word_page": 11,
+      "word_words": 190,
+      "matched_words": 190,
+      "pdf_pages": {
+        "11": 183,
+        "12": 7
+      },
+      "same_page_matched_words": 183,
+      "median_y_delta_same_page_pt": 35.871,
+      "max_y_delta_same_page_pt": 36.021
+    },
+    {
+      "word_page": 12,
+      "word_words": 210,
+      "matched_words": 202,
+      "pdf_pages": {
+        "12": 157,
+        "13": 45
+      },
+      "same_page_matched_words": 157,
+      "median_y_delta_same_page_pt": 30.101,
+      "max_y_delta_same_page_pt": 101.299
+    },
+    {
+      "word_page": 13,
+      "word_words": 186,
+      "matched_words": 186,
+      "pdf_pages": {
+        "13": 141,
+        "14": 45
+      },
+      "same_page_matched_words": 141,
+      "median_y_delta_same_page_pt": 189.771,
+      "max_y_delta_same_page_pt": 189.901
+    },
+    {
+      "word_page": 14,
+      "word_words": 184,
+      "matched_words": 183,
+      "pdf_pages": {
+        "14": 139,
+        "15": 44
+      },
+      "same_page_matched_words": 139,
+      "median_y_delta_same_page_pt": 185.651,
+      "max_y_delta_same_page_pt": 185.801
+    },
+    {
+      "word_page": 15,
+      "word_words": 182,
+      "matched_words": 182,
+      "pdf_pages": {
+        "15": 143,
+        "16": 39
+      },
+      "same_page_matched_words": 143,
+      "median_y_delta_same_page_pt": 164.971,
+      "max_y_delta_same_page_pt": 165.101
+    },
+    {
+      "word_page": 16,
+      "word_words": 173,
+      "matched_words": 171,
+      "pdf_pages": {
+        "16": 141,
+        "17": 30
+      },
+      "same_page_matched_words": 141,
+      "median_y_delta_same_page_pt": 144.281,
+      "max_y_delta_same_page_pt": 144.401
+    },
+    {
+      "word_page": 17,
+      "word_words": 196,
+      "matched_words": 196,
+      "pdf_pages": {
+        "17": 170,
+        "18": 26
+      },
+      "same_page_matched_words": 170,
+      "median_y_delta_same_page_pt": 123.551,
+      "max_y_delta_same_page_pt": 123.701
+    },
+    {
+      "word_page": 18,
+      "word_words": 205,
+      "matched_words": 203,
+      "pdf_pages": {
+        "18": 170,
+        "19": 33
+      },
+      "same_page_matched_words": 170,
+      "median_y_delta_same_page_pt": 123.551,
+      "max_y_delta_same_page_pt": 123.701
+    },
+    {
+      "word_page": 19,
+      "word_words": 192,
+      "matched_words": 192,
+      "pdf_pages": {
+        "19": 150,
+        "20": 42
+      },
+      "same_page_matched_words": 150,
+      "median_y_delta_same_page_pt": 123.551,
+      "max_y_delta_same_page_pt": 123.701
+    },
+    {
+      "word_page": 20,
+      "word_words": 215,
+      "matched_words": 215,
+      "pdf_pages": {
+        "20": 158,
+        "21": 57
+      },
+      "same_page_matched_words": 158,
+      "median_y_delta_same_page_pt": 123.581,
+      "max_y_delta_same_page_pt": 123.701
+    },
+    {
+      "word_page": 21,
+      "word_words": 199,
+      "matched_words": 190,
+      "pdf_pages": {
+        "21": 156,
+        "22": 34
+      },
+      "same_page_matched_words": 156,
+      "median_y_delta_same_page_pt": 154.621,
+      "max_y_delta_same_page_pt": 154.869
+    },
+    {
+      "word_page": 22,
+      "word_words": 104,
+      "matched_words": 97,
+      "pdf_pages": {
+        "22": 48,
+        "23": 49
+      },
+      "same_page_matched_words": 48,
+      "median_y_delta_same_page_pt": 314.919,
+      "max_y_delta_same_page_pt": 342.369
+    },
+    {
+      "word_page": 23,
+      "word_words": 66,
+      "matched_words": 36,
+      "pdf_pages": {
+        "23": 20,
+        "24": 16
+      },
+      "same_page_matched_words": 20,
+      "median_y_delta_same_page_pt": 428.069,
+      "max_y_delta_same_page_pt": 438.339
+    },
+    {
+      "word_page": 24,
+      "word_words": 4,
+      "matched_words": 4,
+      "pdf_pages": {
+        "25": 4
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 25,
+      "word_words": 63,
+      "matched_words": 63,
+      "pdf_pages": {
+        "26": 63
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 26,
+      "word_words": 138,
+      "matched_words": 138,
+      "pdf_pages": {
+        "27": 112,
+        "28": 26
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 27,
+      "word_words": 270,
+      "matched_words": 270,
+      "pdf_pages": {
+        "28": 240,
+        "29": 30
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 28,
+      "word_words": 240,
+      "matched_words": 240,
+      "pdf_pages": {
+        "29": 206,
+        "30": 34
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 29,
+      "word_words": 193,
+      "matched_words": 193,
+      "pdf_pages": {
+        "30": 176,
+        "31": 17
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 30,
+      "word_words": 127,
+      "matched_words": 127,
+      "pdf_pages": {
+        "31": 107,
+        "32": 20
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 31,
+      "word_words": 51,
+      "matched_words": 51,
+      "pdf_pages": {
+        "32": 51
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 32,
+      "word_words": 137,
+      "matched_words": 129,
+      "pdf_pages": {
+        "33": 103,
+        "34": 26
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 33,
+      "word_words": 49,
+      "matched_words": 49,
+      "pdf_pages": {
+        "34": 5,
+        "35": 44
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 34,
+      "word_words": 204,
+      "matched_words": 204,
+      "pdf_pages": {
+        "35": 4,
+        "36": 200
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 35,
+      "word_words": 206,
+      "matched_words": 206,
+      "pdf_pages": {
+        "36": 20,
+        "37": 186
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 36,
+      "word_words": 216,
+      "matched_words": 216,
+      "pdf_pages": {
+        "37": 13,
+        "38": 203
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 37,
+      "word_words": 204,
+      "matched_words": 204,
+      "pdf_pages": {
+        "38": 3,
+        "39": 201
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 38,
+      "word_words": 203,
+      "matched_words": 203,
+      "pdf_pages": {
+        "39": 13,
+        "40": 190
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 39,
+      "word_words": 185,
+      "matched_words": 185,
+      "pdf_pages": {
+        "40": 6,
+        "41": 179
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 40,
+      "word_words": 204,
+      "matched_words": 204,
+      "pdf_pages": {
+        "41": 21,
+        "42": 183
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 41,
+      "word_words": 204,
+      "matched_words": 202,
+      "pdf_pages": {
+        "42": 5,
+        "43": 184,
+        "44": 13
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 42,
+      "word_words": 221,
+      "matched_words": 221,
+      "pdf_pages": {
+        "44": 218,
+        "45": 3
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 43,
+      "word_words": 231,
+      "matched_words": 229,
+      "pdf_pages": {
+        "45": 229
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 44,
+      "word_words": 218,
+      "matched_words": 218,
+      "pdf_pages": {
+        "46": 215,
+        "47": 3
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 45,
+      "word_words": 239,
+      "matched_words": 239,
+      "pdf_pages": {
+        "47": 225,
+        "48": 14
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 46,
+      "word_words": 230,
+      "matched_words": 230,
+      "pdf_pages": {
+        "48": 230
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 47,
+      "word_words": 235,
+      "matched_words": 235,
+      "pdf_pages": {
+        "49": 235
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 48,
+      "word_words": 229,
+      "matched_words": 229,
+      "pdf_pages": {
+        "50": 229
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 49,
+      "word_words": 254,
+      "matched_words": 253,
+      "pdf_pages": {
+        "51": 253
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 50,
+      "word_words": 240,
+      "matched_words": 240,
+      "pdf_pages": {
+        "52": 240
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 51,
+      "word_words": 248,
+      "matched_words": 248,
+      "pdf_pages": {
+        "53": 248
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 52,
+      "word_words": 225,
+      "matched_words": 225,
+      "pdf_pages": {
+        "54": 207,
+        "55": 18
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 53,
+      "word_words": 252,
+      "matched_words": 252,
+      "pdf_pages": {
+        "55": 236,
+        "56": 16
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 54,
+      "word_words": 206,
+      "matched_words": 206,
+      "pdf_pages": {
+        "56": 183,
+        "57": 23
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 55,
+      "word_words": 246,
+      "matched_words": 246,
+      "pdf_pages": {
+        "57": 222,
+        "58": 24
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 56,
+      "word_words": 204,
+      "matched_words": 161,
+      "pdf_pages": {
+        "58": 144,
+        "59": 17
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 57,
+      "word_words": 231,
+      "matched_words": 177,
+      "pdf_pages": {
+        "59": 52,
+        "60": 125
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 58,
+      "word_words": 257,
+      "matched_words": 195,
+      "pdf_pages": {
+        "60": 63,
+        "61": 132
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 59,
+      "word_words": 180,
+      "matched_words": 125,
+      "pdf_pages": {
+        "62": 98,
+        "63": 27
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 60,
+      "word_words": 209,
+      "matched_words": 209,
+      "pdf_pages": {
+        "63": 132,
+        "64": 77
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 61,
+      "word_words": 226,
+      "matched_words": 226,
+      "pdf_pages": {
+        "64": 126,
+        "65": 100
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 62,
+      "word_words": 205,
+      "matched_words": 205,
+      "pdf_pages": {
+        "65": 128,
+        "66": 77
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 63,
+      "word_words": 219,
+      "matched_words": 219,
+      "pdf_pages": {
+        "66": 126,
+        "67": 93
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 64,
+      "word_words": 231,
+      "matched_words": 231,
+      "pdf_pages": {
+        "67": 133,
+        "68": 98
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 65,
+      "word_words": 171,
+      "matched_words": 171,
+      "pdf_pages": {
+        "68": 137,
+        "69": 34
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 66,
+      "word_words": 116,
+      "matched_words": 116,
+      "pdf_pages": {
+        "69": 50,
+        "70": 66
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 67,
+      "word_words": 231,
+      "matched_words": 231,
+      "pdf_pages": {
+        "70": 115,
+        "71": 116
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 68,
+      "word_words": 198,
+      "matched_words": 108,
+      "pdf_pages": {
+        "71": 52,
+        "72": 51,
+        "73": 5
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 69,
+      "word_words": 230,
+      "matched_words": 98,
+      "pdf_pages": {
+        "73": 52,
+        "74": 39,
+        "75": 7
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 70,
+      "word_words": 233,
+      "matched_words": 191,
+      "pdf_pages": {
+        "75": 43,
+        "76": 148
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 71,
+      "word_words": 176,
+      "matched_words": 163,
+      "pdf_pages": {
+        "76": 77,
+        "77": 86
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 72,
+      "word_words": 188,
+      "matched_words": 182,
+      "pdf_pages": {
+        "78": 131,
+        "79": 51
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 73,
+      "word_words": 195,
+      "matched_words": 195,
+      "pdf_pages": {
+        "79": 145,
+        "80": 50
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 74,
+      "word_words": 208,
+      "matched_words": 208,
+      "pdf_pages": {
+        "80": 151,
+        "81": 57
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 75,
+      "word_words": 201,
+      "matched_words": 201,
+      "pdf_pages": {
+        "81": 148,
+        "82": 53
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 76,
+      "word_words": 208,
+      "matched_words": 208,
+      "pdf_pages": {
+        "82": 125,
+        "83": 83
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 77,
+      "word_words": 250,
+      "matched_words": 250,
+      "pdf_pages": {
+        "83": 165,
+        "84": 85
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 78,
+      "word_words": 237,
+      "matched_words": 233,
+      "pdf_pages": {
+        "84": 145,
+        "85": 88
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 79,
+      "word_words": 286,
+      "matched_words": 286,
+      "pdf_pages": {
+        "85": 123,
+        "86": 163
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 80,
+      "word_words": 262,
+      "matched_words": 262,
+      "pdf_pages": {
+        "86": 117,
+        "87": 145
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 81,
+      "word_words": 190,
+      "matched_words": 190,
+      "pdf_pages": {
+        "87": 77,
+        "88": 113
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 82,
+      "word_words": 223,
+      "matched_words": 223,
+      "pdf_pages": {
+        "88": 84,
+        "89": 139
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 83,
+      "word_words": 259,
+      "matched_words": 259,
+      "pdf_pages": {
+        "89": 102,
+        "90": 157
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 84,
+      "word_words": 252,
+      "matched_words": 252,
+      "pdf_pages": {
+        "90": 93,
+        "91": 159
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 85,
+      "word_words": 252,
+      "matched_words": 252,
+      "pdf_pages": {
+        "91": 87,
+        "92": 165
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 86,
+      "word_words": 192,
+      "matched_words": 192,
+      "pdf_pages": {
+        "92": 57,
+        "93": 135
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 87,
+      "word_words": 223,
+      "matched_words": 223,
+      "pdf_pages": {
+        "93": 42,
+        "94": 181
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 88,
+      "word_words": 175,
+      "matched_words": 175,
+      "pdf_pages": {
+        "94": 39,
+        "95": 136
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 89,
+      "word_words": 141,
+      "matched_words": 141,
+      "pdf_pages": {
+        "95": 48,
+        "96": 93
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 90,
+      "word_words": 86,
+      "matched_words": 86,
+      "pdf_pages": {
+        "96": 5,
+        "97": 75,
+        "98": 6
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 91,
+      "word_words": 93,
+      "matched_words": 93,
+      "pdf_pages": {
+        "98": 48,
+        "99": 45
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 92,
+      "word_words": 184,
+      "matched_words": 184,
+      "pdf_pages": {
+        "99": 33,
+        "100": 151
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 93,
+      "word_words": 172,
+      "matched_words": 172,
+      "pdf_pages": {
+        "100": 59,
+        "101": 100,
+        "102": 13
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 94,
+      "word_words": 215,
+      "matched_words": 215,
+      "pdf_pages": {
+        "102": 182,
+        "103": 33
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 95,
+      "word_words": 175,
+      "matched_words": 175,
+      "pdf_pages": {
+        "103": 175
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 96,
+      "word_words": 288,
+      "matched_words": 288,
+      "pdf_pages": {
+        "104": 255,
+        "105": 33
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 97,
+      "word_words": 126,
+      "matched_words": 126,
+      "pdf_pages": {
+        "105": 126
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 98,
+      "word_words": 210,
+      "matched_words": 210,
+      "pdf_pages": {
+        "106": 182,
+        "107": 28
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 99,
+      "word_words": 26,
+      "matched_words": 26,
+      "pdf_pages": {
+        "107": 26
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    },
+    {
+      "word_page": 100,
+      "word_words": 114,
+      "matched_words": 114,
+      "pdf_pages": {
+        "108": 114
+      },
+      "same_page_matched_words": 0,
+      "median_y_delta_same_page_pt": null,
+      "max_y_delta_same_page_pt": null
+    }
+  ],
+  "source_docx_sha256": "1618647925247d653db4e2a3cb03a4b9f5df71402229ce2bcd38a0ef6ac5b8a3",
+  "source_copy_sha256": "1618647925247d653db4e2a3cb03a4b9f5df71402229ce2bcd38a0ef6ac5b8a3",
+  "word_version": "16.101",
+  "simpel_renderer": "LibreOffice 26.2.5.2",
+  "new_pdf_cache_byte_match": "storage/app/private/pdf_cache/office_05d4f42eda942edf1632ae7a61185896e87cfbfa7219e7e3f951665b6984128b.pdf",
+  "alignment_note": "Global exact-word SequenceMatcher alignment; matched-word page moves are diagnostic, not proof of text loss.",
+  "new_vs_direct_libreoffice": {
+    "pages_equal": true,
+    "word_sequence_equal_per_page": true,
+    "max_word_bbox_delta_pt": 0.04
+  },
+  "landmarks": [
+    {
+      "page": 11,
+      "token": "BAB",
+      "word_y_pt": 85.588,
+      "simpel_y_pt": 121.608764,
+      "delta_pt": 36.020764,
+      "delta_mm": 12.7073
+    },
+    {
+      "page": 11,
+      "token": "STANDAR",
+      "word_y_pt": 111.588,
+      "simpel_y_pt": 147.458764,
+      "delta_pt": 35.870764,
+      "delta_mm": 12.6544
+    }
+  ],
+  "table_style_evidence": {
+    "style": "Style29",
+    "basedOn": "TableNormal0",
+    "inherited_font_size_half_points": 20,
+    "word_render_font_size_pt": 10,
+    "simpel_render_font_size_pt": 12
+  }
+}

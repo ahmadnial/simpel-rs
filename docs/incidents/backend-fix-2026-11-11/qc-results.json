@@ -1,0 +1,52 @@
+{
+  "normal_suite_before_final_guard_test": {
+    "tests": 180,
+    "assertions": 1419,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "randomized_full_suite": {
+    "tests": 181,
+    "assertions": 1421,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "seed": 11112026
+  },
+  "real_office_integration": {
+    "tests": 2,
+    "assertions": 5,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "nginx_isolated_qc": {
+    "config_test": "passed",
+    "checks": [
+      {
+        "asset": "worker.mjs",
+        "status": 200,
+        "content_type": "application/javascript"
+      },
+      {
+        "asset": "worker.js",
+        "status": 200,
+        "content_type": "application/javascript"
+      },
+      {
+        "asset": "missing.mjs",
+        "status": 404
+      }
+    ],
+    "method": "separate temporary localhost Nginx process on VM; stopped and temporary files removed; live config unchanged"
+  },
+  "checks": {
+    "php_lint": "18 changed/new PHP files passed",
+    "pint_new_files": "passed",
+    "git_diff_check": "passed",
+    "ui_files_changed": [],
+    "production_deployed": false,
+    "production_business_data_changed": false
+  }
+}

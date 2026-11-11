@@ -1,0 +1,200 @@
+{
+  "source_file": "Pedoman Pelayanan Laboratorium tahun 2026 ok.docx",
+  "source_sha256": "1618647925247d653db4e2a3cb03a4b9f5df71402229ce2bcd38a0ef6ac5b8a3",
+  "uploaded_source_identical": true,
+  "supplied_pdf_sha256": "57bdacffb774c1d79060d93106d499f31bc6d0819d2fd20bff7f7af58352c0c9",
+  "supplied_pdf_identical_to_cache": true,
+  "supplied_pdf_word_geometry_identical_to_reproduced": true,
+  "pages_source": 109,
+  "pages_supplied": 109,
+  "matched_words_on_same_page_analysis": [
+    {
+      "page": 2,
+      "moved_matched_words": 1,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.024,
+          "dy": 0.0,
+          "words": 1
+        }
+      ],
+      "text_changes": []
+    },
+    {
+      "page": 4,
+      "moved_matched_words": 6,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 51.2,
+          "words": 6
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "delete",
+          "source_words": 1,
+          "result_words": 0
+        }
+      ]
+    },
+    {
+      "page": 5,
+      "moved_matched_words": 176,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 55.2,
+          "words": 174
+        },
+        {
+          "dx": 0.028,
+          "dy": 55.2,
+          "words": 1
+        },
+        {
+          "dx": 0.038,
+          "dy": 55.2,
+          "words": 1
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "delete",
+          "source_words": 17,
+          "result_words": 0
+        }
+      ]
+    },
+    {
+      "page": 6,
+      "moved_matched_words": 198,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 41.4,
+          "words": 198
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "insert",
+          "source_words": 0,
+          "result_words": 17
+        },
+        {
+          "operation": "delete",
+          "source_words": 15,
+          "result_words": 0
+        }
+      ]
+    },
+    {
+      "page": 7,
+      "moved_matched_words": 274,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 41.4,
+          "words": 274
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "insert",
+          "source_words": 0,
+          "result_words": 15
+        },
+        {
+          "operation": "delete",
+          "source_words": 2,
+          "result_words": 0
+        }
+      ]
+    },
+    {
+      "page": 8,
+      "moved_matched_words": 255,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 20.7,
+          "words": 255
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "insert",
+          "source_words": 0,
+          "result_words": 2
+        },
+        {
+          "operation": "delete",
+          "source_words": 9,
+          "result_words": 0
+        }
+      ]
+    },
+    {
+      "page": 9,
+      "moved_matched_words": 250,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 20.7,
+          "words": 250
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "insert",
+          "source_words": 0,
+          "result_words": 9
+        }
+      ]
+    },
+    {
+      "page": 108,
+      "moved_matched_words": 6,
+      "most_common_deltas_pt": [
+        {
+          "dx": 0.0,
+          "dy": 51.2,
+          "words": 6
+        }
+      ],
+      "text_changes": [
+        {
+          "operation": "delete",
+          "source_words": 1,
+          "result_words": 0
+        }
+      ]
+    }
+  ],
+  "source_pdf_words": 19300,
+  "supplied_pdf_words": 19298,
+  "text_stream_identical_after_removing_two_qr_placeholders": true,
+  "control_without_qr_geometry_differences": [
+    {
+      "page": 2,
+      "different_word_boxes": 1,
+      "max_coordinate_difference_pt": 0.036000000000001364
+    },
+    {
+      "page": 4,
+      "different_word_boxes": 1,
+      "max_coordinate_difference_pt": 0.036000000000001364
+    },
+    {
+      "page": 5,
+      "different_word_boxes": 2,
+      "max_coordinate_difference_pt": 0.040000000000020464
+    },
+    {
+      "page": 108,
+      "different_word_boxes": 1,
+      "max_coordinate_difference_pt": 0.036000000000001364
+    }
+  ]
+}

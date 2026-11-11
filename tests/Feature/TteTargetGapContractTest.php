@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Contracts\EvidenceSigner;
 use App\Contracts\ImmutableEvidenceStore;
 use App\Contracts\OtpSecretProvider;
+use App\Contracts\SigningKeyRegistry;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentType;
@@ -17,6 +18,7 @@ use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Notifications\DokumenNotification;
 use App\Notifications\OtpTandaTangan;
+use App\Services\DocumentPdfService;
 use App\Services\SigningOtpService;
 use App\Services\TestingEvidenceSigner;
 use App\Services\TestingImmutableEvidenceStore;
@@ -25,19 +27,25 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tests\Support\FakeDocumentPdfService;
+use Tests\Support\WordFixtures;
 use Tests\TestCase;
 
 /** Kontrak gap Paket A kini menjadi regression test wajib setelah seluruh paket selesai. */
 class TteTargetGapContractTest extends TestCase
 {
     use RefreshDatabase;
+    use WordFixtures;
 
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
+        app()->instance(DocumentPdfService::class, new FakeDocumentPdfService);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'penandatangan', 'guard_name' => 'web']);
@@ -52,6 +60,7 @@ class TteTargetGapContractTest extends TestCase
         app(OtpSecretProvider::class);
         app()->detectEnvironment(fn (): string => 'staging');
         app()->instance(EvidenceSigner::class, $testingSigner);
+        app()->instance(SigningKeyRegistry::class, $testingSigner);
         app()->instance(ImmutableEvidenceStore::class, $testingStore);
         $this->withoutMiddleware(ValidateCsrfToken::class);
         $fixture = $this->signingFixture();
@@ -231,6 +240,8 @@ class TteTargetGapContractTest extends TestCase
             'uploaded_by' => $proposer->id,
             'is_current' => true,
         ]);
+
+        $this->storeWordFixture($document->currentVersion->file_path);
 
         return compact('signer') + ['document' => $document->fresh('currentVersion')];
     }

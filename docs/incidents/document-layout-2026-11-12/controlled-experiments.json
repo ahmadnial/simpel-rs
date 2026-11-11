@@ -1,0 +1,67 @@
+[
+  {
+    "variant": "kern-one",
+    "changes": "kerning threshold 0 to 1 only",
+    "pages": 109,
+    "table_header_font": [
+      {
+        "page": 12,
+        "font_size_pt": 12.0
+      }
+    ],
+    "pdf_sha256": "18b5c80eb6d8288f13dc5d92b14ef6fad7d54e9f47bcc9bf92c2677b7117b391",
+    "application_changed": false
+  },
+  {
+    "variant": "style-flatten",
+    "changes": "inherited table font size and paragraph spacing explicit",
+    "pages": 101,
+    "table_header_font": [
+      {
+        "page": 12,
+        "font_size_pt": 10.0
+      }
+    ],
+    "pdf_sha256": "2e1e3c296e9ef2002772070dad5573f10b69b542e7437f529d470506a00d01a0",
+    "application_changed": false
+  },
+  {
+    "variant": "style-kern",
+    "changes": "table style materialization plus kerning control",
+    "pages": 101,
+    "table_header_font": [
+      {
+        "page": 12,
+        "font_size_pt": 10.0
+      }
+    ],
+    "pdf_sha256": "276aca7698c040a5eca3820da21670dd7cf84681ad627ccc6c295956c9646836",
+    "application_changed": false
+  },
+  {
+    "variant": "style-size",
+    "changes": "inherited table font size explicit only",
+    "pages": 106,
+    "table_header_font": [
+      {
+        "page": 12,
+        "font_size_pt": 10.0
+      }
+    ],
+    "pdf_sha256": "7ac508ebad0e0fa267ed4778065a4985438316804aea3b4382870e1533614826",
+    "application_changed": false
+  },
+  {
+    "variant": "style-spacing",
+    "changes": "inherited table paragraph spacing explicit only",
+    "pages": 103,
+    "table_header_font": [
+      {
+        "page": 12,
+        "font_size_pt": 12.0
+      }
+    ],
+    "pdf_sha256": "2fa503d21693ffa4c4d7a5e88e0a020128092939fc8755ce8de2f817c07e23fb",
+    "application_changed": false
+  }
+]

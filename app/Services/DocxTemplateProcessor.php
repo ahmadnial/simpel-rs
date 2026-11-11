@@ -17,11 +17,13 @@ use ZipArchive;
 /** Edits text runs in a copy; page, paragraph, table and font properties remain intact. */
 class DocxTemplateProcessor
 {
+    public const QR_MANIFEST = 'simpel/qr-overlay.json';
+
     private const VARIABLES = ['nomor_surat', 'nomor_draft', 'tanggal_surat', 'tanggal_draft', 'tanggal_ttd', 'waktu_ttd', 'nama_penandatangan', 'jabatan_penandatangan', 'nama_pengusul', 'unit_kerja', 'judul', 'perihal', 'qr_code', 'barcode_tte'];
 
     private const REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
 
-    public function process(string $source, Document $document, ?bool $markers = null): string
+    public function process(string $source, Document $document, ?bool $markers = null, bool $pdfOverlay = true): string
     {
         $signature = $document->signature;
         $markers = ! $signature && ($markers ?? true);
@@ -44,9 +46,11 @@ class DocxTemplateProcessor
             $values['waktu_ttd'] = null;
         }
         $qrValue = $signature ? route('public.verify', $signature->qr_token) : 'DOKUMEN DRAFT - BELUM DISAHKAN. Bukan bukti pengesahan.';
-        $key = hash('sha256', 'template-v7|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers], JSON_THROW_ON_ERROR));
+        $key = hash('sha256', 'template-v10-table-styles|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers, $pdfOverlay], JSON_THROW_ON_ERROR));
         $directory = Storage::disk('local')->path('temp_processed');
-        File::ensureDirectoryExists($directory);
+        if (! is_dir($directory) && ! File::makeDirectory($directory, 0755, true, true) && ! is_dir($directory)) {
+            throw new \RuntimeException('Direktori salinan dokumen tidak dapat dibuat.');
+        }
         $target = $directory.'/'.$key.'.docx';
         if (is_file($target)) {
             return $target;
@@ -59,7 +63,13 @@ class DocxTemplateProcessor
             abort(422, 'Salinan dokumen tidak dapat diproses. Unggah ulang berkas DOCX yang valid.');
         }
         try {
+            if ($pdfOverlay) {
+                app(DocxStyleCompatibility::class)->apply($zip);
+            }
             $qrPng = null;
+            $qrMarkers = [];
+            $qrPrefix = 'https://simpel-preview.invalid/qr/'.bin2hex(random_bytes(16)).'/';
+            $zip->deleteName(self::QR_MANIFEST);
             $imageName = 'simpel-qr.png';
             while ($zip->locateName('word/media/'.$imageName) !== false) {
                 $imageName = 'simpel-'.$imageName;
@@ -71,7 +81,6 @@ class DocxTemplateProcessor
                 $xpath->registerNamespace('w', $namespace);
                 $relationshipsPath = dirname($part).'/_rels/'.basename($part).'.rels';
                 $relationships = null;
-                $relationship = null;
                 foreach ($xpath->query('//w:p') as $paragraph) {
                     // Do not merge text across tabs, breaks, fields or nested text boxes.
                     $groups = $this->textGroups($xpath, $paragraph);
@@ -81,19 +90,27 @@ class DocxTemplateProcessor
                         foreach (array_reverse($matches[0], true) as $index => [$token, $offset]) {
                             $name = $matches[1][$index][0];
                             $isQr = in_array($name, ['qr_code', 'barcode_tte'], true);
-                            if ($isQr && $relationship === null) {
+                            $annotation = null;
+                            $imageRelationship = null;
+                            if ($isQr) {
                                 $qrPng ??= $this->qrPng($qrValue, ! $signature);
-                                $zip->addFromString('word/media/'.$imageName, $qrPng);
                                 $relationships ??= $this->xml($zip->getFromName($relationshipsPath) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
-                                $relationship = $this->addImageRelationship($relationships, $imageName);
+                                if ($pdfOverlay) {
+                                    $url = $qrPrefix.count($qrMarkers);
+                                    $qrMarkers[] = $url;
+                                    $annotation = $this->addLinkRelationship($relationships, $url, 'Qr');
+                                } else {
+                                    $imageRelationship = $this->addImageRelationship($relationships, $imageName);
+                                }
                             }
                             $isDate = str_starts_with($name, 'tanggal_') || $name === 'waktu_ttd';
-                            $annotation = null;
                             if (! $signature && $isDate) {
                                 $relationships ??= $this->xml($zip->getFromName($relationshipsPath) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
-                                $annotation = $this->addDateRelationship($relationships, $name);
+                                $annotation = $this->addLinkRelationship($relationships, 'https://simpel-preview.invalid/variable/'.rawurlencode($name), 'Date');
                             }
-                            $this->replaceToken($nodes, $offset, strlen($token), $values[$name] ?? $token, $markers, $annotation, $isQr ? $relationship : null);
+                            // Keep the QR text's original metrics. A PDF overlay replaces its
+                            // visible area after Office pagination, without inserting a Word shape.
+                            $this->replaceToken($nodes, $offset, strlen($token), $values[$name] ?? $token, $markers && ! $isQr, $annotation, $isQr && $pdfOverlay, $imageRelationship);
                         }
                     }
                 }
@@ -105,6 +122,12 @@ class DocxTemplateProcessor
                 $zip->addFromString($part, $dom->saveXML());
             }
             if ($qrPng !== null) {
+                $zip->addFromString('word/media/'.$imageName, $qrPng);
+                if ($pdfOverlay) {
+                    $zip->addFromString(self::QR_MANIFEST, json_encode([
+                        'version' => 1, 'image' => 'word/media/'.$imageName, 'markers' => $qrMarkers,
+                    ], JSON_THROW_ON_ERROR));
+                }
                 $types = $this->xml($zip->getFromName('[Content_Types].xml'));
                 $found = false;
                 foreach ($types->getElementsByTagName('Default') as $type) {
@@ -115,11 +138,20 @@ class DocxTemplateProcessor
                     $type->setAttribute('Extension', 'png');
                     $type->setAttribute('ContentType', 'image/png');
                     $types->documentElement->appendChild($type);
-                    $zip->addFromString('[Content_Types].xml', $types->saveXML());
                 }
+                if ($pdfOverlay) {
+                    $type = $types->createElementNS($types->documentElement->namespaceURI, 'Override');
+                    $type->setAttribute('PartName', '/'.self::QR_MANIFEST);
+                    $type->setAttribute('ContentType', 'application/json');
+                    $types->documentElement->appendChild($type);
+                }
+                $zip->addFromString('[Content_Types].xml', $types->saveXML());
             }
             $zip->close();
-            if (! rename($temporary, $target)) {
+            // Publish once. Concurrent workers generate different marker IDs;
+            // replacing an already published DOCX could mismatch the PDF links
+            // and manifest while another worker is converting that same path.
+            if (! @link($temporary, $target) && ! is_file($target)) {
                 throw new \RuntimeException('Salinan dokumen gagal disimpan.');
             }
         } finally {
@@ -176,7 +208,7 @@ class DocxTemplateProcessor
         return array_filter($groups);
     }
 
-    private function replaceToken(array $nodes, int $offset, int $length, string $value, bool $markers, ?string $annotation, ?string $relationship): void
+    private function replaceToken(array $nodes, int $offset, int $length, string $value, bool $markers, ?string $annotation, bool $qr, ?string $imageRelationship): void
     {
         $position = 0;
         $first = null;
@@ -227,42 +259,45 @@ class DocxTemplateProcessor
         }
         $run->parentNode->insertBefore($tail, $run->nextSibling);
         $run->parentNode->insertBefore($replacement, $tail);
-        if ($relationship) {
-            $drawing = $this->xml($this->qrDrawing($namespace, $relationship));
+        if ($imageRelationship !== null) {
+            $drawing = $this->xml($this->qrDrawing($namespace, $imageRelationship));
             $replacement->appendChild($dom->importNode($drawing->documentElement, true));
-        } else {
-            if ($markers) {
-                $properties ??= $replacement->appendChild($dom->createElementNS($namespace, 'w:rPr'));
-                foreach (iterator_to_array($properties->childNodes) as $child) {
-                    if (in_array($child->localName, ['color', 'bdr'], true)) {
-                        $properties->removeChild($child);
-                    }
-                }
-                $color = $properties->appendChild($dom->createElementNS($namespace, 'w:color'));
-                $color->setAttributeNS($namespace, 'w:val', 'DC2626');
 
-            }
-            $text = $replacement->appendChild($dom->createElementNS($namespace, 'w:t'));
-            $text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
-            $text->textContent = $value;
-            if ($annotation) {
-                // Export a link rectangle as a PDF location marker. The viewer draws the
-                // date box there; a Word text border would change line metrics.
-                $link = $dom->createElementNS($namespace, 'w:hyperlink');
-                $link->setAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'r:id', $annotation);
-                if ($replacement->parentNode->localName === 'hyperlink') {
-                    $originalLink = $replacement->parentNode;
-                    $remainingLink = $originalLink->cloneNode(false);
-                    while ($replacement->nextSibling) {
-                        $remainingLink->appendChild($replacement->nextSibling);
-                    }
-                    $originalLink->parentNode->insertBefore($link, $originalLink->nextSibling);
-                    $originalLink->parentNode->insertBefore($remainingLink, $link->nextSibling);
-                } else {
-                    $replacement->parentNode->insertBefore($link, $replacement);
+            return;
+        }
+        if ($markers || $qr) {
+            $properties ??= $replacement->appendChild($dom->createElementNS($namespace, 'w:rPr'));
+            foreach (iterator_to_array($properties->childNodes) as $child) {
+                if (in_array($child->localName, ['color', 'bdr'], true)) {
+                    $properties->removeChild($child);
                 }
-                $link->appendChild($replacement);
             }
+            $color = $properties->appendChild($dom->createElementNS($namespace, 'w:color'));
+            // White text keeps the exact source metrics without exposing a wide
+            // ${barcode_tte} label beyond the fixed-size PDF QR image.
+            $color->setAttributeNS($namespace, 'w:val', $qr ? 'FFFFFF' : 'DC2626');
+
+        }
+        $text = $replacement->appendChild($dom->createElementNS($namespace, 'w:t'));
+        $text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+        $text->textContent = $value;
+        if ($annotation) {
+            // Export a link rectangle as a PDF location marker. The viewer draws the
+            // date box there; a Word text border would change line metrics.
+            $link = $dom->createElementNS($namespace, 'w:hyperlink');
+            $link->setAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'r:id', $annotation);
+            if ($replacement->parentNode->localName === 'hyperlink') {
+                $originalLink = $replacement->parentNode;
+                $remainingLink = $originalLink->cloneNode(false);
+                while ($replacement->nextSibling) {
+                    $remainingLink->appendChild($replacement->nextSibling);
+                }
+                $originalLink->parentNode->insertBefore($link, $originalLink->nextSibling);
+                $originalLink->parentNode->insertBefore($remainingLink, $link->nextSibling);
+            } else {
+                $replacement->parentNode->insertBefore($link, $replacement);
+            }
+            $link->appendChild($replacement);
         }
     }
 
@@ -295,30 +330,27 @@ class DocxTemplateProcessor
         return $dom;
     }
 
+    private function addLinkRelationship(DOMDocument $dom, string $url, string $kind): string
+    {
+        $id = 'rIdSimpel'.$kind.bin2hex(random_bytes(8));
+        $link = $dom->createElementNS(self::REL_NS, 'Relationship');
+        $link->setAttribute('Id', $id);
+        $link->setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink');
+        $link->setAttribute('Target', $url);
+        $link->setAttribute('TargetMode', 'External');
+        $dom->documentElement->appendChild($link);
+
+        return $id;
+    }
+
     private function addImageRelationship(DOMDocument $dom, string $imageName): string
     {
-        $id = 'rIdSimpelQr';
-        while (str_contains($dom->saveXML(), 'Id="'.$id.'"')) {
-            $id .= 'X';
-        }
+        $id = 'rIdSimpelQr'.bin2hex(random_bytes(8));
         $relationship = $dom->createElementNS(self::REL_NS, 'Relationship');
         $relationship->setAttribute('Id', $id);
         $relationship->setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image');
         $relationship->setAttribute('Target', 'media/'.$imageName);
         $dom->documentElement->appendChild($relationship);
-
-        return $id;
-    }
-
-    private function addDateRelationship(DOMDocument $dom, string $name): string
-    {
-        $id = 'rIdSimpelDate'.bin2hex(random_bytes(8));
-        $link = $dom->createElementNS(self::REL_NS, 'Relationship');
-        $link->setAttribute('Id', $id);
-        $link->setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink');
-        $link->setAttribute('Target', 'https://simpel-preview.invalid/variable/'.rawurlencode($name));
-        $link->setAttribute('TargetMode', 'External');
-        $dom->documentElement->appendChild($link);
 
         return $id;
     }
@@ -339,7 +371,8 @@ class DocxTemplateProcessor
 
     private function qrDrawing(string $namespace, string $relationship): string
     {
-        // 65 pt square, identical for draft and final; no VML or undeclared prefixes.
+        // Retained only for the legacy editable DOCX endpoint. PDFs must use
+        // the overlay path; inserting this inline shape changes Office layout.
         return '<w:drawing xmlns:w="'.$namespace.'" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="825500" cy="825500"/><wp:docPr id="'.random_int(100000, 2147483647).'" name="QR SIMPEL-RS"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="QR"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="'.$relationship.'"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="825500" cy="825500"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>';
     }
 }

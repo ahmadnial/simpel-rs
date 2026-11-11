@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\WorkflowController;
 use App\Http\Controllers\ArsipController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DatabaseStatusController;
 use App\Http\Controllers\DelegasiController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\LaporanController;
@@ -45,6 +46,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->midd
 // Authenticated Routes
 // ==========================================
 Route::middleware(['auth'])->group(function () {
+    Route::get('/database/status', DatabaseStatusController::class)->name('database.status');
 
     // Halaman editor/form dapat dibiarkan terbuka cukup lama tanpa request lain.
     // Endpoint ringan ini dipanggil periodik oleh layout untuk mempertahankan
@@ -96,7 +98,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Publikasi
-    Route::prefix('publikasi')->name('publikasi.')->group(function () {
+    Route::prefix('publikasi')->name('publikasi.')->middleware('permission:dokumen.publikasi')->group(function () {
         Route::get('/', [PublikasiController::class, 'index'])->name('index');
         Route::post('/{document}/publikasi', [PublikasiController::class, 'publikasi'])->name('publikasi');
         Route::post('/{document}/unpublish', [PublikasiController::class, 'unpublish'])->name('unpublish');

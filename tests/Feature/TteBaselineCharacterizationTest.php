@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Notifications\OtpTandaTangan;
+use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,15 +21,20 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tests\Support\FakeDocumentPdfService;
+use Tests\Support\WordFixtures;
 use Tests\TestCase;
 
 class TteBaselineCharacterizationTest extends TestCase
 {
     use RefreshDatabase;
+    use WordFixtures;
 
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
+        app()->instance(DocumentPdfService::class, new FakeDocumentPdfService);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'penandatangan', 'guard_name' => 'web']);
@@ -201,6 +207,8 @@ class TteBaselineCharacterizationTest extends TestCase
             'uploaded_by' => $proposer->id,
             'is_current' => true,
         ]);
+
+        $this->storeWordFixture($document->currentVersion->file_path);
 
         return compact('unit', 'signer') + ['document' => $document->fresh('currentVersion')];
     }

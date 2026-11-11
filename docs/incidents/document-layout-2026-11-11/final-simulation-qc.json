@@ -1,0 +1,10 @@
+{
+  "simulation_only": true,
+  "source_docx_sha256": "1618647925247d653db4e2a3cb03a4b9f5df71402229ce2bcd38a0ef6ac5b8a3",
+  "pages": 109,
+  "all_page_sizes_equal": true,
+  "all_words_and_coordinates_identical_before_after_overlay": true,
+  "qr_scanned_from_pdf_at_150dpi": 2,
+  "pdf_sha256": "216644f3a5bf5e7333973224871430a9aff5040361320d24493165f701bcdbb1",
+  "warning_pages": []
+}

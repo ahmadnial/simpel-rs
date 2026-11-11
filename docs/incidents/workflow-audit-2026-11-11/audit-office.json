@@ -1,0 +1,11 @@
+{
+  "suite": "real-office-integration",
+  "totals": {
+    "tests": "2",
+    "assertions": "5",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0"
+  },
+  "note": "Final exclusive run, after other fake-storage tests finished. Earlier sandbox abort and overlapping run are not counted as final results."
+}

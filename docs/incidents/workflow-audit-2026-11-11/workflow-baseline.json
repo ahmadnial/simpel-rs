@@ -1,0 +1,796 @@
+{
+  "suite": "workflow-baseline",
+  "totals": {
+    "tests": "152",
+    "assertions": "1047",
+    "errors": "18",
+    "failures": "6",
+    "skipped": "0"
+  },
+  "tests": [
+    {
+      "class": "Tests\\Unit\\CanonicalJsonTest",
+      "name": "test_rfc_8785_known_answer_vector_matches_exact_bytes",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\CanonicalJsonTest",
+      "name": "test_application_serializer_is_order_independent_and_rejects_floats",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocumentPdfServiceTest",
+      "name": "test_same_input_is_converted_once_and_renderer_revision_invalidates_cache",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocumentPdfServiceTest",
+      "name": "test_converter_failure_does_not_create_a_fallback_pdf",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocumentPdfServiceTest",
+      "name": "test_successful_http_response_containing_html_is_not_cached_as_pdf",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_split_tokens_preserve_surrounding_text_fonts_and_page_geometry",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_manual_date_is_not_marked_and_markers_never_enter_signed_document",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_draft_qr_in_footer_has_its_own_relationship_and_png_content_type",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_unknown_tokens_are_reported_and_tokens_do_not_cross_paragraphs",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_multiple_date_and_qr_tokens_preserve_existing_part_relationships",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_draft_qr_is_red_and_scans_as_draft_while_signed_qr_keeps_its_verification_url",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_date_inside_existing_hyperlink_does_not_create_nested_links",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\DocxTemplateProcessorTest",
+      "name": "test_strict_ooxml_namespace_and_nonstandard_prefix_are_preserved",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\ExampleTest",
+      "name": "test_that_true_is_true",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\SecurityEventReporterTest",
+      "name": "test_sensitive_structured_fields_are_recursively_redacted",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\SqlServerForeignKeyCastTest",
+      "name": "test_numeric_foreign_keys_are_normalized_before_strict_authorization_checks",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_docx_is_accepted_without_conversion",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_legacy_doc_is_converted_and_stored_with_docx_extension",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_non_word_extension_is_rejected",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_corrupt_docx_is_rejected_before_entering_workflow",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_uppercase_extension_and_generic_mime_are_accepted_for_valid_docx",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_unavailable_converter_is_not_reported_as_corrupt_doc",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Unit\\WordDocumentNormalizerTest",
+      "name": "test_renaming_a_pdf_to_doc_does_not_bypass_content_validation",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_audit_chain_detects_payload_mutation",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_audit_chain_detects_delete_gap",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_audit_chain_detects_reorder_or_insertion_gap",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_model_guards_and_idempotency_enforce_append_only_contract",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_verifier_normalizes_sql_server_uppercase_uniqueidentifier",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_signed_checkpoint_is_stored_and_read_back_unchanged",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_immutable_store_rejects_overwrite_and_reconciliation_restores_exact_bytes",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_production_adapter_fails_closed_without_worm_provider",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\AuditChainAndImmutableStorageTest",
+      "name": "test_clean_transactions_is_blocked_outside_local_and_testing",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\CredentialLeakGuardTest",
+      "name": "test_production_seeders_do_not_contain_literal_passwords",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\CredentialLeakGuardTest",
+      "name": "test_tte_secret_placeholders_are_blank_and_distinct",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DashboardTest",
+      "name": "test_dashboard_displays_accurate_menunggu_tindakan_for_verifier_and_signer",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DashboardTest",
+      "name": "test_dashboard_combines_verification_and_ttd_for_user_with_both_roles",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DashboardTest",
+      "name": "test_unauthorized_user_cannot_access_ttd_document_for_other_roles",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentEndToEndWorkflowTest",
+      "name": "test_document_can_complete_pedoman_workflow_from_submission_through_internal_signature",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentNumberingCollisionTest",
+      "name": "test_admin_cannot_save_a_format_nomor_that_collides_with_another_active_document_type",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentNumberingCollisionTest",
+      "name": "test_signing_self_heals_when_two_document_types_share_the_same_format_nomor",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_upload_stays_draft_until_reviewed_version_is_submitted",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_uploading_a_replacement_invalidates_old_review_without_losing_metadata",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_even_reuploading_identical_bytes_requires_review_of_the_replacement",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_revision_creates_one_version_per_return_and_preserves_submitted_sources",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_reupload_is_forbidden_while_verification_is_in_progress",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_unknown_variable_blocks_submission_receipt_but_still_allows_preview",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_conversion_failure_preserves_source_and_provides_no_review_receipt",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_invalid_replacement_does_not_change_current_version",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_doc_original_is_retained_and_conversion_precedes_database_transaction",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_other_user_cannot_view_private_preview_or_submit_owners_review",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_preview_pruning_keeps_reviewed_and_recent_files",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_changed_source_cannot_use_an_old_review_receipt",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_doc_conversion_service_error_keeps_form_values_and_explains_the_problem",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentUploadPreviewTest",
+      "name": "test_review_cannot_be_reused_for_another_document_or_after_expiry",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_quorum_closes_peers_only_after_required_approvals_and_names_final_actor",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #0",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #1",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #2",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #3",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #4",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_peers_receive_attributed_decision_without_being_recorded_as_decision_makers with data set #5",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_pending_quorum_pool_is_bundled_into_one_line_instead_of_one_per_person",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_once_one_verifier_approves_only_their_name_is_shown_and_cancelled_siblings_are_hidden",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_single_verifier_level_renders_the_name_directly_without_bundling",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentVerificationTimelineTest",
+      "name": "test_resubmission_after_revisi_creates_a_new_cycle_for_the_entire_pool",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentWorkflowChainPreviewTest",
+      "name": "test_create_form_exposes_full_workflow_chain_preview_per_document_type",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentWorkflowChainPreviewTest",
+      "name": "test_workflow_chain_groups_shared_role_suffix_instead_of_repeating_it_per_person",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\DocumentWorkflowChainPreviewTest",
+      "name": "test_show_page_ajukan_modal_renders_the_resolved_workflow_chain",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_signed_bundle_verifies_online_and_offline_with_pinned_public_key",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_one_byte_change_in_each_critical_bundle_artifact_is_detected",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_bundle_generation_is_deterministic_and_key_rotation_semantics_are_preserved",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_database_manifest_and_hash_changed_together_cannot_forge_institution_signature",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_administrative_revocation_is_append_only_and_does_not_rewrite_historical_evidence",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_reconcile_command_succeeds_with_valid_empty_json_when_no_evidence_exists",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\EvidenceBundleVerificationTest",
+      "name": "test_reconcile_command_fails_when_specific_uuid_is_not_found",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ExampleTest",
+      "name": "test_unauthenticated_user_is_redirected_to_login",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\OnlyOfficeTextEditorTest",
+      "name": "test_proposer_can_open_direct_editor_with_text_editor_label",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\OnlyOfficeTextEditorTest",
+      "name": "test_signed_jwt_callback_replaces_unsubmitted_draft_file",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\OnlyOfficeTextEditorTest",
+      "name": "test_callback_without_signed_url_is_rejected",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\OnlyOfficeTextEditorTest",
+      "name": "test_force_saves_replace_draft_content_without_increasing_version",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\OnlyOfficeTextEditorTest",
+      "name": "test_callback_cannot_save_after_document_is_locked",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_openbao_adapter_registers_public_key_and_returns_valid_signature_envelope",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_openbao_adapter_fails_closed_when_token_is_missing",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_minio_adapter_requires_versioned_write_and_reads_exact_version",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_minio_adapter_rejects_unversioned_write_response",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_runtime_otp_provider_uses_cached_configuration_values",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\ProductionEvidenceAdaptersTest",
+      "name": "test_otp_hmac_is_stable_when_sql_server_uppercases_uniqueidentifier",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_qr_lookup_does_not_claim_file_valid_until_user_uploads_exact_pdf",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_public_document_page_finds_exact_official_pdf_without_qr_token",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_public_document_page_rejects_modified_or_unregistered_pdf_without_leaking_records",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_modified_pdf_with_copied_qr_token_never_receives_file_valid_claim",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_oversized_and_non_pdf_are_rejected_while_pdf_is_treated_as_opaque_bytes",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_public_lookup_uses_generic_response_and_rate_limits_token_enumeration",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\PublicPdfVerificationTest",
+      "name": "test_public_upload_is_rate_limited_and_bundle_is_not_public",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SecurityChangeAuditTest",
+      "name": "test_email_password_active_state_and_role_changes_are_audited_without_secret_values",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SessionKeepAliveTest",
+      "name": "test_authenticated_user_can_refresh_their_session_without_csrf_post",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SessionKeepAliveTest",
+      "name": "test_guest_cannot_keep_a_session_alive",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_render_failure_never_publishes_signed_or_partial_evidence_state",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_missing_source_document_fails_closed_without_generating_replacement_content",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_corrupt_source_document_fails_closed_before_candidate_pdf_is_created",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_failed_ceremony_is_reused_for_the_same_idempotency_lineage",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_storage_failure_leaves_reconcilable_user_signed_state_and_retry_is_idempotent",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_signing_page_requires_reauthentication_then_exposes_exact_candidate_pdf_and_hash",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_unavailable_signing_infrastructure_blocks_otp_before_a_ceremony_is_created",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_missing_production_signer_fails_before_otp_is_consumed",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningCeremonyStateMachineTest",
+      "name": "test_missing_worm_provider_fails_before_otp_is_consumed",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_challenge_stores_transaction_binding_and_hmac_verifier_without_plaintext_otp",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_resend_revokes_prior_generation_and_only_latest_challenge_can_be_consumed_once",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_session_pdf_manifest_and_document_binding_mismatch_revokes_challenge",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_five_wrong_attempts_lock_challenge_and_attempts_persist",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_expiry_and_persistent_send_rate_limit_fail_closed",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_otp_cannot_be_consumed_after_signing_ceremony_expires",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_email_change_and_explicit_security_revocation_invalidate_active_challenge",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_otp_email_field_routes_notification_to_dedicated_address_instead_of_login_email",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_otp_email_falls_back_to_login_email_when_not_set",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_otp_email_change_invalidates_active_challenge_same_as_login_email_change",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_http_request_requires_recent_password_reauthentication",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_otp_endpoint_returns_json_for_a_browser_fetch_request_that_expects_json",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_local_display_delivery_returns_otp_without_sending_email",
+      "status": "failure",
+      "evidence": "Expected response status code [200] but received 422.\nFailed asserting that 422 is identical to 200.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:175\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/Concerns/AssertsStatusCodes.php:16\n<workspace>/tests/Feature/SigningOtpV2Test.php:258"
+    },
+    {
+      "class": "Tests\\Feature\\SigningOtpV2Test",
+      "name": "test_database_rejects_two_active_challenges_for_the_same_binding",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\TandaTanganHistoryTest",
+      "name": "test_signer_history_combines_signed_and_returned_events_without_exposing_other_users_history",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TandaTanganHistoryTest",
+      "name": "test_history_filters_apply_to_history_without_changing_the_active_tab",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TteBaselineCharacterizationTest",
+      "name": "test_otp_is_obtained_from_fake_notification_without_plaintext_database_storage_or_response_leak",
+      "status": "failure",
+      "evidence": "Expected response status code [200] but received 422.\nFailed asserting that 422 is identical to 200.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:175\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/Concerns/AssertsStatusCodes.php:16\n<workspace>/tests/Feature/TteBaselineCharacterizationTest.php:47"
+    },
+    {
+      "class": "Tests\\Feature\\TteBaselineCharacterizationTest",
+      "name": "test_signer_authorization_accepts_active_delegation_and_rejects_unrelated_user",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TteBaselineCharacterizationTest",
+      "name": "test_public_verify_recomputes_the_stored_pdf_hash_and_detects_tampering",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TteBaselineCharacterizationTest",
+      "name": "test_database_constraint_allows_only_one_signature_per_document",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TteTargetGapContractTest",
+      "name": "test_debug_otp_is_never_exposed_outside_automated_testing_even_when_debug_is_enabled",
+      "status": "failure",
+      "evidence": "Expected response status code [200] but received 422.\nFailed asserting that 422 is identical to 200.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:175\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/Concerns/AssertsStatusCodes.php:16\n<workspace>/tests/Feature/TteTargetGapContractTest.php:62"
+    },
+    {
+      "class": "Tests\\Feature\\TteTargetGapContractTest",
+      "name": "test_otp_policy_uses_eight_digits_and_three_minute_expiry",
+      "status": "failure",
+      "evidence": "Expected response status code [200] but received 422.\nFailed asserting that 422 is identical to 200.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:175\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/Concerns/AssertsStatusCodes.php:16\n<workspace>/tests/Feature/TteTargetGapContractTest.php:74"
+    },
+    {
+      "class": "Tests\\Feature\\TteTargetGapContractTest",
+      "name": "test_otp_is_revoked_when_session_lineage_changes",
+      "status": "failure",
+      "evidence": "Expected response status code [200] but received 422.\nFailed asserting that 422 is identical to 200.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponseAssert.php:45\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:175\n<workspace>/vendor/laravel/framework/src/Illuminate/Testing/Concerns/AssertsStatusCodes.php:16\n<workspace>/tests/Feature/TteTargetGapContractTest.php:98"
+    },
+    {
+      "class": "Tests\\Feature\\TteTargetGapContractTest",
+      "name": "test_clean_transactions_command_fails_closed_in_production_and_preserves_audit",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\TteTargetGapContractTest",
+      "name": "test_guarded_document_reset_removes_transactions_and_preserves_master_and_audit",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_general_verification_permission_cannot_take_over_another_users_ticket",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_decision_actor_records_the_delegate_who_actually_approved",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_history_identifies_owner_for_legacy_decision_without_explicit_actor",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_same_verifier_at_two_levels_cannot_act_on_overlapping_assignment",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_actionable_scope_excludes_waiting_ticket_from_inactive_level",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_overlap_repair_is_previewed_and_preserves_other_assignee_and_old_decision",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_overlap_repair_refuses_to_leave_active_stage_without_a_verifier",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_advancement_excludes_lower_assignees_and_moves_their_decision_to_history",
+      "status": "error",
+      "evidence": "Illuminate\\Database\\UniqueConstraintViolationException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level (Connection: sqlite, Database: :memory:, SQL: insert into \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\", \"verification_round\", \"activation_reason\", \"reopened_from_verification_id\", \"status\", \"batas_waktu\", \"catatan\", \"direspon_at\", \"direset_alasan\", \"direset_at\", \"updated_at\", \"created_at\") values (1, 1, 1, 2, 1, 2, returned_by_verifier, 2, menunggu, 2026-11-13 12:55:52, ?, ?, ?, ?, 2026-11-11 12:55:52, 2026-11-11 12:55:52))\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:838\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:794\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:573\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:537\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php:32"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_insufficient_distinct_quorum_rolls_back_approval_and_advancement",
+      "status": "error",
+      "evidence": "Illuminate\\Database\\UniqueConstraintViolationException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level (Connection: sqlite, Database: :memory:, SQL: insert into \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\", \"verification_round\", \"activation_reason\", \"reopened_from_verification_id\", \"status\", \"batas_waktu\", \"catatan\", \"direspon_at\", \"direset_alasan\", \"direset_at\", \"updated_at\", \"created_at\") values (1, 1, 1, 2, 1, 2, returned_by_verifier, 2, menunggu, 2026-11-13 12:55:52, ?, ?, ?, ?, 2026-11-11 12:55:52, 2026-11-11 12:55:52))\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:838\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:794\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:573\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:537\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php:32"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_fresh_ticket_remains_actionable_when_sql_server_hydrates_numeric_ids_as_strings",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_revision_cancels_sibling_ticket_and_stale_ticket_cannot_be_replayed",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_signer_return_creates_new_round_without_reopening_approved_ticket",
+      "status": "error",
+      "evidence": "Illuminate\\Database\\UniqueConstraintViolationException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level (Connection: sqlite, Database: :memory:, SQL: insert into \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\", \"verification_round\", \"activation_reason\", \"reopened_from_verification_id\", \"status\", \"batas_waktu\", \"catatan\", \"direspon_at\", \"direset_alasan\", \"direset_at\", \"updated_at\", \"created_at\") values (1, 1, 2, 3, 2, 2, returned_by_signer, 2, menunggu, 2026-11-13 12:55:53, ?, ?, ?, ?, 2026-11-11 12:55:53, 2026-11-11 12:55:53))\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:838\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:794\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:573\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:537\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php:32"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_quorum_after_signer_return_counts_only_approvals_from_new_round",
+      "status": "error",
+      "evidence": "Illuminate\\Database\\UniqueConstraintViolationException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level (Connection: sqlite, Database: :memory:, SQL: insert into \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\", \"verification_round\", \"activation_reason\", \"reopened_from_verification_id\", \"status\", \"batas_waktu\", \"catatan\", \"direspon_at\", \"direset_alasan\", \"direset_at\", \"updated_at\", \"created_at\") values (1, 1, 1, 2, 1, 2, returned_by_signer, 2, menunggu, 2026-11-13 12:55:53, ?, ?, ?, ?, 2026-11-11 12:55:53, 2026-11-11 12:55:53))\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:838\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:794\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:573\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:537\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php:32"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_return_to_previous_level_leaves_only_target_level_active",
+      "status": "error",
+      "evidence": "Illuminate\\Database\\UniqueConstraintViolationException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level (Connection: sqlite, Database: :memory:, SQL: insert into \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\", \"verification_round\", \"activation_reason\", \"reopened_from_verification_id\", \"status\", \"batas_waktu\", \"catatan\", \"direspon_at\", \"direset_alasan\", \"direset_at\", \"updated_at\", \"created_at\") values (1, 1, 1, 2, 1, 2, returned_by_verifier, 2, menunggu, 2026-11-13 12:55:53, ?, ?, ?, ?, 2026-11-11 12:55:53, 2026-11-11 12:55:53))\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:838\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:794\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:573\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:537\n<workspace>/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php:32"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_return_to_previous_level_preserves_a_long_revision_note_in_the_audit_log",
+      "status": "failure",
+      "evidence": "Expected response status code [201, 301, 302, 303, 307, 308] but received 500.\nFailed asserting that false is true.\n\nThe following exception occurred during the last request:\n\nPDOException: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: document_verifications.document_id, document_verifications.document_version_id, document_verifications.workflow_step_id, document_verifications.verifikator_id, document_verifications.level in <workspace>/vendor/laravel/framework/src/Illuminate/Database/Connection.php:584\nStack trace:"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_super_admin_without_configured_signer_role_cannot_sign",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowSecurityTest",
+      "name": "test_otp_cannot_be_used_for_a_different_document",
+      "status": "error",
+      "evidence": "Symfony\\Component\\HttpKernel\\Exception\\HttpException: Berkas sumber versi dokumen tidak ditemukan. Proses dihentikan untuk menjaga integritas naskah.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/Application.php:1440\n<workspace>/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php:67\n<workspace>/app/Services/DocumentService.php:1646\n<workspace>/app/Services/DocumentService.php:984\n<workspace>/app/Services/DocumentService.php:930"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowStandardizationCommandTest",
+      "name": "test_command_clones_pedoman_for_each_active_classification_without_mutating_old_templates",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowStepManagementTest",
+      "name": "test_admin_can_edit_a_parallel_step_and_replace_its_pool",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowStepManagementTest",
+      "name": "test_steps_page_renders_edit_payload_for_existing_step",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Feature\\WorkflowStepManagementTest",
+      "name": "test_signer_step_cannot_be_configured_as_parallel",
+      "status": "passed"
+    }
+  ]
+}

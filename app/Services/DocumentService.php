@@ -478,15 +478,20 @@ class DocumentService
             }
         }
 
-        $uniqueVerifiers = collect($verifiers)->filter()->unique('id');
+        $uniqueVerifiers = collect($verifiers)
+            ->filter(fn ($verifier) => $verifier && $verifier->is_active && (int) $verifier->id !== $document->pengusul_id)
+            ->unique('id');
 
         // Satu penerima tugas tidak otomatis berpindah ke level lebih tinggi pada
         // versi yang sama. Riwayat putaran tetap dihitung agar pengembalian tidak
         // membuka celah penugasan rangkap saat alur maju kembali.
-        $lowerAssigneeIds = DocumentVerification::where('document_id', $document->id)
+        $lowerDecisions = DocumentVerification::where('document_id', $document->id)
             ->where('document_version_id', $currentVersion->id)
             ->where('level', '<', $level)
-            ->pluck('verifikator_id')->map(fn ($id) => (int) $id)->all();
+            ->get(['verifikator_id', 'decided_by_user_id']);
+        $lowerAssigneeIds = $lowerDecisions->pluck('verifikator_id')
+            ->merge($lowerDecisions->pluck('decided_by_user_id'))->filter()
+            ->map(fn ($id) => (int) $id)->unique()->all();
         $uniqueVerifiers = $uniqueVerifiers
             ->reject(fn ($verifier) => in_array((int) $verifier->id, $lowerAssigneeIds, true));
 
@@ -652,7 +657,9 @@ class DocumentService
                     ->where('verification_round', $verification->verification_round)
                     ->where('status', DocumentVerification::STATUS_DISETUJUI)
                     ->lockForUpdate()
-                    ->count();
+                    ->get(['decided_by_user_id', 'verifikator_id'])
+                    ->map(fn ($ticket) => $ticket->decided_by_user_id ?? $ticket->verifikator_id)
+                    ->unique()->count();
 
                 if ($approvedCount < $minApproval) {
                     return $document->fresh();
@@ -1494,9 +1501,11 @@ class DocumentService
      */
     public function publikasi(Document $document, array $data = []): Document
     {
-        abort_unless($document->status === Document::STATUS_DITANDATANGANI, 403, 'Hanya dokumen yang sudah ditandatangani yang dapat dipublikasikan.');
+        $this->assertCanPublish();
 
         return DB::transaction(function () use ($document, $data) {
+            $document = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            abort_unless($document->status === Document::STATUS_DITANDATANGANI, 403, 'Hanya dokumen yang sudah ditandatangani yang dapat dipublikasikan.');
             $scope = $data['visibility_scope'] ?? ($document->is_rahasia ? 'terbatas' : 'internal');
 
             $document->update([
@@ -1538,13 +1547,11 @@ class DocumentService
      */
     public function unpublish(Document $document, string $alasan, ?int $penggantiDocumentId = null): Document
     {
-        abort_unless(
-            $document->status === Document::STATUS_DIPUBLIKASIKAN,
-            403,
-            'Hanya dokumen yang sedang dipublikasikan yang dapat ditarik.'
-        );
+        $this->assertCanPublish();
 
         return DB::transaction(function () use ($document, $alasan, $penggantiDocumentId) {
+            $document = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            abort_unless($document->status === Document::STATUS_DIPUBLIKASIKAN, 403, 'Hanya dokumen yang sedang dipublikasikan yang dapat ditarik.');
             $document->update([
                 'status' => Document::STATUS_DITARIK,
                 'ditarik_at' => now(),
@@ -1570,13 +1577,11 @@ class DocumentService
      */
     public function republish(Document $document, array $data = []): Document
     {
-        abort_unless(
-            $document->status === Document::STATUS_DITARIK,
-            403,
-            'Hanya dokumen yang berstatus ditarik yang dapat dipublikasikan ulang.'
-        );
+        $this->assertCanPublish();
 
         return DB::transaction(function () use ($document, $data) {
+            $document = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            abort_unless($document->status === Document::STATUS_DITARIK, 403, 'Hanya dokumen yang berstatus ditarik yang dapat dipublikasikan ulang.');
             $scope = $data['visibility_scope'] ?? $document->visibility_scope ?? 'internal';
 
             $document->update([
@@ -1603,6 +1608,12 @@ class DocumentService
 
             return $document->fresh();
         });
+    }
+
+    private function assertCanPublish(): void
+    {
+        $user = auth()->user();
+        abort_unless($user?->is_active && $user->can('dokumen.publikasi'), 403, 'Anda tidak memiliki wewenang publikasi dokumen.');
     }
 
     /**
@@ -1901,9 +1912,13 @@ class DocumentService
             || ($delegation && $delegation->pejabat_id === $verification->verifikator_id);
 
         abort_unless($isAssignee, 403, 'Anda bukan pemilik tiket verifikasi aktif ini.');
+        abort_unless($user->is_active && $verification->verifikator?->is_active, 403, 'Pemeriksa sudah tidak aktif.');
+        abort_if($document->pengusul_id === $user->id || $document->pengusul_id === $verification->verifikator_id,
+            403, 'Pengusul tidak boleh memverifikasi dokumennya sendiri.');
         abort_if($verification->hasLowerLevelAssignment()
             || $verification->hasLowerLevelAssignment((int) $user->id),
             409, 'Tugas Anda pada level sebelumnya sudah selesai. Pemeriksaan level ini harus dilakukan oleh verifikator berbeda.');
+        abort_if($verification->hasApprovedInRound((int) $user->id), 409, 'Anda sudah memberikan persetujuan pada putaran tahap ini.');
         abort_unless($verification->status === DocumentVerification::STATUS_MENUNGGU, 409, 'Tiket verifikasi ini sudah diproses atau dibatalkan.');
         abort_unless((int) $document->currentVersion?->id === $verification->document_version_id, 409, 'Tiket berasal dari versi dokumen lama dan tidak dapat diproses.');
         abort_unless(

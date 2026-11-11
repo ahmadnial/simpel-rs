@@ -1,0 +1,80 @@
+{
+  "original": [
+    {
+      "page": 4,
+      "word": "Ditetapkan",
+      "x_pt": 265.15,
+      "y_pt": 333.458764
+    },
+    {
+      "page": 4,
+      "word": "TANTI",
+      "x_pt": 281.098,
+      "y_pt": 492.158764
+    },
+    {
+      "page": 5,
+      "word": "LAMPIRAN",
+      "x_pt": 269.45,
+      "y_pt": 85.058764
+    },
+    {
+      "page": 5,
+      "word": "BAB",
+      "x_pt": 281.95,
+      "y_pt": 250.658764
+    }
+  ],
+  "processed": [
+    {
+      "page": 4,
+      "word": "Ditetapkan",
+      "x_pt": 265.15,
+      "y_pt": 333.458764
+    },
+    {
+      "page": 4,
+      "word": "TANTI",
+      "x_pt": 281.098,
+      "y_pt": 543.358764
+    },
+    {
+      "page": 5,
+      "word": "LAMPIRAN",
+      "x_pt": 269.45,
+      "y_pt": 140.258764
+    },
+    {
+      "page": 5,
+      "word": "BAB",
+      "x_pt": 281.95,
+      "y_pt": 305.858764
+    }
+  ],
+  "without-qr-dom": [
+    {
+      "page": 4,
+      "word": "Ditetapkan",
+      "x_pt": 265.15,
+      "y_pt": 333.458764
+    },
+    {
+      "page": 4,
+      "word": "TANTI",
+      "x_pt": 281.098,
+      "y_pt": 492.158764
+    },
+    {
+      "page": 5,
+      "word": "LAMPIRAN",
+      "x_pt": 269.45,
+      "y_pt": 85.058764
+    },
+    {
+      "page": 5,
+      "word": "BAB",
+      "x_pt": 281.95,
+      "y_pt": 250.658764
+    }
+  ]
+}

@@ -8,7 +8,6 @@ use App\Models\DocumentType;
 use App\Models\User;
 use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
-use App\Services\DocxParserService;
 use App\Services\DocxTemplateProcessor;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -50,6 +49,7 @@ class DocumentController extends Controller
 
     public function create()
     {
+        $unitId = $this->requireProposerUnitId();
         $documentTypes = DocumentType::active()->get();
         // Khusus role 'asesor_internal' — pool tahap 1 yang dipilih manual pengusul dengan
         // semantik "salah satu approve = sah". Bukan semua pemegang permission dokumen.verifikasi
@@ -64,7 +64,6 @@ class DocumentController extends Controller
         // Kalau tahap 1 sudah punya pool otomatis (parallel, atau serial dengan role_nama), pilihan
         // manual pengusul akan diabaikan (lihat DocumentService::createVerificationsForStep), jadi
         // form JS menyembunyikan picker untuk jenis naskah itu berdasarkan map ini.
-        $unitId = auth()->user()->unit_id;
         $workflowStepInfo = $documentTypes->mapWithKeys(
             fn (DocumentType $dt) => [$dt->id => $this->documentService->getFirstStepInfo($dt, $unitId)]
         );
@@ -80,6 +79,7 @@ class DocumentController extends Controller
     public function store(Request $request)
     {
         Gate::authorize('create', Document::class);
+        $unitId = $this->requireProposerUnitId();
 
         $validated = $request->validate([
             'judul' => 'required|string|max:255',
@@ -108,7 +108,7 @@ class DocumentController extends Controller
             $document = $this->documentService->uploadDraft([
                 'judul' => $validated['judul'],
                 'document_type_id' => $validated['document_type_id'],
-                'unit_id' => auth()->user()->unit_id,
+                'unit_id' => $unitId,
                 'perihal' => $validated['perihal'] ?? null,
                 'keterangan' => $validated['keterangan'] ?? null,
                 'is_rahasia' => $request->boolean('is_rahasia'),
@@ -447,7 +447,7 @@ class DocumentController extends Controller
         }
 
         $path = $this->documentService->ensureDocxFileExists($document, $version);
-        $processedPath = (new DocxParserService)->processDocxTemplate($path, $document);
+        $processedPath = app(DocxTemplateProcessor::class)->process($path, $document, pdfOverlay: false);
 
         return response()->file($processedPath, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -462,6 +462,7 @@ class DocumentController extends Controller
         $version = $versionId ? $document->versions()->findOrFail($versionId) : $document->currentVersion;
         abort_unless($version, 404, 'File versi tidak ditemukan.');
         $headers = ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store'];
+        $warnings = [];
         $official = $document->signature;
         if ($official && $official->document_version_id === $version->id && $official->file_signed_path) {
             // An official PDF must not depend on a source file or converter still being available.
@@ -481,7 +482,6 @@ class DocumentController extends Controller
             if ($inspection['unknown']) {
                 $warnings[] = 'Variabel tidak dikenal: '.implode(', ', $inspection['unknown']).'. Perbaiki sebelum mengajukan.';
             }
-            $headers['X-Preview-Warnings'] = rawurlencode(implode(' ', $warnings));
             if (! $inspection['unknown'] && $request->user()->can('update', $document)) {
                 $headers['X-Document-Review'] = Crypt::encryptString(json_encode([
                     'user_id' => $request->user()->id,
@@ -496,6 +496,7 @@ class DocumentController extends Controller
             }
         }
         abort_unless(is_file($pdfPath), 404, 'PDF tidak ditemukan. Hubungi administrator.');
+        $headers['X-Preview-Warnings'] = rawurlencode(implode(' ', array_merge($warnings, $this->pdfService->warnings($pdfPath))));
 
         return response()->file($pdfPath, $headers);
     }
@@ -545,30 +546,53 @@ class DocumentController extends Controller
         } catch (\Throwable) {
             throw ValidationException::withMessages(['review_token' => 'Pratinjau tidak valid. Muat ulang pratinjau sebelum mengajukan.']);
         }
-        DB::transaction(function () use ($document, $request, $review, $verifikatorIds) {
-            $locked = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
-            $version = $locked->currentVersion;
-            $source = $version ? Storage::disk('local')->path($version->file_path) : null;
-            $valid = ($review['user_id'] ?? null) === $request->user()->id
-                && ($review['document_id'] ?? null) === $locked->id
-                && ($review['version_id'] ?? null) === $version?->id
-                && ($review['source_path'] ?? null) === $version?->file_path
-                && ($review['expires_at'] ?? 0) > now()->timestamp
-                && $source && is_file($source)
-                && hash_equals($review['source_hash'] ?? '', hash_file('sha256', $source))
-                && is_file($review['pdf_path'] ?? '')
-                && hash_equals($review['pdf_hash'] ?? '', hash_file('sha256', $review['pdf_path']));
-            if (! $valid) {
-                throw ValidationException::withMessages(['review_token' => 'Versi dokumen berubah atau pratinjau kedaluwarsa. Muat dan periksa pratinjau terbaru.']);
+        $snapshot = null;
+        try {
+            DB::transaction(function () use ($document, $request, $review, $verifikatorIds, &$snapshot) {
+                $locked = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+                Gate::authorize('update', $locked);
+                $version = $locked->currentVersion;
+                $source = $version ? Storage::disk('local')->path($version->file_path) : null;
+                $valid = ($review['user_id'] ?? null) === $request->user()->id
+                    && ($review['document_id'] ?? null) === $locked->id
+                    && ($review['version_id'] ?? null) === $version?->id
+                    && ($review['source_path'] ?? null) === $version?->file_path
+                    && ($review['expires_at'] ?? 0) > now()->timestamp
+                    && $source && is_file($source)
+                    && hash_equals($review['source_hash'] ?? '', hash_file('sha256', $source))
+                    && is_file($review['pdf_path'] ?? '')
+                    && hash_equals($review['pdf_hash'] ?? '', hash_file('sha256', $review['pdf_path']));
+                if (! $valid) {
+                    throw ValidationException::withMessages(['review_token' => 'Versi dokumen berubah atau pratinjau kedaluwarsa. Muat dan periksa pratinjau terbaru.']);
+                }
+                $snapshot = "documents/{$locked->id}/reviewed/{$version->id}-".Str::uuid().'.pdf';
+                abort_unless(Storage::disk('local')->put($snapshot, file_get_contents($review['pdf_path'])), 503, 'PDF yang diperiksa belum dapat disimpan. Coba lagi.');
+                $version->update(['file_pdf_path' => $snapshot]);
+                $this->documentService->ajukanDokumen($locked, $verifikatorIds);
+            });
+        } catch (\Throwable $exception) {
+            // Each attempt owns a unique file. Never remove a snapshot referenced by
+            // a committed version, including when an after-commit callback failed.
+            try {
+                if ($snapshot && ! $document->versions()->where('file_pdf_path', $snapshot)->exists()) {
+                    Storage::disk('local')->delete($snapshot);
+                }
+            } catch (\Throwable $cleanupException) {
+                report($cleanupException);
             }
-            $snapshot = "documents/{$locked->id}/reviewed/{$version->id}.pdf";
-            abort_unless(Storage::disk('local')->put($snapshot, file_get_contents($review['pdf_path'])), 503, 'PDF yang diperiksa belum dapat disimpan. Coba lagi.');
-            $version->update(['file_pdf_path' => $snapshot]);
-            $this->documentService->ajukanDokumen($locked, $verifikatorIds);
-        });
+            throw $exception;
+        }
         $request->session()->forget('document_submission.'.$document->id);
 
         return back()->with('success', 'Dokumen berhasil diajukan ke verifikator.');
+    }
+
+    private function requireProposerUnitId(): int
+    {
+        $unitId = auth()->user()->unit_id;
+        abort_unless($unitId, 422, 'Akun belum memiliki unit kerja. Hubungi administrator untuk menetapkan unit sebelum membuat dokumen.');
+
+        return (int) $unitId;
     }
 
     /**

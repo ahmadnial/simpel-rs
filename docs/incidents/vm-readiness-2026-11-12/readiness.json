@@ -1,0 +1,441 @@
+{
+  "decision": "not_ready_for_direct_deployment",
+  "inspection_scope": "read_only_vm_readiness_for_limited_release",
+  "checked_at_utc": "2026-11-11T18:47:47.918940+00:00",
+  "runtime": {
+    "checked_at_utc": "2026-11-11T18:45:42.029925+00:00",
+    "application_root": "/var/www/apps/simpel-rs",
+    "python": {
+      "version": "3.12.3",
+      "venv_module": true,
+      "ensurepip_module": false
+    },
+    "binaries": {
+      "php": {
+        "path": "/usr/bin/php"
+      },
+      "php8.4": {
+        "path": "/usr/bin/php8.4"
+      },
+      "php-fpm8.4": {
+        "path": "/usr/sbin/php-fpm8.4"
+      },
+      "nginx": {
+        "path": "/usr/sbin/nginx"
+      },
+      "pdftotext": {
+        "path": null,
+        "standard_paths": {
+          "/usr/bin/pdftotext": false,
+          "/usr/local/bin/pdftotext": false
+        }
+      },
+      "pdftoppm": {
+        "path": null,
+        "standard_paths": {
+          "/usr/bin/pdftoppm": false,
+          "/usr/local/bin/pdftoppm": false
+        }
+      },
+      "soffice": {
+        "path": "/usr/bin/soffice"
+      },
+      "composer": {
+        "path": "/usr/local/bin/composer"
+      }
+    },
+    "services": {
+      "nginx": {
+        "exit": 0,
+        "state": "active"
+      },
+      "php8.4-fpm": {
+        "exit": 0,
+        "state": "active"
+      }
+    },
+    "resources": {
+      "/var/www/apps/simpel-rs": {
+        "total_gib": 30.31,
+        "free_gib": 11.11,
+        "free_inodes": 1589859
+      },
+      "/tmp": {
+        "total_gib": 30.31,
+        "free_gib": 11.11,
+        "free_inodes": 1589859
+      },
+      "memory": {
+        "MemTotal_mib": 15735.2,
+        "MemAvailable_mib": 14540.79,
+        "SwapTotal_mib": 4096.0,
+        "SwapFree_mib": 4096.0
+      },
+      "load_average": [
+        0.09521484375,
+        0.056640625,
+        0.0625
+      ],
+      "cpu_count": 6
+    },
+    "fpm_ini": {
+      "disable_functions": "",
+      "max_execution_time": "30",
+      "max_input_time": "60",
+      "memory_limit": "128M",
+      "post_max_size": "8M",
+      "upload_max_filesize": "2M",
+      "max_file_uploads": "20"
+    },
+    "fpm_pools": [
+      {
+        "file": "/etc/php/8.4/fpm/pool.d/www.conf",
+        "user": "www-data",
+        "group": "www-data",
+        "listen": "/run/php/php8.4-fpm.sock",
+        "pm": "dynamic",
+        "pm.max_children": "5"
+      }
+    ],
+    "php_cli": {
+      "version": "8.4.27",
+      "extensions": {
+        "pdo_sqlsrv": true,
+        "sqlsrv": true,
+        "zip": true,
+        "dom": true,
+        "mbstring": true,
+        "gd": true,
+        "imagick": true,
+        "curl": true,
+        "openssl": true,
+        "fileinfo": true
+      },
+      "proc_open_callable": true,
+      "disable_functions": ""
+    },
+    "cached_config": {
+      "app_env": "production",
+      "app_debug": false,
+      "database_driver": "sqlsrv",
+      "database_name": "sivera",
+      "cache_store": "database",
+      "session_driver": "database",
+      "queue_connection": "database",
+      "documents_config_keys": [
+        "renderer",
+        "gotenberg_url",
+        "libreoffice_path",
+        "conversion_timeout",
+        "render_revision"
+      ]
+    },
+    "web_user_access_exit": 1,
+    "web_user_access_error_type": "permission_or_runtime",
+    "composer_platform_check": {
+      "exit": 0,
+      "passed": true
+    },
+    "dependency_packages": {
+      "exit": 0,
+      "installed_records": [
+        "poppler-utils un  ",
+        "python3-venv un  ",
+        "python3.12-venv un"
+      ]
+    }
+  },
+  "nginx": {
+    "checked_at_utc": "2026-11-11T18:45:43.941930+00:00",
+    "config_files": [
+      {
+        "file": "/etc/nginx/nginx.conf",
+        "selected_directives": [
+          "include /etc/nginx/modules-enabled/*.conf;",
+          "include /etc/nginx/mime.types;",
+          "default_type application/octet-stream;",
+          "include /etc/nginx/conf.d/*.conf;",
+          "include /etc/nginx/sites-enabled/*;"
+        ]
+      },
+      {
+        "file": "/etc/nginx/mime.types",
+        "selected_directives": []
+      },
+      {
+        "file": "/etc/nginx/sites-enabled/simpel-rs",
+        "selected_directives": [
+          "root /var/www/apps/simpel-rs/public;",
+          "client_max_body_size 64M;",
+          "location / {",
+          "location ~ \\.php$ {",
+          "include snippets/fastcgi-php.conf;",
+          "fastcgi_pass unix:/var/run/php/php8.4-fpm.sock; # Sesuaikan versi php-fpm Anda",
+          "include fastcgi_params;",
+          "fastcgi_read_timeout 300;",
+          "location ~ /\\.ht {"
+        ]
+      }
+    ],
+    "http": [
+      {
+        "path": "/up",
+        "method": "GET",
+        "status": 200,
+        "content_type": "text/html; charset=utf-8"
+      },
+      {
+        "path": "/build/assets/pdf.worker.min-FHbmGBN0.mjs",
+        "method": "HEAD",
+        "status": 200,
+        "content_type": "application/octet-stream"
+      },
+      {
+        "path": "/build/assets/simpel-readiness-missing-worker.mjs",
+        "method": "HEAD",
+        "status": 404,
+        "content_type": "text/html; charset=utf-8"
+      }
+    ],
+    "nginx_config_test": {
+      "exit": 1,
+      "syntax_ok": false,
+      "successful": false
+    }
+  },
+  "privileged_checks": {
+    "nginx_config_test": {
+      "exit": 0,
+      "syntax_ok": true,
+      "test_successful": true
+    },
+    "web_user_fpm_ini": {
+      "exit": 0,
+      "result": {
+        "effective_uid": 33,
+        "paths": {
+          "vendor/autoload.php": {
+            "exists": true,
+            "readable": true,
+            "writable": false
+          },
+          ".env": {
+            "exists": true,
+            "readable": false,
+            "writable": false
+          },
+          "storage": {
+            "exists": true,
+            "readable": true,
+            "writable": true
+          },
+          "storage/app/private": {
+            "exists": true,
+            "readable": true,
+            "writable": true
+          },
+          "storage/app/private/pdf_cache": {
+            "exists": true,
+            "readable": true,
+            "writable": true
+          },
+          "storage/app/private/temp_processed": {
+            "exists": true,
+            "readable": true,
+            "writable": true
+          },
+          "bootstrap/cache": {
+            "exists": true,
+            "readable": true,
+            "writable": true
+          }
+        },
+        "ini": {
+          "upload_max_filesize": "2M",
+          "post_max_size": "8M",
+          "memory_limit": "128M",
+          "disable_functions": "",
+          "opcache.enable": "1",
+          "opcache.validate_timestamps": "1",
+          "opcache.revalidate_freq": "2"
+        },
+        "php_version": "8.4.27",
+        "proc_open_callable": true,
+        "fpm_ini_file": "/etc/php/8.4/fpm/php.ini",
+        "fpm_scanned_ini_files": "/etc/php/8.4/fpm/conf.d/10-mysqlnd.ini,\n/etc/php/8.4/fpm/conf.d/10-opcache.ini,\n/etc/php/8.4/fpm/conf.d/10-pdo.ini,\n/etc/php/8.4/fpm/conf.d/15-xml.ini,\n/etc/php/8.4/fpm/conf.d/20-bcmath.ini,\n/etc/php/8.4/fpm/conf.d/20-calendar.ini,\n/etc/php/8.4/fpm/conf.d/20-ctype.ini,\n/etc/php/8.4/fpm/conf.d/20-curl.ini,\n/etc/php/8.4/fpm/conf.d/20-dom.ini,\n/etc/php/8.4/fpm/conf.d/20-exif.ini,\n/etc/php/8.4/fpm/conf.d/20-ffi.ini,\n/etc/php/8.4/fpm/conf.d/20-fileinfo.ini,\n/etc/php/8.4/fpm/conf.d/20-ftp.ini,\n/etc/php/8.4/fpm/conf.d/20-gd.ini,\n/etc/php/8.4/fpm/conf.d/20-gettext.ini,\n/etc/php/8.4/fpm/conf.d/20-iconv.ini,\n/etc/php/8.4/fpm/conf.d/20-igbinary.ini,\n/etc/php/8.4/fpm/conf.d/20-imagick.ini,\n/etc/php/8.4/fpm/conf.d/20-intl.ini,\n/etc/php/8.4/fpm/conf.d/20-mbstring.ini,\n/etc/php/8.4/fpm/conf.d/20-mysqli.ini,\n/etc/php/8.4/fpm/conf.d/20-pdo_mysql.ini,\n/etc/php/8.4/fpm/conf.d/20-pdo_sqlsrv.ini,\n/etc/php/8.4/fpm/conf.d/20-phar.ini,\n/etc/php/8.4/fpm/conf.d/20-posix.ini,\n/etc/php/8.4/fpm/conf.d/20-readline.ini,\n/etc/php/8.4/fpm/conf.d/20-shmop.ini,\n/etc/php/8.4/fpm/conf.d/20-simplexml.ini,\n/etc/php/8.4/fpm/conf.d/20-soap.ini,\n/etc/php/8.4/fpm/conf.d/20-sockets.ini,\n/etc/php/8.4/fpm/conf.d/20-sqlsrv.ini,\n/etc/php/8.4/fpm/conf.d/20-sysvmsg.ini,\n/etc/php/8.4/fpm/conf.d/20-sysvsem.ini,\n/etc/php/8.4/fpm/conf.d/20-sysvshm.ini,\n/etc/php/8.4/fpm/conf.d/20-tokenizer.ini,\n/etc/php/8.4/fpm/conf.d/20-xmlreader.ini,\n/etc/php/8.4/fpm/conf.d/20-xmlwriter.ini,\n/etc/php/8.4/fpm/conf.d/20-xsl.ini,\n/etc/php/8.4/fpm/conf.d/20-zip.ini,\n/etc/php/8.4/fpm/conf.d/25-redis.ini,\n/etc/php/8.4/fpm/conf.d/99-php2shell-security.ini\n",
+        "extensions": {
+          "pdo_sqlsrv": true,
+          "sqlsrv": true,
+          "zip": true,
+          "dom": true,
+          "mbstring": true,
+          "gd": true,
+          "imagick": true,
+          "curl": true,
+          "openssl": true,
+          "fileinfo": true
+        }
+      }
+    }
+  },
+  "environment_consistency": {
+    "env_read_exit": 0,
+    "selected_env": {
+      "APP_ENV": "production",
+      "APP_DEBUG": "false",
+      "DB_CONNECTION": "sqlsrv",
+      "DB_DATABASE": "sivera",
+      "CACHE_STORE": "database",
+      "SESSION_DRIVER": "database",
+      "QUEUE_CONNECTION": "database",
+      "APP_KEY_PRESENT": true,
+      "DB_URL_PRESENT": false
+    }
+  },
+  "release": {
+    "checked_at_utc": "2026-11-11T18:45:42.404228+00:00",
+    "files": {
+      "composer.json": {
+        "exists": true,
+        "sha256": "bebb6a95e927dda87b2b67c4357fa4a3418edd802cd1b2ec1b96479c882e6a14"
+      },
+      "composer.lock": {
+        "exists": true,
+        "sha256": "5e2a376e8bb9344bfc01c290001a1c68e4d9276b63536151ac7c4cea71cab035"
+      },
+      "app/Services/DocxTemplateProcessor.php": {
+        "exists": true,
+        "sha256": "8a2261c436a4d78d7d4797abb4fe347b73b76f2a2e70b830f653b6a48d9d2a61"
+      },
+      "config/documents.php": {
+        "exists": true,
+        "sha256": "aa10ae6f4f7760f0af73dc386cfc3074442156f06eb1e1a578a748ed61e0710f"
+      },
+      "public/build/manifest.json": {
+        "exists": true,
+        "sha256": "84707afbf668fa4ec502c869c95368e82524accaf1d3566a0b473d076c1fa582"
+      },
+      "scripts/pdf_qr_overlay.py": {
+        "exists": false
+      },
+      "scripts/requirements-pdf.txt": {
+        "exists": false
+      },
+      "app/Services/DocumentQrOverlay.php": {
+        "exists": false
+      },
+      "app/Services/DocxStyleCompatibility.php": {
+        "exists": false
+      }
+    },
+    "commit": {
+      "exit": 0,
+      "value": "1ff6d0096096a1cbbe97fb2bcbe26369a792ac44"
+    },
+    "branch": {
+      "exit": 0,
+      "value": "main"
+    },
+    "status": {
+      "exit": 0,
+      "value": "M app/Services/DocxTemplateProcessor.php"
+    },
+    "local_modification_numstat": {
+      "exit": 0,
+      "value": "17\t11\tapp/Services/DocxTemplateProcessor.php"
+    },
+    "local_modification_fingerprint": "72a72a691a759b47e8a82a74b19dd7e598a62319630447cba2ca96e59340f9e1",
+    "local_modification_functions": [
+      "@@ -44,7 +44,7 @@ public function process(string $source, Document $document, ?bool $markers = nul",
+      "@@ -69,6 +69,8 @@ public function process(string $source, Document $document, ?bool $markers = nul",
+      "@@ -82,14 +84,24 @@ public function process(string $source, Document $document, ?bool $markers = nul",
+      "@@ -283,10 +295,8 @@ private function xml(string $xml): DOMDocument",
+      "@@ -296,15 +306,12 @@ private function addImageRelationship(ZipArchive $zip, string $part, string $ima",
+      "@@ -312,7 +319,6 @@ private function addDateRelationship(ZipArchive $zip, string $part, string $name"
+    ],
+    "migration_filenames": [
+      "0001_01_01_000000_create_users_table.php",
+      "0001_01_01_000001_create_cache_table.php",
+      "0001_01_01_000002_create_jobs_table.php",
+      "2026_07_25_045953_create_permission_tables.php",
+      "2026_07_25_055817_create_notifications_table.php",
+      "2026_07_25_060001_create_units_table.php",
+      "2026_07_25_060001b_add_unit_fk_to_users.php",
+      "2026_07_25_060002_create_document_types_table.php",
+      "2026_07_25_060003_create_workflow_tables.php",
+      "2026_07_25_060004_create_documents_table.php",
+      "2026_07_25_060005_create_document_versions_table.php",
+      "2026_07_25_060006_create_document_verifications_table.php",
+      "2026_07_25_060007_create_document_signatures_table.php",
+      "2026_07_25_060008_create_delegations_table.php",
+      "2026_07_25_060009_create_numbering_sequences_table.php",
+      "2026_07_25_060010_create_audit_logs_table.php",
+      "2026_07_30_120000_add_visibility_scope_and_distributions.php",
+      "2026_07_30_121700_add_unpublish_columns_to_documents.php",
+      "2026_08_27_124439_add_mulai_nomor_to_document_types_table.php",
+      "2026_08_27_170856_drop_dead_workflow_columns_from_document_types_table.php",
+      "2026_08_27_170912_create_workflow_template_units_table.php",
+      "2026_08_27_180000_add_rejection_columns_to_documents.php",
+      "2026_08_27_180001_add_multi_approval_to_workflow_steps.php",
+      "2026_08_27_180002_create_workflow_step_verifiers_table.php",
+      "2026_08_28_000001_bind_signature_otp_to_document.php",
+      "2026_08_28_000002_add_workflow_integrity_constraints.php",
+      "2026_08_29_000001_create_signature_otp_challenges_table.php",
+      "2026_08_29_000002_create_signing_ceremonies_and_evidence_tables.php",
+      "2026_08_29_000003_add_institution_seal_and_bundle_to_evidence.php",
+      "2026_08_29_000004_create_audit_chain_and_immutable_storage_tables.php",
+      "2026_08_29_000005_create_evidence_status_events_table.php",
+      "2026_08_30_000001_add_otp_email_to_users_table.php",
+      "2026_09_08_000001_add_round_tracking_to_document_verifications.php",
+      "2026_09_08_000002_add_closing_decision_to_verifications.php",
+      "2026_09_08_000003_add_decision_actor_to_verifications.php",
+      "2026_09_15_000001_expand_verification_audit_text_columns.php"
+    ]
+  },
+  "local_comparison": {
+    "composer.json": {
+      "local_sha256": "bebb6a95e927dda87b2b67c4357fa4a3418edd802cd1b2ec1b96479c882e6a14",
+      "vm_sha256": "bebb6a95e927dda87b2b67c4357fa4a3418edd802cd1b2ec1b96479c882e6a14"
+    },
+    "composer.lock": {
+      "local_sha256": "5e2a376e8bb9344bfc01c290001a1c68e4d9276b63536151ac7c4cea71cab035",
+      "vm_sha256": "5e2a376e8bb9344bfc01c290001a1c68e4d9276b63536151ac7c4cea71cab035"
+    },
+    "public/build/manifest.json": {
+      "local_sha256": "84707afbf668fa4ec502c869c95368e82524accaf1d3566a0b473d076c1fa582",
+      "vm_sha256": "84707afbf668fa4ec502c869c95368e82524accaf1d3566a0b473d076c1fa582"
+    },
+    "migrations_only_in_workspace": [
+      "2026_11_11_000001_restore_sqlite_active_verification_index.php"
+    ]
+  },
+  "blocking_prerequisites": [
+    "Nginx serves PDF worker as application/octet-stream",
+    "Poppler utilities, Python venv tooling and application PDF venv are missing",
+    "FPM configuration upload_max_filesize=2M while application allows 10 MiB",
+    "Cached documents configuration lacks new QR runtime settings and must be rebuilt for the new release"
+  ],
+  "local_vm_modification_review": {
+    "purpose": "Accumulate relationships in DOM and write each ZIP part once, preserving compatibility with older libzip",
+    "already_present_in_workspace": true,
+    "server_worktree_modified": true,
+    "deployment_requirement": "Preserve/reconcile local change before Git checkout or pull; do not reset blindly"
+  },
+  "not_verified": [
+    "End-to-end upload/revision/resubmit in production browser",
+    "New QR overlay runtime on this VM: dependencies not installed",
+    "Full Word formatting fidelity",
+    "Backup restore readiness and production signing/OTP delivery"
+  ],
+  "operations_performed": {
+    "ssh_read_only_checks": true,
+    "nginx_syntax_validation": true,
+    "http_health_and_static_asset_requests": true,
+    "production_explicit_database_queries": 0,
+    "business_data_writes": 0,
+    "package_installs": 0,
+    "application_deployments": 0,
+    "configuration_changes": 0,
+    "service_reloads": 0
+  }
+}

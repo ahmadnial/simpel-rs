@@ -6,6 +6,9 @@ return [
     'gotenberg_url' => env('GOTENBERG_URL', 'http://localhost:3000'),
     'libreoffice_path' => env('LIBREOFFICE_PATH'),
     'conversion_timeout' => 60,
+    'pdf_python' => env('DOCUMENT_PDF_PYTHON', base_path('.venv-pdf/bin/python')),
+    'pdftotext_path' => env('DOCUMENT_PDFTOTEXT_PATH', 'pdftotext'),
+    'pdftoppm_path' => env('DOCUMENT_PDFTOPPM_PATH', 'pdftoppm'),
     // Increment when the renderer version or installed fonts change.
     'render_revision' => env('DOCUMENT_RENDER_REVISION', '1'),
 ];

@@ -1,0 +1,73 @@
+{
+  "status": "partial_fix_word_fidelity_failed",
+  "checks": {
+    "application_suite": {
+      "passed": 200,
+      "assertions": 1521
+    },
+    "office_integration": {
+      "passed": 9,
+      "skipped": 1,
+      "assertions": 263,
+      "skip_reason": "Word reference acceptance run separately"
+    },
+    "python_overlay": {
+      "passed": 10
+    },
+    "word_reference_acceptance": {
+      "failed": 1,
+      "reason": "Expected 100 pages; actual 101"
+    },
+    "pint": "passed",
+    "git_diff_check": "passed"
+  },
+  "word_semantic_style_control": {
+    "pages_before": 100,
+    "pages_after": 100,
+    "matching_words": 19293,
+    "words_moved_to_other_pages": 0,
+    "max_bbox_delta_pt": 0.0,
+    "implemented_properties_match_control": true
+  },
+  "runtime_font_versions": {
+    "word_reference_pdf": "Times New Roman 7.02",
+    "mac_libreoffice": "Times New Roman 5.01.4x",
+    "linux_vm_libreoffice": "Times New Roman 2.82"
+  },
+  "controls_not_shipped": [
+    {
+      "change": "kern=0 to kern=1",
+      "word_pages": 100,
+      "word_moved_words": 5,
+      "reason": "Changes Word reference layout; rejected despite improving some LibreOffice headings"
+    },
+    {
+      "change": "Private full font set from local Office, Times New Roman 7.00",
+      "linux_style_normalized_pages": 99,
+      "reason": "Not equal to reference; no global font change made"
+    },
+    {
+      "change": "Private reference PDF font subsets",
+      "linux_style_normalized_pages": 101,
+      "page_11_BAB_II_top_pt": 85.558764,
+      "reference_page_11_top_pt": 85.588,
+      "reason": "Diagnostic only. Subsets lack complete glyph/shaping data; not a reusable production font pack; later pages still differ"
+    },
+    {
+      "change": "Materialize inherited font family and kerning as well as sizes/spacing",
+      "mac_pages": 101,
+      "matched_words_moved": 2435,
+      "reason": "Did not resolve remaining sample layout; not added to application patch"
+    }
+  ],
+  "production": {
+    "database_connections_this_task": 0,
+    "application_deployed": false,
+    "global_vm_fonts_changed": false,
+    "owned_vm_temporary_directory_removed": true
+  },
+  "dependency_status": {
+    "windows_word_server_available": false,
+    "source_document_additional_data_required": false
+  }
+}

@@ -12,23 +12,30 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tests\Support\FakeDocumentPdfService;
 use Tests\Support\RequestsSigningOtp;
+use Tests\Support\WordFixtures;
 use Tests\TestCase;
 
 class WorkflowSecurityTest extends TestCase
 {
     use RefreshDatabase;
     use RequestsSigningOtp;
+    use WordFixtures;
 
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
+        app()->instance(DocumentPdfService::class, new FakeDocumentPdfService);
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
         Permission::firstOrCreate(['name' => 'dokumen.verifikasi', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'verifikator', 'guard_name' => 'web'])->givePermissionTo('dokumen.verifikasi');
@@ -425,7 +432,7 @@ class WorkflowSecurityTest extends TestCase
     public function test_return_to_previous_level_preserves_a_long_revision_note_in_the_audit_log(): void
     {
         $fixture = $this->verificationFixture();
-        $reason = str_repeat('Perbaiki substansi dan dasar kebijakan. ', 20);
+        $reason = trim(str_repeat('Perbaiki substansi dan dasar kebijakan. ', 20));
 
         $this->actingAs($fixture['upper'])
             ->post(route('verifikasi.teruskan-bawah', $fixture['upperTicket']), [
@@ -511,6 +518,8 @@ class WorkflowSecurityTest extends TestCase
     {
         $document = Document::create(['judul' => uniqid('Doc '), 'document_type_id' => $type->id, 'unit_id' => $unit->id, 'pengusul_id' => $proposer->id, 'workflow_template_id' => $workflow->id, 'status' => $status, 'current_step' => $step]);
         DocumentVersion::create(['document_id' => $document->id, 'versi' => 1, 'file_path' => "documents/{$document->id}/test.docx", 'file_name' => 'test.docx', 'uploaded_by' => $proposer->id, 'is_current' => true]);
+
+        $this->storeWordFixture($document->currentVersion->file_path);
 
         return $document->fresh('currentVersion');
     }

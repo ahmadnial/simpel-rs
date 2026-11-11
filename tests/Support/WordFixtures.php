@@ -3,10 +3,19 @@
 namespace Tests\Support;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 trait WordFixtures
 {
+    private function storeWordFixture(string $relativePath): void
+    {
+        Storage::disk('local')->put(
+            $relativePath,
+            file_get_contents($this->wordUpload()->getRealPath())
+        );
+    }
+
     private function wordUpload(string $body = '<w:p><w:r><w:t>Naskah</w:t></w:r></w:p>', string $name = 'naskah.docx', array $parts = []): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'simpel_word_');

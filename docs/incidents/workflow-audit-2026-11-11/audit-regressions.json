@@ -1,0 +1,131 @@
+{
+  "suite": "audit-regressions",
+  "totals": {
+    "tests": "21",
+    "assertions": "166",
+    "errors": "0",
+    "failures": "14",
+    "skipped": "0"
+  },
+  "tests": [
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_unrelated_user_without_publication_permission_is_forbidden with data set #0",
+      "status": "failure",
+      "evidence": "Actual document state after unauthorized request: dipublikasikan\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:104"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_unrelated_user_without_publication_permission_is_forbidden with data set #1",
+      "status": "failure",
+      "evidence": "Actual document state after unauthorized request: ditarik\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:104"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_unrelated_user_without_publication_permission_is_forbidden with data set #2",
+      "status": "failure",
+      "evidence": "Actual document state after unauthorized request: dipublikasikan\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:104"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_proposer_cannot_approve_own_document_through_automatic_pool with data set #0",
+      "status": "failure",
+      "evidence": "Own ticket became disetujui; document became menunggu_ttd\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:128"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_proposer_cannot_approve_own_document_through_automatic_pool with data set #1",
+      "status": "failure",
+      "evidence": "Own ticket became disetujui; document became menunggu_ttd\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:128"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_proposer_cannot_approve_own_document_through_automatic_pool with data set #2",
+      "status": "failure",
+      "evidence": "Own ticket became disetujui; document became menunggu_ttd\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:128"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_deactivated_verifier_session_cannot_approve",
+      "status": "failure",
+      "evidence": "Inactive actor ticket became disetujui; document became menunggu_ttd\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:141"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_direct_pool_does_not_assign_inactive_user",
+      "status": "failure",
+      "evidence": "An inactive-only pool must not strand a submitted document.\nFailed asserting that two strings are identical.\n--- Expected\n+++ Actual\n@@ @@\n-'draft'\n+'diajukan'"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_failure_to_create_workflow_tickets_does_not_persist_review_snapshot",
+      "status": "failure",
+      "evidence": "Found unexpected file or directory at path [documents/1/reviewed/1.pdf].\nFailed asserting that true is false.\n\n<workspace>/vendor/laravel/framework/src/Illuminate/Filesystem/FilesystemAdapter.php:187\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:166"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_second_pre_authorized_submission_cannot_overwrite_committed_snapshot",
+      "status": "failure",
+      "evidence": "Rejected request must not change the PDF of the committed submission.\nFailed asserting that two strings are identical.\n--- Expected\n+++ Actual\n@@ @@\n '%PDF-1.4\n % Synthetic signing fixture"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_current_active_ticket_can_approve_and_stale_ticket_cannot_replay",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_revision_closes_old_ticket_and_old_receipt_cannot_submit_replacement",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_other_unit_cannot_read_private_preview_or_replace_source",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_local_migrations_preserve_filtered_active_ticket_index",
+      "status": "failure",
+      "evidence": "Production sys.indexes has this filter; SQLite migration result must preserve it.\nFailed asserting that 'CREATE UNIQUE INDEX \"document_verifications_active_ticket_unique\" on \"document_verifications\" (\"document_id\", \"document_version_id\", \"workflow_step_id\", \"verifikator_id\", \"level\")' [ASCII](length: 179) contains \"WHERE status = 'menunggu'\" [ASCII](length: 25).\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:229"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_three_repeated_returns_to_lower_level_leave_only_target_round_active",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_three_signer_returns_preserve_old_decisions_and_reopen_new_rounds",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_revision_after_partial_quorum_does_not_count_old_approval",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_valid_document_can_complete_submission_signature_and_authorized_publication",
+      "status": "passed"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_quorum_requires_distinct_actual_decision_makers_when_one_is_delegate",
+      "status": "failure",
+      "evidence": "Quorum 2 advanced with actual actor count 1; response 302\nFailed asserting that two strings are identical.\n--- Expected\n+++ Actual\n@@ @@\n-'diajukan'\n+'menunggu_ttd'"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_proposer_cannot_approve_own_document_as_delegate_of_assigned_reviewer",
+      "status": "failure",
+      "evidence": "Proposer acting as delegate advanced own document to menunggu_ttd\nFailed asserting that 302 is identical to 403.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:376"
+    },
+    {
+      "class": "Tests\\Investigation\\DocumentWorkflowAuditTest",
+      "name": "test_actual_lower_level_actor_cannot_also_approve_upper_level",
+      "status": "failure",
+      "evidence": "Same actual actor approved lower and upper levels; document became menunggu_ttd\nFailed asserting that 302 is identical to 409.\n\n<workspace>/tests/Investigation/DocumentWorkflowAuditTest.php:389"
+    }
+  ]
+}

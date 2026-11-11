@@ -78,9 +78,13 @@ class DocxTemplateProcessorTest extends TestCase
         $processor = app(DocxTemplateProcessor::class);
         $path = $processor->process($file->getRealPath(), $this->document());
         $xml = $this->part($path, 'word/footer1.xml');
-        $this->assertStringContainsString('cx="825500" cy="825500"', $xml);
+        $this->assertStringContainsString('${qr_code}', $xml);
+        $this->assertStringNotContainsString('<w:drawing', $xml);
         $this->assertStringContainsString('rIdSimpelQr', $xml);
-        $this->assertStringContainsString('media/simpel-qr.png', $this->part($path, 'word/_rels/footer1.xml.rels'));
+        $this->assertStringContainsString('https://simpel-preview.invalid/qr/', $this->part($path, 'word/_rels/footer1.xml.rels'));
+        $manifest = json_decode($this->part($path, DocxTemplateProcessor::QR_MANIFEST), true);
+        $this->assertSame('word/media/simpel-qr.png', $manifest['image']);
+        $this->assertCount(1, $manifest['markers']);
         $this->assertStringContainsString('ContentType="image/png"', $this->part($path, '[Content_Types].xml'));
         $this->assertStringStartsWith("\x89PNG", $this->part($path, 'word/media/simpel-qr.png'));
         $this->assertTrue($processor->inspect($file->getRealPath())['has_qr']);
@@ -92,6 +96,22 @@ class DocxTemplateProcessorTest extends TestCase
         $inspection = app(DocxTemplateProcessor::class)->inspect($file->getRealPath());
         $this->assertSame(['tanggl_ttd'], $inspection['unknown']);
         $this->assertFalse($inspection['has_qr']);
+    }
+
+    public function test_legacy_editable_docx_keeps_its_image_and_does_not_use_pdf_markers(): void
+    {
+        $file = $this->wordUpload('<w:p><w:r><w:t>${qr_code}</w:t></w:r></w:p>');
+        $processor = app(DocxTemplateProcessor::class);
+        $pdfSource = $processor->process($file->getRealPath(), $this->document());
+        $editable = $processor->process($file->getRealPath(), $this->document(), pdfOverlay: false);
+        $this->assertNotSame($pdfSource, $editable);
+        $this->assertStringContainsString('<wp:inline', $this->part($editable, 'word/document.xml'));
+        $this->assertStringNotContainsString('${qr_code}', $this->part($editable, 'word/document.xml'));
+        $this->assertStringNotContainsString('simpel-preview.invalid/qr/', $this->part($editable, 'word/_rels/document.xml.rels'));
+        $zip = new ZipArchive;
+        $zip->open($editable);
+        $this->assertFalse($zip->locateName(DocxTemplateProcessor::QR_MANIFEST));
+        $zip->close();
     }
 
     public function test_multiple_date_and_qr_tokens_preserve_existing_part_relationships(): void
@@ -125,7 +145,8 @@ class DocxTemplateProcessorTest extends TestCase
                 }
                 $this->assertSame('styles.xml', $byId['rIdStyles'] ?? null);
                 $this->assertSame('media/existing.png', $byId['rIdSimpelQr'] ?? null);
-                $this->assertSame('media/simpel-qr.png', $byId['rIdSimpelQrX'] ?? null);
+                $qrLinks = array_filter($byId, fn ($target) => str_starts_with($target, 'https://simpel-preview.invalid/qr/'));
+                $this->assertCount(1, $qrLinks);
                 $this->assertCount(5, $byId);
 
                 $dom->loadXML($this->part($path, 'word/'.$part));
@@ -151,7 +172,8 @@ class DocxTemplateProcessorTest extends TestCase
             $png = $this->part($draft, 'word/media/simpel-qr.png');
             $this->assertSame('DOKUMEN DRAFT - BELUM DISAHKAN. Bukan bukti pengesahan.', (string) (new QRCode)->readFromBlob($png));
             $this->assertQrInkColor($png, 0xDC2626);
-            $this->assertStringContainsString('cx="825500" cy="825500"', $this->part($draft, 'word/document.xml'));
+            $this->assertStringNotContainsString('<w:drawing', $this->part($draft, 'word/document.xml'));
+            $this->assertStringContainsString('${qr_code}', $this->part($draft, 'word/document.xml'));
             $this->assertStringContainsString('w:line="360"', $this->part($draft, 'word/document.xml'));
         }
 
@@ -162,7 +184,7 @@ class DocxTemplateProcessorTest extends TestCase
         $png = $this->part($signed, 'word/media/simpel-qr.png');
         $this->assertSame(route('public.verify', 'test-qr-token'), (string) (new QRCode)->readFromBlob($png));
         $this->assertQrInkColor($png, 0x000000);
-        $this->assertStringContainsString('cx="825500" cy="825500"', $this->part($signed, 'word/document.xml'));
+        $this->assertStringNotContainsString('<w:drawing', $this->part($signed, 'word/document.xml'));
     }
 
     private function assertQrInkColor(string $png, int $expected): void

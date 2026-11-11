@@ -20,6 +20,9 @@ keyOpenBao.md
 /storage/*.key
 /storage/pail
 /vendor
+/.venv-pdf
+/contoh_dokumen/
+__pycache__/
 Homestead.json
 Homestead.yaml
 Thumbs.db

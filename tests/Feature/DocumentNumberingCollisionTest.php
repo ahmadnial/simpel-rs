@@ -9,24 +9,31 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
-use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\Support\FakeDocumentPdfService;
 use Tests\Support\RequestsSigningOtp;
+use Tests\Support\WordFixtures;
+use Tests\TestCase;
 
 class DocumentNumberingCollisionTest extends TestCase
 {
     use RefreshDatabase;
     use RequestsSigningOtp;
+    use WordFixtures;
 
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
+        app()->instance(DocumentPdfService::class, new FakeDocumentPdfService);
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (['dokumen.tanda_tangan', 'admin.jenis_naskah'] as $perm) {
             Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
@@ -123,7 +130,7 @@ class DocumentNumberingCollisionTest extends TestCase
     private function makeMenungguTtdDocument(DocumentType $type, Unit $unit, User $pengusul): Document
     {
         $wf = WorkflowTemplate::create([
-            'nama' => 'WF ' . $type->nama, 'document_type_id' => $type->id,
+            'nama' => 'WF '.$type->nama, 'document_type_id' => $type->id,
             'is_default' => true, 'is_active' => true,
         ]);
 
@@ -134,16 +141,18 @@ class DocumentNumberingCollisionTest extends TestCase
         ]);
 
         $document = Document::create([
-            'judul' => 'Dokumen ' . $type->nama, 'document_type_id' => $type->id,
+            'judul' => 'Dokumen '.$type->nama, 'document_type_id' => $type->id,
             'unit_id' => $unit->id, 'pengusul_id' => $pengusul->id,
             'workflow_template_id' => $wf->id, 'status' => Document::STATUS_MENUNGGU_TTD,
         ]);
 
         DocumentVersion::create([
             'document_id' => $document->id, 'versi' => 1,
-            'file_path' => 'documents/' . $document->id . '/test.docx', 'file_name' => 'test.docx',
+            'file_path' => 'documents/'.$document->id.'/test.docx', 'file_name' => 'test.docx',
             'uploaded_by' => $pengusul->id, 'is_current' => true,
         ]);
+
+        $this->storeWordFixture($document->currentVersion->file_path);
 
         return $document->fresh();
     }

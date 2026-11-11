@@ -181,6 +181,7 @@
             </form>
         </div>
 
+        <x-database-status />
     </aside>
 
     {{-- ==================== MAIN CONTENT ==================== --}}

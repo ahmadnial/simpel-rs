@@ -1,0 +1,232 @@
+{
+  "status": "vm_prepared_application_git_deployment_not_performed",
+  "installed_runtime": [
+    {
+      "phase": "apt",
+      "exit": 0,
+      "packages": [
+        "poppler-utils=24.02.0-1ubuntu9.11",
+        "python3-pip-whl=24.0+dfsg-1ubuntu1.3",
+        "python3-setuptools-whl=68.1.2-2ubuntu1.2",
+        "python3.12-venv=3.12.3-1ubuntu0.17",
+        "python3-venv=3.12.3-0ubuntu2.1"
+      ],
+      "existing_packages_upgraded": 0,
+      "packages_removed": 0,
+      "needrestart_mode": "list-only"
+    },
+    {
+      "phase": "web-user-import",
+      "exit": 0,
+      "runtime": {
+        "python": "3.12.3",
+        "pypdf": "7.0.1"
+      }
+    },
+    {
+      "phase": "poppler-version",
+      "binary": "/usr/bin/pdftotext",
+      "exit": 0,
+      "version": "pdftotext version 24.02.0"
+    },
+    {
+      "phase": "poppler-version",
+      "binary": "/usr/bin/pdftoppm",
+      "exit": 0,
+      "version": "pdftoppm version 24.02.0"
+    }
+  ],
+  "dedicated_pool": {
+    "dedicated_pool": "/etc/php/8.4/fpm/pool.d/simpel.conf",
+    "dedicated_socket": "/run/php/php8.4-fpm-simpel.sock",
+    "pool_max_children": 5,
+    "pool_process_manager": "ondemand",
+    "upload_max_filesize": "10M",
+    "post_max_size": "16M",
+    "nginx_syntax": "passed",
+    "fpm_syntax": "passed",
+    "nginx_reload": "passed",
+    "fpm_reload": "passed",
+    "application_health_status": 200,
+    "shared_www_pool_configuration_unchanged": true,
+    "php_value_override_removed": true,
+    "applied_at_utc": "2026-11-11T19:08:07.741251+00:00"
+  },
+  "runtime_qc": {
+    "private_loopback_nginx": true,
+    "php_socket_copied_from_live_vhost": true,
+    "dedicated_fpm_pool": true,
+    "default_fpm_before": {
+      "sapi": "fpm-fcgi",
+      "uid": 33,
+      "upload_max_filesize": "2M",
+      "post_max_size": "8M",
+      "file": null
+    },
+    "upload_tests": [
+      {
+        "payload_bytes": 3145728,
+        "expected_php_upload_error": 0,
+        "actual": {
+          "sapi": "fpm-fcgi",
+          "uid": 33,
+          "upload_max_filesize": "10M",
+          "post_max_size": "16M",
+          "file": {
+            "error": 0,
+            "size": 3145728,
+            "uploaded": true
+          }
+        }
+      },
+      {
+        "payload_bytes": 10485760,
+        "expected_php_upload_error": 0,
+        "actual": {
+          "sapi": "fpm-fcgi",
+          "uid": 33,
+          "upload_max_filesize": "10M",
+          "post_max_size": "16M",
+          "file": {
+            "error": 0,
+            "size": 10485760,
+            "uploaded": true
+          }
+        }
+      },
+      {
+        "payload_bytes": 10485761,
+        "expected_php_upload_error": 1,
+        "actual": {
+          "sapi": "fpm-fcgi",
+          "uid": 33,
+          "upload_max_filesize": "10M",
+          "post_max_size": "16M",
+          "file": {
+            "error": 1,
+            "size": 0,
+            "uploaded": false
+          }
+        }
+      }
+    ],
+    "pdf_qr_via_actual_fpm": {
+      "sapi": "fpm-fcgi",
+      "uid": 33,
+      "libreoffice_converted": true,
+      "runtime": {
+        "python": "3.12.3",
+        "pypdf": "7.0.1",
+        "pdf_pages": 1,
+        "max_text_bbox_delta_pt": 0,
+        "path_available_in_python": false
+      },
+      "qr_scans": true
+    },
+    "default_fpm_after": {
+      "sapi": "fpm-fcgi",
+      "uid": 33,
+      "upload_max_filesize": "2M",
+      "post_max_size": "8M",
+      "file": null
+    },
+    "production_application_invoked": false,
+    "temporary_probe_removed": true
+  },
+  "browser_worker": {
+    "origin": "https://simpel.rsnurrohmah.my.id",
+    "health_page": true,
+    "worker_status": 200,
+    "worker_content_type": "application/javascript",
+    "module_worker_ready": true
+  },
+  "final_vm_verification": {
+    "checked_at_utc": "2026-11-11T19:09:43.426663+00:00",
+    "application_critical_files_unchanged": {
+      ".env": true,
+      "app/Services/DocxTemplateProcessor.php": true,
+      "bootstrap/cache/config.php": true,
+      "public/build/manifest.json": true
+    },
+    "global_php_configuration_unchanged": {
+      "/etc/php/8.4/fpm/php.ini": true,
+      "/etc/php/8.4/fpm/pool.d/www.conf": true
+    },
+    "git_commit": "1ff6d0096096a1cbbe97fb2bcbe26369a792ac44",
+    "git_tracked_status": "M app/Services/DocxTemplateProcessor.php",
+    "services": {
+      "nginx": "active",
+      "php8.4-fpm": "active"
+    },
+    "http": [
+      {
+        "path": "/up",
+        "status": 200,
+        "content_type": "text/html; charset=utf-8"
+      },
+      {
+        "path": "/build/assets/pdf.worker.min-FHbmGBN0.mjs",
+        "status": 200,
+        "content_type": "application/javascript"
+      },
+      {
+        "path": "/build/assets/simpel-vm-prep-missing.mjs",
+        "status": 404,
+        "content_type": "text/html"
+      }
+    ],
+    "new_packages": {
+      "poppler-utils": "24.02.0-1ubuntu9.11",
+      "python3-pip-whl": "24.0+dfsg-1ubuntu1.3",
+      "python3-setuptools-whl": "68.1.2-2ubuntu1.2",
+      "python3-venv": "3.12.3-0ubuntu2.1",
+      "python3.12-venv": "3.12.3-1ubuntu0.17"
+    },
+    "existing_packages_changed": {},
+    "application_code_new_files_still_absent": true,
+    "new_runtime_venv": "/var/www/apps/simpel-rs/.venv-pdf",
+    "backup_directory": "/var/backups/simpel-vm-prep-20261111T185753Z",
+    "temporary_qc_directories_remaining": []
+  },
+  "git_readiness": {
+    "deployment_cache_state": {
+      "routes_cached": false,
+      "public_hot_file": false,
+      "composer_authoritative": false,
+      "compiled_views_count": 22,
+      "compiled_views_not_writable": []
+    },
+    "existing_hotfix_backup": "/var/backups/simpel-vm-prep-20261111T185753Z/pre-git-local-hotfix.patch",
+    "application_source_changed": false
+  },
+  "vm_git_remote_access": {
+    "vm_deployment_user_remote_readable": true,
+    "remote_main_commit": "9e1d1991c6b1120ac314a507045f79420e127667",
+    "git_push_or_pull_performed": false
+  },
+  "rejected_trial": {
+    "per_request_php_value_override": "Removed after QC found persistence on reused shared FPM workers",
+    "baseline_restored_by_fpm_reload": true,
+    "replacement": "Dedicated SIMPEL FPM pool; shared www pool remains 2M/8M"
+  },
+  "local_release_verification": {
+    "application_tests": 200,
+    "application_assertions": 1521,
+    "office_and_cache_concurrency_tests_passed": 11,
+    "office_and_cache_concurrency_assertions": 288,
+    "office_tests_skipped": 1,
+    "skipped_reason": "Independent Word fidelity gate requires explicit reference; known 101 vs 100 page difference remains",
+    "http_current_and_previous_config_tests": 2,
+    "http_assertions": 36,
+    "python_tests": 10
+  },
+  "scope": {
+    "application_code_changed_on_vm": false,
+    "config_cache_changed_on_vm": false,
+    "env_changed": false,
+    "git_push_performed": false,
+    "git_pull_performed": false,
+    "production_database_explicit_queries": 0,
+    "production_business_data_mutations": 0
+  }
+}

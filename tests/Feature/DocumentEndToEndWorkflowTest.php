@@ -14,19 +14,30 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Services\DocumentPdfService;
 use App\Services\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Support\FakeDocumentPdfService;
 use Tests\Support\RequestsSigningOtp;
+use Tests\Support\WordFixtures;
 use Tests\TestCase;
 
 class DocumentEndToEndWorkflowTest extends TestCase
 {
     use RefreshDatabase;
     use RequestsSigningOtp;
+    use WordFixtures;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+        app()->instance(DocumentPdfService::class, new FakeDocumentPdfService);
+    }
 
     public function test_document_can_complete_pedoman_workflow_from_submission_through_internal_signature(): void
     {
@@ -80,6 +91,8 @@ class DocumentEndToEndWorkflowTest extends TestCase
             'file_path' => "documents/{$document->id}/panduan-igd.docx", 'file_name' => 'panduan-igd.docx',
             'uploaded_by' => $pengusul->id, 'is_current' => true,
         ]);
+
+        $this->storeWordFixture($document->currentVersion->file_path);
 
         $service = app(DocumentService::class);
 

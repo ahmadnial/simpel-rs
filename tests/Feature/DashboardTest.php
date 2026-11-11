@@ -42,6 +42,7 @@ class DashboardTest extends TestCase
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
 
         $pengusul = User::create([
+            'is_active' => true,
             'name' => 'Pengusul User',
             'email' => 'pengusul@test.com',
             'password' => bcrypt('password'),
@@ -49,6 +50,7 @@ class DashboardTest extends TestCase
         ]);
 
         $signerUser = User::create([
+            'is_active' => true,
             'name' => 'Direktur User',
             'email' => 'direktur@test.com',
             'password' => bcrypt('password'),
@@ -119,6 +121,7 @@ class DashboardTest extends TestCase
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
 
         $pengusul = User::create([
+            'is_active' => true,
             'name' => 'Pengusul User',
             'email' => 'pengusul2@test.com',
             'password' => bcrypt('password'),
@@ -126,6 +129,7 @@ class DashboardTest extends TestCase
         ]);
 
         $multiRoleUser = User::create([
+            'is_active' => true,
             'name' => 'Pejabat Multi Role',
             'email' => 'pejabat@test.com',
             'password' => bcrypt('password'),
@@ -223,6 +227,7 @@ class DashboardTest extends TestCase
         $unit = Unit::create(['nama' => 'Direktorat', 'kode' => 'DIR', 'singkatan' => 'DIR', 'urutan' => 1]);
 
         $pengusul = User::create([
+            'is_active' => true,
             'name' => 'Pengusul User',
             'email' => 'pengusul3@test.com',
             'password' => bcrypt('password'),
@@ -234,6 +239,7 @@ class DashboardTest extends TestCase
         $roleWadir->givePermissionTo('dokumen.tanda_tangan');
 
         $wadirUser = User::create([
+            'is_active' => true,
             'name' => 'Wadir User',
             'email' => 'wadir@test.com',
             'password' => bcrypt('password'),

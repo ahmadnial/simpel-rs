@@ -1,0 +1,433 @@
+{
+  "database": "simpel-dev",
+  "run_id": "0aa16d99",
+  "scenarios": [
+    {
+      "a": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 5594,
+        "error": null
+      },
+      "b": {
+        "session_id": 58,
+        "status": 409,
+        "elapsed_ms": 6064,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Tiket verifikasi ini sudah diproses atau dibatalkan."
+        }
+      },
+      "observed_block": {
+        "session_id": "58",
+        "blocking_session_id": "61",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "approve-approve",
+      "final_status": "menunggu_ttd",
+      "tickets": 2,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 5638,
+        "error": null
+      },
+      "b": {
+        "session_id": 58,
+        "status": 409,
+        "elapsed_ms": 6099,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Tiket verifikasi ini sudah diproses atau dibatalkan."
+        }
+      },
+      "observed_block": {
+        "session_id": "58",
+        "blocking_session_id": "61",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "approve-revise",
+      "final_status": "menunggu_ttd",
+      "tickets": 2,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 71,
+        "status": 200,
+        "elapsed_ms": 1967,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 409,
+        "elapsed_ms": 2459,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Tiket verifikasi ini sudah diproses atau dibatalkan."
+        }
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "71",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "revise-approve",
+      "final_status": "revisi",
+      "tickets": 2,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 71,
+        "status": 200,
+        "elapsed_ms": 1278,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 6305,
+        "error": null
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "71",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "quorum-approve-approve",
+      "final_status": "menunggu_ttd",
+      "tickets": 2,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 58,
+        "status": 200,
+        "elapsed_ms": 1223,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 2452,
+        "error": null
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "58",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "quorum-approve-revise",
+      "final_status": "revisi",
+      "tickets": 2,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 58,
+        "status": 200,
+        "elapsed_ms": 2880,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 403,
+        "elapsed_ms": 2934,
+        "error": {
+          "type": "Illuminate\\Auth\\Access\\AuthorizationException",
+          "code": "0",
+          "message": "This action is unauthorized."
+        }
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "58",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "submit-submit",
+      "final_status": "diajukan",
+      "tickets": 2,
+      "pending": 2,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 58,
+        "status": 200,
+        "elapsed_ms": 1244,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 422,
+        "elapsed_ms": 1367,
+        "error": {
+          "type": "Illuminate\\Validation\\ValidationException",
+          "code": "0",
+          "message": "Versi dokumen berubah atau pratinjau kedaluwarsa. Muat dan periksa pratinjau terbaru."
+        }
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "58",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "upload-submit",
+      "final_status": "draft",
+      "tickets": 0,
+      "pending": 0,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 2924,
+        "error": null
+      },
+      "b": {
+        "session_id": 58,
+        "status": 409,
+        "elapsed_ms": 2974,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Dokumen tidak lagi dapat disunting karena statusnya telah berubah."
+        }
+      },
+      "observed_block": {
+        "session_id": "58",
+        "blocking_session_id": "61",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "submit-upload",
+      "final_status": "diajukan",
+      "tickets": 2,
+      "pending": 2,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 58,
+        "status": 200,
+        "elapsed_ms": 2621,
+        "error": null
+      },
+      "b": {
+        "session_id": 61,
+        "status": 409,
+        "elapsed_ms": 3133,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Anda sudah memberikan persetujuan pada putaran tahap ini."
+        }
+      },
+      "observed_block": {
+        "session_id": "61",
+        "blocking_session_id": "58",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "return-stale-approve",
+      "final_status": "ditolak_penandatangan",
+      "tickets": 4,
+      "pending": 2,
+      "passed": true
+    },
+    {
+      "a": {
+        "session_id": 61,
+        "status": 200,
+        "elapsed_ms": 2700,
+        "error": null
+      },
+      "b": {
+        "session_id": 58,
+        "status": 403,
+        "elapsed_ms": 2807,
+        "error": {
+          "type": "Symfony\\Component\\HttpKernel\\Exception\\HttpException",
+          "code": "0",
+          "message": "Dokumen tidak dalam status menunggu tanda tangan, tidak dapat dikembalikan."
+        }
+      },
+      "observed_block": {
+        "session_id": "58",
+        "blocking_session_id": "61",
+        "wait_type": "LCK_M_U"
+      },
+      "scenario": "return-return",
+      "final_status": "ditolak_penandatangan",
+      "tickets": 4,
+      "pending": 2,
+      "passed": true
+    }
+  ],
+  "cleanup_completed": true,
+  "baseline_rows_unchanged": true,
+  "baseline_before": {
+    "documents": {
+      "rows": 14,
+      "sha256": "14d6e505f0e0f900fa6aa07add4e5d756284289c674d4e488c1d88d040522fd6"
+    },
+    "document_versions": {
+      "rows": 16,
+      "sha256": "9e2b4a1ec16e97c772599b7335070c6b5f093f3958b8d677eb5caba75c09c128"
+    },
+    "document_verifications": {
+      "rows": 79,
+      "sha256": "4fc500d8574a2fa4fce139c9637c89816b70c8d8ab16e0c40a4a2793666ace5a"
+    },
+    "users": {
+      "rows": 56,
+      "sha256": "02329e7f57548c425bb9e8370f40eec1e5224265d89da5dbc135a6274b77e45f"
+    },
+    "units": {
+      "rows": 78,
+      "sha256": "b8679b30a6d7c406e1a504d26a2fa4181f5d117c591ec1bf33b4d1488316818f"
+    },
+    "document_types": {
+      "rows": 10,
+      "sha256": "0e1b2258aa4ae07e513820838be5dfa39ea63b9ec41084c4d53d668fa3430f2d"
+    },
+    "workflow_templates": {
+      "rows": 14,
+      "sha256": "150d94f34053ae4d4e0b13212f2da7ca1c2d3588b81cbbaebdefaba20acff706"
+    },
+    "workflow_steps": {
+      "rows": 42,
+      "sha256": "3e7aec0edc1eaeace223bfc45920a75b2d366a4bb91c31b1b91974ba643b47fa"
+    },
+    "workflow_step_verifiers": {
+      "rows": 65,
+      "sha256": "ee37a09b22e9e0f20decd36c20b4d18524205c1961e20c4884ab59129dc1a404"
+    },
+    "roles": {
+      "rows": 8,
+      "sha256": "9e9a094e54d126dfb7cdabea4f71227e14fb731648f264809ebf8dc1d6d60f1d"
+    },
+    "model_has_roles": {
+      "rows": 112,
+      "sha256": "e876f390b9afbaf518bb379f8a65c78796b043129d54e153172a8d80e826e040"
+    },
+    "audit_logs": {
+      "rows": 335,
+      "sha256": "e6b8505b1aa4b404324b56768d97a2d655d14b2cf39945312959d3cd55722f45"
+    },
+    "notifications": {
+      "rows": 152,
+      "sha256": "0aa4fab9cc4ef39651cec67b2388cf25c384e4b8e75aaf859ac5baf6bdf86eb8"
+    },
+    "signature_otp_challenges": {
+      "rows": 6,
+      "sha256": "615fc09c7c1facc129e0b86a0f282f560d886987c2bda8157656110650a90fd9"
+    },
+    "signing_ceremonies": {
+      "rows": 5,
+      "sha256": "899f8878918b69e969a25985309b24bb3fe810522e299b835816bbc0b6abc84f"
+    },
+    "audit_chain_events": {
+      "rows": 18,
+      "sha256": "bcdac1f407d143703e27d1ffa3a3d6812c90fea1f3032f39ee5a35b192779fd3"
+    }
+  },
+  "baseline_after": {
+    "documents": {
+      "rows": 14,
+      "sha256": "14d6e505f0e0f900fa6aa07add4e5d756284289c674d4e488c1d88d040522fd6"
+    },
+    "document_versions": {
+      "rows": 16,
+      "sha256": "9e2b4a1ec16e97c772599b7335070c6b5f093f3958b8d677eb5caba75c09c128"
+    },
+    "document_verifications": {
+      "rows": 79,
+      "sha256": "4fc500d8574a2fa4fce139c9637c89816b70c8d8ab16e0c40a4a2793666ace5a"
+    },
+    "users": {
+      "rows": 56,
+      "sha256": "02329e7f57548c425bb9e8370f40eec1e5224265d89da5dbc135a6274b77e45f"
+    },
+    "units": {
+      "rows": 78,
+      "sha256": "b8679b30a6d7c406e1a504d26a2fa4181f5d117c591ec1bf33b4d1488316818f"
+    },
+    "document_types": {
+      "rows": 10,
+      "sha256": "0e1b2258aa4ae07e513820838be5dfa39ea63b9ec41084c4d53d668fa3430f2d"
+    },
+    "workflow_templates": {
+      "rows": 14,
+      "sha256": "150d94f34053ae4d4e0b13212f2da7ca1c2d3588b81cbbaebdefaba20acff706"
+    },
+    "workflow_steps": {
+      "rows": 42,
+      "sha256": "3e7aec0edc1eaeace223bfc45920a75b2d366a4bb91c31b1b91974ba643b47fa"
+    },
+    "workflow_step_verifiers": {
+      "rows": 65,
+      "sha256": "ee37a09b22e9e0f20decd36c20b4d18524205c1961e20c4884ab59129dc1a404"
+    },
+    "roles": {
+      "rows": 8,
+      "sha256": "9e9a094e54d126dfb7cdabea4f71227e14fb731648f264809ebf8dc1d6d60f1d"
+    },
+    "model_has_roles": {
+      "rows": 112,
+      "sha256": "e876f390b9afbaf518bb379f8a65c78796b043129d54e153172a8d80e826e040"
+    },
+    "audit_logs": {
+      "rows": 335,
+      "sha256": "e6b8505b1aa4b404324b56768d97a2d655d14b2cf39945312959d3cd55722f45"
+    },
+    "notifications": {
+      "rows": 152,
+      "sha256": "0aa4fab9cc4ef39651cec67b2388cf25c384e4b8e75aaf859ac5baf6bdf86eb8"
+    },
+    "signature_otp_challenges": {
+      "rows": 6,
+      "sha256": "615fc09c7c1facc129e0b86a0f282f560d886987c2bda8157656110650a90fd9"
+    },
+    "signing_ceremonies": {
+      "rows": 5,
+      "sha256": "899f8878918b69e969a25985309b24bb3fe810522e299b835816bbc0b6abc84f"
+    },
+    "audit_chain_events": {
+      "rows": 18,
+      "sha256": "bcdac1f407d143703e27d1ffa3a3d6812c90fea1f3032f39ee5a35b192779fd3"
+    }
+  },
+  "error": null,
+  "production_accessed": false,
+  "artifacts": "/var/folders/hm/67hxxmd54j7f0p3x0qm4v3w80000gn/T/simpel-sqlserver-qc-0aa16d99",
+  "status_interpretation": "200 denotes successful direct service/controller invocation; other codes are exceptions mapped to their Laravel HTTP status. No browser/wire HTTP test is claimed.",
+  "schema_preparation": {
+    "restored_from_production": false,
+    "database": "simpel-dev",
+    "migrations_applied": [
+      "2026_08_30_000001_add_otp_email_to_users_table",
+      "2026_09_15_000001_expand_verification_audit_text_columns",
+      "2026_11_11_000001_restore_sqlite_active_verification_index"
+    ],
+    "note": "Last migration is a no-op on SQL Server."
+  },
+  "local_regression": {
+    "tests": 184,
+    "assertions": 1430,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  }
+}

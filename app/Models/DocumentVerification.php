@@ -128,11 +128,29 @@ class DocumentVerification extends Model
                     ->whereColumn('prior_level.document_version_id', 'document_verifications.document_version_id')
                     ->where(function ($identity) use ($actorId) {
                         $identity->whereColumn('prior_level.verifikator_id', 'document_verifications.verifikator_id');
+                        $identity->orWhereColumn('prior_level.decided_by_user_id', 'document_verifications.verifikator_id');
                         if ($actorId !== null) {
-                            $identity->orWhere('prior_level.verifikator_id', $actorId);
+                            $identity->orWhere('prior_level.verifikator_id', $actorId)
+                                ->orWhere('prior_level.decided_by_user_id', $actorId);
                         }
                     })
                     ->whereColumn('prior_level.level', '<', 'document_verifications.level');
+            })
+            ->whereHas('verifikator', fn (Builder $user) => $user->where('is_active', true))
+            ->whereNotExists(function ($peers) use ($actorId) {
+                $peers->selectRaw('1')->from('document_verifications as approved_peer')
+                    ->whereColumn('approved_peer.document_id', 'document_verifications.document_id')
+                    ->whereColumn('approved_peer.document_version_id', 'document_verifications.document_version_id')
+                    ->whereColumn('approved_peer.workflow_step_id', 'document_verifications.workflow_step_id')
+                    ->whereColumn('approved_peer.verification_round', 'document_verifications.verification_round')
+                    ->where('approved_peer.status', self::STATUS_DISETUJUI)
+                    ->where(function ($identity) use ($actorId) {
+                        if ($actorId === null) {
+                            $identity->whereRaw('COALESCE(approved_peer.decided_by_user_id, approved_peer.verifikator_id) = document_verifications.verifikator_id');
+                        } else {
+                            $identity->whereRaw('COALESCE(approved_peer.decided_by_user_id, approved_peer.verifikator_id) = ?', [$actorId]);
+                        }
+                    });
             })
             ->where('document_verifications.status', self::STATUS_MENUNGGU)
             ->where('document_verifications.verification_round', '=', function ($activeRound) {
@@ -155,14 +173,18 @@ class DocumentVerification extends Model
                     });
             })
             ->whereHas('version', fn (Builder $version) => $version->where('is_current', true))
-            ->whereHas('document', function (Builder $document): void {
+            ->whereHas('document', function (Builder $document) use ($actorId): void {
                 $document
+                    ->whereColumn('documents.pengusul_id', '!=', 'document_verifications.verifikator_id')
                     ->whereIn('status', [
                         Document::STATUS_DIAJUKAN,
                         Document::STATUS_VERIFIKASI,
                         Document::STATUS_DITOLAK_TTD,
                     ])
                     ->whereColumn('documents.current_step', 'document_verifications.level');
+                if ($actorId !== null) {
+                    $document->where('pengusul_id', '!=', $actorId);
+                }
             });
     }
 
@@ -207,6 +229,10 @@ class DocumentVerification extends Model
             ->max('verification_round');
 
         return $this->isMenunggu()
+            && $this->verifikator?->is_active
+            && $document?->pengusul_id !== $this->verifikator_id
+            && ($actorId === null || $document?->pengusul_id !== $actorId)
+            && ! $this->hasApprovedInRound($actorId ?? $this->verifikator_id)
             && ! $this->hasLowerLevelAssignment()
             && ($actorId === null || ! $this->hasLowerLevelAssignment($actorId))
             && $this->verification_round === (int) $activeRound
@@ -231,8 +257,22 @@ class DocumentVerification extends Model
     {
         return self::where('document_id', $this->document_id)
             ->where('document_version_id', $this->document_version_id)
-            ->where('verifikator_id', $actorId ?? $this->verifikator_id)
+            ->where(function ($identity) use ($actorId) {
+                $id = $actorId ?? $this->verifikator_id;
+                $identity->where('verifikator_id', $id)->orWhere('decided_by_user_id', $id);
+            })
             ->where('level', '<', $this->level)
+            ->exists();
+    }
+
+    public function hasApprovedInRound(int $actorId): bool
+    {
+        return self::where('document_id', $this->document_id)
+            ->where('document_version_id', $this->document_version_id)
+            ->where('workflow_step_id', $this->workflow_step_id)
+            ->where('verification_round', $this->verification_round)
+            ->where('status', self::STATUS_DISETUJUI)
+            ->whereRaw('COALESCE(decided_by_user_id, verifikator_id) = ?', [$actorId])
             ->exists();
     }
 }

@@ -1,0 +1,31 @@
+{
+  "word_reference": {
+    "sha256": "117617e19581260f089f7d92dc3993e620506f1f4c2695293857c2bc1c9c9049",
+    "pages": 100,
+    "page_11_BAB_II_top_pt": 85.588,
+    "page_12_header_font_sizes": {
+      "No.": 10.0,
+      "Jenis Tenaga": 10.0,
+      "Tenaga yang ada": 10.0
+    }
+  },
+  "user_after_qr_fix": {
+    "sha256": "70013252dca0927951d31c778d293089512682f89d219ec3f3ed5a6ef142686d",
+    "pages": 109,
+    "page_11_BAB_II_top_pt": 121.608764,
+    "page_12_header_font_sizes": {
+      "Jenis Tenaga": 12.0
+    }
+  },
+  "application_after_table_fix": {
+    "sha256": "6d402e830ea83f9a81578d0222c2dc902a17ef8585385adb7bceedee2ff528be",
+    "pages": 101,
+    "page_11_BAB_II_top_pt": 121.608764,
+    "page_12_header_font_sizes": {
+      "No.": 10.0,
+      "Jenis Tenaga": 10.0,
+      "Tenaga yang ada": 10.0
+    }
+  },
+  "source_sha256": "1618647925247d653db4e2a3cb03a4b9f5df71402229ce2bcd38a0ef6ac5b8a3"
+}

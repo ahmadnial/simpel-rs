@@ -15,16 +15,18 @@ class DocumentPdfService
 {
     public function render(string $docxPath, Document $document, DocumentVersion $version): string
     {
-        $key = hash('sha256', hash_file('sha256', $docxPath).'|'.config('documents.renderer').'|'.config('documents.render_revision'));
+        $key = hash('sha256', 'pdf-qr-v2|'.hash_file('sha256', $docxPath).'|'.config('documents.renderer').'|'.config('documents.render_revision'));
         $directory = Storage::disk('local')->path('pdf_cache');
-        File::ensureDirectoryExists($directory);
+        if (! is_dir($directory) && ! File::makeDirectory($directory, 0755, true, true) && ! is_dir($directory)) {
+            throw new DocumentConversionException('Direktori cache PDF tidak dapat dibuat. Hubungi administrator.');
+        }
         $pdfPath = $directory.'/office_'.$key.'.pdf';
         if (is_file($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
         }
 
         // Concurrent viewers share one conversion. Partial output is never served.
-        $lock = Cache::lock('document-pdf:'.$key, (int) config('documents.conversion_timeout') + 15);
+        $lock = Cache::lock('document-pdf:'.$key, 2 * (int) config('documents.conversion_timeout') + 15);
         if (! $lock->get()) {
             throw new DocumentConversionException('PDF sedang diproses. Tunggu sebentar lalu muat ulang pratinjau.');
         }
@@ -37,6 +39,7 @@ class DocumentPdfService
             if (! is_file($temporary) || file_get_contents($temporary, false, null, 0, 5) !== '%PDF-') {
                 throw new DocumentConversionException('Layanan konversi tidak menghasilkan PDF yang valid. Coba lagi atau hubungi administrator.');
             }
+            app(DocumentQrOverlay::class)->apply($docxPath, $temporary);
             if (! rename($temporary, $pdfPath)) {
                 throw new DocumentConversionException('PDF belum dapat disimpan. Hubungi administrator.');
             }
@@ -51,6 +54,39 @@ class DocumentPdfService
             File::delete($temporary);
             $lock->release();
         }
+    }
+
+    /** Read our bounded ASCII metadata, including on a cached or copied PDF. */
+    public function warnings(string $pdf): array
+    {
+        $stream = fopen($pdf, 'rb');
+        if ($stream === false) {
+            return [];
+        }
+        try {
+            $buffer = '';
+            while (! feof($stream)) {
+                $buffer = substr($buffer, -1024).fread($stream, 65536);
+                if (! preg_match('#/SimpelQrWarnings\s*\(([A-Za-z0-9+/=]{0,1024})\)#', $buffer, $match)) {
+                    continue;
+                }
+                $pages = json_decode(base64_decode($match[1], true) ?: '', true);
+                if (! is_array($pages) || ! $pages || count($pages) > 30) {
+                    return [];
+                }
+                foreach ($pages as $page) {
+                    if (! is_int($page) || $page < 1) {
+                        return [];
+                    }
+                }
+
+                return ['QR pada halaman '.implode(', ', $pages).' berisiko bertumpang tindih dengan isi dokumen. Periksa seluruh PDF sebelum mengajukan; sesuaikan ruang QR pada template bila diperlukan.'];
+            }
+        } finally {
+            fclose($stream);
+        }
+
+        return [];
     }
 
     protected function convert(string $source, string $destination): void

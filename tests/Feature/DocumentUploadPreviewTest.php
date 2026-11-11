@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\DocumentConversionException;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
+use App\Services\DocumentQrOverlay;
 use App\Services\DocumentService;
 use App\Services\WordDocumentNormalizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -114,6 +116,41 @@ class DocumentUploadPreviewTest extends TestCase
         Storage::disk('local')->assertMissing($original->file_path);
         $this->assertSame(Document::STATUS_DRAFT, $document->fresh()->status);
         $this->review($document);
+    }
+
+    public function test_qr_overlap_warning_survives_cache_and_reviewed_copy_without_blocking_submission(): void
+    {
+        $document = $this->upload($this->wordUpload('<w:p><w:r><w:t>Direktur ${qr_code} nama</w:t></w:r></w:p>'));
+        $version = $document->currentVersion;
+        $sourceHash = hash('sha256', Storage::disk('local')->get($version->file_path));
+        $this->mock(DocumentQrOverlay::class)->shouldReceive('apply')->once()->andReturnUsing(function ($source, $pdf) {
+            file_put_contents($pdf, "\n/SimpelQrWarnings (".base64_encode('[1]').")\n", FILE_APPEND);
+        });
+        $url = route('dokumen.preview-pdf', [$document, $version->id]);
+        $response = $this->getJson($url)->assertOk();
+        $warning = $response->headers->get('X-Preview-Warnings');
+        $this->assertStringContainsString('bertumpang tindih', rawurldecode($warning));
+        $this->assertNotEmpty($response->headers->get('X-Document-Review'));
+        $this->getJson($url)->assertOk()->assertHeader('X-Preview-Warnings', $warning);
+        $this->assertNull($version->fresh()->file_pdf_path);
+        $this->assertSame($sourceHash, hash('sha256', Storage::disk('local')->get($version->file_path)));
+        $this->postJson(route('dokumen.ajukan', $document), ['verifikator_ids' => [$this->verifier->id], 'review_token' => $response->headers->get('X-Document-Review')])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(Document::STATUS_DIAJUKAN, $document->fresh()->status);
+        $this->getJson($url)->assertOk()->assertHeader('X-Preview-Warnings', $warning);
+        Http::assertSentCount(1);
+    }
+
+    public function test_ambiguous_qr_position_does_not_issue_a_review_token(): void
+    {
+        $document = $this->upload($this->wordUpload('<w:p><w:r><w:t>${qr_code}</w:t></w:r></w:p>'));
+        $this->mock(DocumentQrOverlay::class)->shouldReceive('apply')->once()
+            ->andThrow(new DocumentConversionException('Posisi QR tidak dapat ditentukan.', statusCode: 422));
+        $this->getJson(route('dokumen.preview-pdf', [$document, $document->currentVersion->id]))
+            ->assertUnprocessable()->assertHeaderMissing('X-Document-Review');
+        $this->assertSame([], Storage::disk('local')->allFiles('pdf_cache'));
+        $this->assertSame(Document::STATUS_DRAFT, $document->fresh()->status);
+        $this->assertSame(0, $document->verifications()->count());
     }
 
     public function test_even_reuploading_identical_bytes_requires_review_of_the_replacement(): void
