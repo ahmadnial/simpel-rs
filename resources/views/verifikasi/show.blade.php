@@ -75,16 +75,6 @@
 </div>
 @endif
 
-@if($isCurrentTicket && $verification->activation_reason === \App\Models\DocumentVerification::REASON_RETURNED_BY_VERIFIER)
-<div class="alert alert-info" style="margin-bottom: var(--space-6)">
-    <strong>Pemeriksaan ulang dari level berikutnya.</strong>
-    Keputusan sebelumnya tetap tersimpan pada riwayat Putaran {{ max(1, $verification->verification_round - 1) }}.
-    @if($verification->reopenedFrom?->catatan)
-        <div style="margin-top:8px; font-style:italic">“{{ $verification->reopenedFrom->catatan }}”</div>
-    @endif
-</div>
-@endif
-
 <div class="workflow-review-grid" style="display:grid; grid-template-columns: 3fr 2fr; gap: var(--space-6)">
 
     {{-- Left: Keputusan & Form --}}
