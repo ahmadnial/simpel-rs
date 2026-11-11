@@ -27,21 +27,33 @@ cd /var/www/apps/simpel-rs
 php artisan down
 git stash push -m "pre-release document processor hotfix" -- app/Services/DocxTemplateProcessor.php
 git pull --ff-only origin main
+php artisan config:cache
+sudo chgrp www-data bootstrap/cache/config.php
+chmod 0640 bootstrap/cache/config.php
 php artisan up
 ```
 
-Jalankan setiap langkah berurutan dan berhenti jika salah satunya gagal. Bila
-pull gagal, pulihkan hotfix dengan `git stash pop` sebelum membuka aplikasi
-kembali. Bila pull sukses, **jangan pop stash hotfix lama**: implementasinya sudah
-masuk kode rilis. Simpan stash/cadangan sampai verifikasi selesai. Tidak perlu
-force reset atau menimpa `.env`.
+Jalankan setiap langkah berurutan dan berhenti jika salah satunya gagal. Langkah
+stash hanya diperlukan bila hotfix lokal tersebut masih ada; setelah deployment
+sukses working tree VM bersih. Bila pull gagal, pulihkan hotfix dengan stash yang
+baru dibuat sebelum membuka aplikasi kembali. Jika Git mengatakan
+`No local changes to save`, jangan pop stash lama dari deployment sebelumnya.
+Bila pull sukses, **jangan pop stash hotfix lama**: implementasinya sudah masuk
+kode rilis. Simpan stash/cadangan sampai verifikasi selesai. Tidak perlu force
+reset atau menimpa `.env`.
 
-Default runtime QR kompatibel dengan config cache lama VM. Bila SOP deployment
-memerlukan rebuild cache, jalankan `php artisan config:cache` sebagai akun
-deployment selama aplikasi masih dalam jeda rilis, setelah pull sukses dan
-sebelum `php artisan up`. `.env` production hanya dapat dibaca akun deployment;
-jangan meninggalkan aplikasi tanpa config cache. Tidak perlu `optimize:clear`
-atau penghapusan cache database yang luas.
+Default runtime QR kompatibel dengan config cache lama VM, tetapi cache
+konfigurasi **wajib tersedia sebelum `php artisan up`**. Jalankan `config:cache`
+sebagai akun deployment setelah seluruh langkah Git/Composer/clear-cache selesai.
+Hook `post-autoload-dump` Laravel pada Composer dapat menghapus config cache.
+Jangan menjalankan Composer atau `config:clear` setelah pembuatan cache tanpa
+membangunnya kembali.
+
+`.env` production tetap privat bagi akun deployment. File cache harus dapat
+dibaca `www-data` tanpa membuka akses untuk pengguna lain (owner akun deployment,
+group `www-data`, mode 0640). Tidak perlu `optimize:clear` atau penghapusan cache
+database yang luas. Jangan menjalankan `key:generate` untuk menangani
+`MissingAppKeyException`: pertahankan `APP_KEY` production yang sudah ada.
 
 Tidak ada perubahan dependency PHP/frontend pada rilis ini. Satu migration baru
 hanya memperbaiki SQLite dan merupakan no-op pada SQL Server. Jangan menjalankan

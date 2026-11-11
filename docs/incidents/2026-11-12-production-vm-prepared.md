@@ -81,8 +81,11 @@ Route cache VM nonaktif, Composer classmap tidak authoritative, dan seluruh
 22 compiled views yang ditemukan dapat ditulis oleh `www-data`. Dengan default
 runtime VM yang telah disiapkan, tidak ada kebutuhan mengedit `.env`, mengosongkan
 cache aplikasi/database, membangun frontend, atau menjalankan migration SQL Server
-untuk menyiapkan perubahan ini. Rebuild cache melalui prosedur deployment normal
-tetap dapat dilakukan setelah kode tersedia.
+untuk menyiapkan perubahan ini. Config cache harus tersedia saat aplikasi dibuka.
+Setelah seluruh langkah Git/Composer/clear-cache selesai, wajib jalankan
+`config:cache` dan pastikan cache terbaca web server sebelum `artisan up`.
+Kebutuhan ini dipertegas setelah
+[insiden cache hilang](2026-11-12-production-config-cache-recovery.md).
 
 Folder dokumen contoh asli dan virtual environment dikecualikan dari Git. Tidak
 ada DOCX/PDF contoh atau kredensial yang dimasukkan ke paket kode.

@@ -1,0 +1,192 @@
+{
+  "incident": "production_500_after_pull",
+  "initial_diagnosis": {
+    "checked_at_utc": "2026-11-11T23:18:18.714528+00:00",
+    "git": {
+      "head": {
+        "exit": 0,
+        "value": "ae2627e0ae1f3c9264a7d6ed70fd349d34813f6b"
+      },
+      "status": {
+        "exit": 0,
+        "value": ""
+      }
+    },
+    "maintenance_mode": false,
+    "config_cache_exists": false,
+    "file_metadata": {
+      "bootstrap/app.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      "app/Http/Middleware/EnsureUserIsActive.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      "app/Http/Controllers/DatabaseStatusController.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      "resources/views/components/database-status.blade.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      "app/Services/DocumentQrOverlay.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      "routes/web.php": {
+        "mode": "0o664",
+        "uid": 1000,
+        "gid": 1000
+      },
+      ".env": {
+        "mode": "0o600",
+        "uid": 1000,
+        "gid": 1000
+      }
+    },
+    "web_user_access": {
+      "bootstrap/app.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "app/Http/Middleware/EnsureUserIsActive.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "app/Http/Controllers/DatabaseStatusController.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "resources/views/components/database-status.blade.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "app/Services/DocumentQrOverlay.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "routes/web.php": {
+        "readable": true,
+        "parent_searchable": true
+      },
+      "bootstrap/cache/config.php": {
+        "readable": false,
+        "parent_searchable": true
+      },
+      ".env": {
+        "readable": false,
+        "parent_searchable": true
+      }
+    },
+    "latest_laravel_errors": [
+      {
+        "time": "2026-11-11 23:16:43",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      },
+      {
+        "time": "2026-11-11 23:16:43",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      },
+      {
+        "time": "2026-11-11 23:16:44",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      },
+      {
+        "time": "2026-11-11 23:16:44",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      },
+      {
+        "time": "2026-11-11 23:16:46",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      },
+      {
+        "time": "2026-11-11 23:16:46",
+        "message": "No application encryption key has been specified.",
+        "exception_class": "Illuminate\\\\Encryption\\\\MissingAppKeyException"
+      }
+    ],
+    "nginx_php_errors": [],
+    "http": [
+      {
+        "path": "/up",
+        "status": 200
+      },
+      {
+        "path": "/login",
+        "status": 500
+      }
+    ]
+  },
+  "recovery": {
+    "recovered_at_utc": "2026-11-11T23:22:31.131355+00:00",
+    "action": "Laravel config:cache as existing deployment user",
+    "environment_content_and_permissions_unchanged": true,
+    "existing_app_key_preserved": true,
+    "new_app_key_generated": false,
+    "config_cache_access": "deployment owner and existing web-server group only, 0640",
+    "web_runtime": {
+      "cache_readable": true,
+      "env_readable": false,
+      "key_present": true,
+      "database_driver": "sqlsrv",
+      "database_name": "sivera",
+      "qr_runtime_keys_present": true
+    },
+    "http": [
+      {
+        "path": "/up",
+        "status": 200
+      },
+      {
+        "path": "/login",
+        "status": 200
+      }
+    ],
+    "git_head_unchanged": true,
+    "tracked_source_modified": false,
+    "production_schema_or_business_data_changed": false
+  },
+  "browser_verification": {
+    "status": 200,
+    "login_form_present": true,
+    "password_field_present": true,
+    "page_errors": []
+  },
+  "rejected_approach": {
+    "environment_permission_change": "Automatic approval review rejected broadening group access to .env; no change applied",
+    "chosen_alternative": "Restore the existing config-cache mechanism only; .env remains private and the existing APP_KEY is preserved"
+  },
+  "cause_of_cache_removal": "Not established; inspected Laravel ComposerScripts::clearCompiled can remove config cache during post-autoload-dump",
+  "final_verification": {
+    "checked_at_utc": "2026-11-11T23:26:24.816172+00:00",
+    "new_errors_after_cache_recovery": [],
+    "http": [
+      {
+        "path": "/up",
+        "status": 200
+      },
+      {
+        "path": "/login",
+        "status": 200
+      }
+    ],
+    "env_mode": "0o600",
+    "env_owner_uid": 1000,
+    "env_group_gid": 1000,
+    "config_cache_mode": "0o640",
+    "config_cache_group_gid": 33,
+    "git_tracked_status": ""
+  }
+}
