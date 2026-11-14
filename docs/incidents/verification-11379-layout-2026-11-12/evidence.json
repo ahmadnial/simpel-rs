@@ -1,0 +1,316 @@
+{
+  "verification_id": 11379,
+  "document_id": 10178,
+  "version_id": 10381,
+  "version_number": 8,
+  "source_sha256": "f85a7d2fc35c5af87057f7337e643abc5a05069f691b17ce351812241c7c3afa",
+  "source_bytes": 94594,
+  "source_sections": [
+    {
+      "ending_paragraph": 262,
+      "type": {
+        "val": "nextPage"
+      },
+      "pgSz": {
+        "w": "11906",
+        "h": "16838"
+      },
+      "pgMar": {
+        "left": "2268",
+        "right": "1701",
+        "gutter": "0",
+        "header": "0",
+        "top": "1701",
+        "footer": "0",
+        "bottom": "1701"
+      },
+      "vAlign": null,
+      "docGrid": {
+        "type": "default",
+        "linePitch": "360",
+        "charSpace": "0"
+      },
+      "cols": null
+    }
+  ],
+  "source_spacers": {
+    "lampiran_paragraph": 51,
+    "consecutive_blank_paragraphs_before_lampiran": 24,
+    "blank_paragraph_indexes": [
+      27,
+      50
+    ],
+    "blank_line_run_font_sizes": [
+      "24"
+    ],
+    "styles": [
+      {
+        "style": "Normal",
+        "based_on": null,
+        "rfonts": {
+          "ascii": "Calibri",
+          "hAnsi": "Calibri",
+          "eastAsia": "Calibri",
+          "cs": "Times New Roman"
+        },
+        "size": {
+          "val": "22"
+        },
+        "spacing": {
+          "before": "280",
+          "after": "280"
+        }
+      },
+      {
+        "style": "PlainText",
+        "based_on": {
+          "val": "Normal"
+        },
+        "rfonts": {
+          "ascii": "Consolas",
+          "hAnsi": "Consolas",
+          "cs": "Consolas"
+        },
+        "size": {
+          "val": "21"
+        },
+        "spacing": {
+          "before": "0",
+          "after": "0"
+        }
+      }
+    ],
+    "document_default_size": {
+      "val": "24"
+    },
+    "document_default_font": {
+      "ascii": "Liberation Serif",
+      "hAnsi": "Liberation Serif",
+      "eastAsia": "Noto Serif CJK SC",
+      "cs": "Noto Sans Devanagari"
+    }
+  },
+  "vm_comparison": {
+    "plain_source_office": {
+      "pages": 22,
+      "landmarks": [
+        {
+          "label": "lampiran_heading",
+          "page": 2,
+          "box_pt": [
+            352.192,
+            574.958764,
+            394.792,
+            588.242764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 3,
+          "box_pt": [
+            397.1,
+            264.008764,
+            453.224,
+            277.292764
+          ]
+        },
+        {
+          "label": "lampiran_heading",
+          "page": 4,
+          "box_pt": [
+            257.5,
+            189.058764,
+            320.14,
+            202.342764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 21,
+          "box_pt": [
+            432.55,
+            734.608764,
+            488.674,
+            747.892764
+          ]
+        }
+      ]
+    },
+    "processed_before_qr_overlay": {
+      "pages": 22,
+      "landmarks": [
+        {
+          "label": "lampiran_heading",
+          "page": 2,
+          "box_pt": [
+            352.192,
+            574.958764,
+            394.792,
+            588.242764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 3,
+          "box_pt": [
+            397.1,
+            264.008764,
+            453.224,
+            277.292764
+          ]
+        },
+        {
+          "label": "lampiran_heading",
+          "page": 4,
+          "box_pt": [
+            257.5,
+            189.058764,
+            320.14,
+            202.342764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 21,
+          "box_pt": [
+            432.55,
+            734.608764,
+            488.674,
+            747.892764
+          ]
+        }
+      ]
+    },
+    "production": {
+      "pages": 22,
+      "landmarks": [
+        {
+          "label": "lampiran_heading",
+          "page": 2,
+          "box_pt": [
+            352.192,
+            574.958764,
+            394.792,
+            588.242764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 3,
+          "box_pt": [
+            397.1,
+            264.008764,
+            453.224,
+            277.292764
+          ]
+        },
+        {
+          "label": "lampiran_heading",
+          "page": 4,
+          "box_pt": [
+            257.5,
+            189.058764,
+            320.14,
+            202.342764
+          ]
+        },
+        {
+          "label": "qr_placeholder",
+          "page": 21,
+          "box_pt": [
+            432.55,
+            734.608764,
+            488.674,
+            747.892764
+          ]
+        }
+      ],
+      "qr_warning_pages": [
+        3
+      ]
+    },
+    "overlay_preserves_word_sequence_per_page": true,
+    "overlay_max_bbox_delta_pt": 0.0,
+    "plain_source_matches_production_word_sequence": true,
+    "plain_source_vs_production_bbox_delta_pt": 0.09200000000004138,
+    "qr_context": [
+      {
+        "page": 3,
+        "qr_box_pt": [
+          392.66200000000003,
+          238.15076399999998,
+          457.66200000000003,
+          303.150764
+        ],
+        "nearby_glyphs_intersect_safety_area": 3,
+        "colliding_glyph_boxes_pt": [
+          [
+            373.12,
+            229.508764,
+            407.752,
+            242.792764
+          ],
+          [
+            410.752,
+            229.508764,
+            435.388,
+            242.792764
+          ],
+          [
+            438.388,
+            229.508764,
+            457.048,
+            242.792764
+          ]
+        ]
+      },
+      {
+        "page": 21,
+        "qr_box_pt": [
+          428.11199999999997,
+          708.750764,
+          493.11199999999997,
+          773.750764
+        ],
+        "nearby_glyphs_intersect_safety_area": 0,
+        "colliding_glyph_boxes_pt": []
+      }
+    ],
+    "full_document_exported": false,
+    "source_sha256_unchanged": true
+  },
+  "qr_raster_check": {
+    "page": 3,
+    "qr_box_pt": [
+      392.662,
+      238.150764,
+      457.662,
+      303.150764
+    ],
+    "raster_dpi": 144,
+    "background_ink_pixels_inside_qr_canvas": 300,
+    "background_ink_pixels_in_2pt_safety_gap": 243,
+    "image_or_document_payload_exported": false,
+    "temporary_files_removed": true
+  },
+  "microsoft_word_comparison": {
+    "pages": 22,
+    "lampiran_page": 4,
+    "lampiran_y_pt": 189.108,
+    "production_delta_pt": 0.049236,
+    "local_export_online_service_disabled": true
+  },
+  "production_changes": false,
+  "full_docx_or_pdf_exported": true,
+  "original_upload_format": "Unknown; user does not remember",
+  "private_copy_consent": true,
+  "private_template_control": {
+    "pages": 22,
+    "lampiran_page": 4,
+    "lampiran_y_pt": 85.588,
+    "margin_properties_unchanged": true,
+    "nonempty_paragraph_text_unchanged": true,
+    "production_modified": false,
+    "qr_visual_qc_complete": false
+  }
+}

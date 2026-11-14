@@ -116,6 +116,7 @@
             <input type="hidden" name="review_token" value="" data-document-review-token>
             @error('review_token') <p class="form-error">{{ $message }}</p> @enderror
             <p>Periksa PDF di atas. Jika belum sesuai, upload ulang dokumen sebelum mengajukan.</p>
+            @if($firstStepInfo['configured'])<p>Tahap tujuan: <strong>{{ $firstStepInfo['stepName'] }}</strong>.</p>@endif
             <div class="modal-body">
                 @if(!$firstStepInfo['configured'])
                     <div class="alert alert-error" style="margin:0">
@@ -163,7 +164,7 @@
                                     <option value="{{ $v->id }}" @selected(in_array($v->id, old('verifikator_ids', session('document_submission.'.$document->id.'.verifikator_ids', []))))>{{ $v->name }} ({{ $v->jabatan ?? 'Verifikator' }})</option>
                                 @endforeach
                             </select>
-                            <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih siapa yang akan memeriksa dokumen ini terlebih dahulu.</small>
+                            <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px">Pilih pemeriksa untuk tahap tujuan pengajuan ini.</small>
                         </div>
                     @else
                         <input type="hidden" name="ajukan_langsung" value="1">

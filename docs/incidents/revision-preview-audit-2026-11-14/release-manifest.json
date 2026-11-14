@@ -1,0 +1,55 @@
+{
+  "base_commit": "8ab81dd913af62547d4b2b1f9eff4dad39ca1b07",
+  "archive": "/tmp/simpel-revision-preview-20261114.tar.gz",
+  "archive_sha256": "6b620aa3b23bc9a57d73f9f6d6282ec4c267eeb5b05e09af8380ec0e9fac5bee",
+  "files": [
+    {
+      "path": "app/Http/Controllers/DocumentController.php",
+      "sha256": "5cecbfd27ee8957348d98cfc88cdc5b77cb92f409cd4304b123c2765b03e2a72"
+    },
+    {
+      "path": "app/Services/DocumentPdfService.php",
+      "sha256": "805f56bfa59408338e97792a82f4e10d7c68f3be917dfe38aa43925f8bb063c2"
+    },
+    {
+      "path": "app/Services/DocumentService.php",
+      "sha256": "17953cb56eceab527fe5633d75321ef6d980c75b3961d9348bfcb87fc36965ee"
+    },
+    {
+      "path": "public/build/assets/app-BFZINP_E.css",
+      "sha256": "9fa3911cdd6b3a61ff7903f66bbce4362b312bd67f3c1733787c18a556322313"
+    },
+    {
+      "path": "public/build/assets/app-Ccm-FkE3.js",
+      "sha256": "272b4901f738af41a3ddf2ae5419964e80c39e06fd5edaa769dc32113f8d43c8"
+    },
+    {
+      "path": "public/build/assets/app-dkIcthR0.css",
+      "sha256": "10d89c7c059830cbe0d8f0e0772f44e48f022d534b7050f85f5d01e342efce1e"
+    },
+    {
+      "path": "public/build/assets/pdf-preview-viewer-D8QcKiA6.js",
+      "sha256": "c37e02a1f1262fedf14d28aab1a3d8f67a98767508d97975f18cdd65ceb3de3e"
+    },
+    {
+      "path": "public/build/assets/pdf.worker.min-FHbmGBN0.mjs",
+      "sha256": "51a2fd1ea47f1a9b0814e65e0c336c739c54957795ee774e8f93cb81e8028dd1"
+    },
+    {
+      "path": "public/build/manifest.json",
+      "sha256": "e171aab63f68e6ff3d6862ce3ddb6d885848fab2f93a47bb4f116bad46599e15"
+    },
+    {
+      "path": "resources/js/document-preview.js",
+      "sha256": "30c6faf58524da5c378efc132727e110a747785b9ccb161dd1af0674b88c2a1f"
+    },
+    {
+      "path": "resources/views/components/naskah-preview.blade.php",
+      "sha256": "6a48715fb36660fc390c341aeb039d3a039b240d47f11e8a589633526d2e70ac"
+    },
+    {
+      "path": "resources/views/dokumen/show.blade.php",
+      "sha256": "0391c63f2e08309d56085319c4be49237896e6d533ddf7b40d1ec7f239b00c6d"
+    }
+  ]
+}

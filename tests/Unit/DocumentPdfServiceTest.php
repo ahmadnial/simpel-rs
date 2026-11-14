@@ -8,6 +8,7 @@ use App\Models\DocumentVersion;
 use App\Services\DocumentPdfService;
 use App\Services\DocumentQrOverlay;
 use App\Services\DocxTemplateProcessor;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\WordFixtures;
@@ -22,6 +23,28 @@ class DocumentPdfServiceTest extends TestCase
         parent::setUp();
         Storage::fake('local');
         config(['documents.renderer' => 'gotenberg']);
+    }
+
+    public function test_busy_conversion_is_retryable_and_does_not_start_another_converter(): void
+    {
+        Http::fake(['*' => Http::response('%PDF-1.4 test PDF', 200)]);
+        $source = $this->wordUpload()->getRealPath();
+        $key = hash('sha256', 'pdf-qr-v2|'.hash_file('sha256', $source).'|'.config('documents.renderer').'|'.config('documents.render_revision'));
+        $lock = Cache::lock('document-pdf:'.$key, 135);
+        $this->assertTrue($lock->get());
+        try {
+            app(DocumentPdfService::class)->render($source, new Document, new DocumentVersion);
+            $this->fail('A contended conversion must not start another renderer.');
+        } catch (DocumentConversionException $exception) {
+            $this->assertSame(503, $exception->getStatusCode());
+            $this->assertSame('processing', $exception->getHeaders()['X-Preview-State']);
+            $this->assertSame('2', $exception->getHeaders()['Retry-After']);
+            Http::assertNothingSent();
+        } finally {
+            $lock->release();
+        }
+        $this->assertFileExists(app(DocumentPdfService::class)->render($source, new Document, new DocumentVersion));
+        Http::assertSentCount(1);
     }
 
     public function test_same_input_is_converted_once_and_renderer_revision_invalidates_cache(): void

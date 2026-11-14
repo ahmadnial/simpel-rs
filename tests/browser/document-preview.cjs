@@ -66,6 +66,7 @@ const html = `<!doctype html><html><head><meta name="csrf-token" content="test">
   assert.equal(await page.locator('[data-document-submit]').isDisabled(),true);
   fail=true;
   await page.reload();
+  await page.waitForFunction(()=>document.querySelector('[data-preview-status]').textContent.includes('sementara tidak tersedia'));
   await page.locator('[data-preview-retry]').waitFor({state:'visible'});
   assert.equal(await page.locator('[data-document-submit]').isDisabled(),true);
   assert.match(await page.locator('[data-preview-status]').innerText(),/sementara tidak tersedia/);

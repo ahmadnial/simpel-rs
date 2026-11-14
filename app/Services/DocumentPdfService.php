@@ -28,7 +28,9 @@ class DocumentPdfService
         // Concurrent viewers share one conversion. Partial output is never served.
         $lock = Cache::lock('document-pdf:'.$key, 2 * (int) config('documents.conversion_timeout') + 15);
         if (! $lock->get()) {
-            throw new DocumentConversionException('PDF sedang diproses. Tunggu sebentar lalu muat ulang pratinjau.');
+            $exception = new DocumentConversionException('PDF sedang diproses. Tunggu sebentar lalu muat ulang pratinjau.');
+            $exception->setHeaders(['Retry-After' => '2', 'X-Preview-State' => 'processing']);
+            throw $exception;
         }
         $temporary = $pdfPath.'.'.bin2hex(random_bytes(8)).'.tmp';
         try {

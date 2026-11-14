@@ -12,7 +12,7 @@
         <div class="document-preview-toolbar">
             <div class="document-preview-tools">
                 <span class="document-preview-count" data-preview-page-count>PDF</span>
-                @if($reviewable)
+                @if($reviewable && !$version->file_pdf_path)
                     <label class="document-preview-toggle">
                         <input type="checkbox" data-preview-markers checked>
                         Tandai variabel
@@ -29,7 +29,11 @@
         @if($reviewable)<div data-preview-pages hidden></div>@endif
         <iframe class="document-preview-frame" data-preview-frame title="Pratinjau dokumen versi {{ $version->versi }}" hidden></iframe>
         @if($reviewable)
-            <p class="document-preview-note">Gulir untuk memeriksa dokumen. Variabel ditandai merah; tanggal variabel diberi kotak. QR draft hanya untuk memeriksa posisi.</p>
+            @if($version->file_pdf_path)
+                <p class="document-preview-note">PDF ini adalah salinan pengajuan sebelumnya. Unggah perbaikan jika isi perlu diubah, lalu periksa pratinjau versi terbaru.</p>
+            @else
+                <p class="document-preview-note">Gulir untuk memeriksa dokumen. Variabel ditandai merah; tanggal variabel diberi kotak. QR draft hanya untuk memeriksa posisi.</p>
+            @endif
         @endif
     @else
         <p>Belum ada versi dokumen yang diunggah.</p>

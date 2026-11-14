@@ -1,0 +1,228 @@
+{
+  "case_requests": [
+    {
+      "time": "13/Nov/2026:10:43:36 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 401,
+      "bytes": 30
+    },
+    {
+      "time": "13/Nov/2026:22:47:36 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14002
+    },
+    {
+      "time": "13/Nov/2026:22:48:30 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 112456
+    },
+    {
+      "time": "13/Nov/2026:22:48:48 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 302,
+      "bytes": 430
+    },
+    {
+      "time": "13/Nov/2026:22:48:49 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14180
+    },
+    {
+      "time": "13/Nov/2026:22:49:38 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14013
+    },
+    {
+      "time": "13/Nov/2026:22:49:49 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 137032
+    },
+    {
+      "time": "13/Nov/2026:22:49:50 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14013
+    },
+    {
+      "time": "13/Nov/2026:22:50:29 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 499,
+      "bytes": 0
+    },
+    {
+      "time": "13/Nov/2026:22:50:40 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 302,
+      "bytes": 430
+    },
+    {
+      "time": "13/Nov/2026:22:50:40 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14198
+    },
+    {
+      "time": "13/Nov/2026:22:52:52 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 153416
+    },
+    {
+      "time": "13/Nov/2026:22:53:56 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 79688
+    },
+    {
+      "time": "13/Nov/2026:22:54:47 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 302,
+      "bytes": 430
+    },
+    {
+      "time": "13/Nov/2026:22:54:47 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14218
+    },
+    {
+      "time": "13/Nov/2026:22:55:57 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14067
+    },
+    {
+      "time": "13/Nov/2026:22:57:19 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 104264
+    },
+    {
+      "time": "12/Nov/2026:13:08:14 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 13942
+    },
+    {
+      "time": "12/Nov/2026:13:08:54 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1959696
+    },
+    {
+      "time": "12/Nov/2026:13:21:26 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 302,
+      "bytes": 430
+    },
+    {
+      "time": "12/Nov/2026:13:21:26 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14114
+    },
+    {
+      "time": "12/Nov/2026:13:21:27 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1959696
+    },
+    {
+      "time": "12/Nov/2026:13:51:01 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 13965
+    },
+    {
+      "time": "12/Nov/2026:13:51:02 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1959696
+    },
+    {
+      "time": "12/Nov/2026:13:51:54 +0700",
+      "method": "POST",
+      "path": "/dokumen/10112/upload-versi",
+      "status": 302,
+      "bytes": 430
+    },
+    {
+      "time": "12/Nov/2026:13:51:54 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14137
+    },
+    {
+      "time": "12/Nov/2026:13:52:02 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1958345
+    },
+    {
+      "time": "12/Nov/2026:17:32:53 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14004
+    },
+    {
+      "time": "12/Nov/2026:17:32:54 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1958345
+    },
+    {
+      "time": "12/Nov/2026:17:34:48 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112",
+      "status": 200,
+      "bytes": 14004
+    },
+    {
+      "time": "12/Nov/2026:17:34:49 +0700",
+      "method": "GET",
+      "path": "/dokumen/10112/preview-pdf/10432?markers=1",
+      "status": 200,
+      "bytes": 1958345
+    }
+  ],
+  "all_preview_status_counts": {
+    "200": 100,
+    "499": 2,
+    "401": 1,
+    "422": 2
+  },
+  "upstream_errors": []
+}

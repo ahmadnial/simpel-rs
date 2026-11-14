@@ -157,8 +157,8 @@ class DocumentController extends Controller
             ->where('id', '!=', auth()->id())
             ->get();
 
-        $firstStepInfo = $this->documentService->getFirstStepInfo($document->documentType, $document->unit_id);
-        $workflowChain = $this->documentService->getWorkflowChainPreview($document->documentType, $document->unit_id);
+        $firstStepInfo = $this->documentService->getSubmissionContext($document);
+        $workflowChain = $this->documentService->getWorkflowChainPreview($document->documentType, $document->unit_id, $firstStepInfo['template']);
 
         return view('dokumen.show', compact('document', 'verifikators', 'firstStepInfo', 'workflowChain'));
     }
@@ -461,13 +461,16 @@ class DocumentController extends Controller
         abort_unless($document->isAccessibleBy($request->user()), 403);
         $version = $versionId ? $document->versions()->findOrFail($versionId) : $document->currentVersion;
         abort_unless($version, 404, 'File versi tidak ditemukan.');
-        $headers = ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store'];
+        $headers = ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store', 'X-Preview-Request-Id' => (string) Str::uuid()];
+        $reviewable = $version->id === $document->currentVersion?->id && $request->user()->can('update', $document);
+        $source = null;
+        $inspection = null;
         $warnings = [];
         $official = $document->signature;
         if ($official && $official->document_version_id === $version->id && $official->file_signed_path) {
             // An official PDF must not depend on a source file or converter still being available.
             $pdfPath = Storage::disk('local')->path($official->file_signed_path);
-        } elseif ($version->file_pdf_path && ! $document->isDraft() && ! $document->isRevisi()) {
+        } elseif ($version->file_pdf_path) {
             $pdfPath = Storage::disk('local')->path($version->file_pdf_path);
         } else {
             $source = $this->documentService->ensureDocxFileExists($document, $version);
@@ -475,27 +478,33 @@ class DocumentController extends Controller
             $inspection = $processor->inspect($source);
             $processed = $processor->process($source, $document, $request->boolean('markers', true));
             $pdfPath = $this->pdfService->render($processed, $document, $version);
-            $warnings = [];
-            if (! $inspection['has_qr']) {
-                $warnings[] = 'Variabel QR belum ditemukan; posisi QR pengesahan belum dapat diperiksa.';
-            }
-            if ($inspection['unknown']) {
-                $warnings[] = 'Variabel tidak dikenal: '.implode(', ', $inspection['unknown']).'. Perbaiki sebelum mengajukan.';
-            }
-            if (! $inspection['unknown'] && $request->user()->can('update', $document)) {
+        }
+        if ($reviewable) {
+            // Reviewed snapshots stay immutable, even when the same version is resubmitted.
+            $source ??= $this->documentService->ensureDocxFileExists($document, $version);
+            $inspection ??= app(DocxTemplateProcessor::class)->inspect($source);
+            if (! $inspection['unknown']) {
                 $headers['X-Document-Review'] = Crypt::encryptString(json_encode([
                     'user_id' => $request->user()->id,
                     'document_id' => $document->id,
                     'version_id' => $version->id,
+                    'context' => $this->reviewContext($document),
                     'source_hash' => hash_file('sha256', $source),
                     'source_path' => $version->file_path,
-                    'pdf_hash' => hash_file('sha256', $pdfPath),
+                    'pdf_hash' => is_file($pdfPath) ? hash_file('sha256', $pdfPath) : '',
                     'pdf_path' => $pdfPath,
                     'expires_at' => now()->addDay()->timestamp,
                 ], JSON_THROW_ON_ERROR));
             }
         }
         abort_unless(is_file($pdfPath), 404, 'PDF tidak ditemukan. Hubungi administrator.');
+        if ($inspection && ! $inspection['has_qr']) {
+            $warnings[] = 'Variabel QR belum ditemukan; posisi QR pengesahan belum dapat diperiksa.';
+        }
+        if ($inspection && $inspection['unknown']) {
+            $warnings[] = 'Variabel tidak dikenal: '.implode(', ', $inspection['unknown']).'. Perbaiki sebelum mengajukan.';
+        }
+        $headers['X-Preview-Bytes'] = (string) filesize($pdfPath);
         $headers['X-Preview-Warnings'] = rawurlencode(implode(' ', array_merge($warnings, $this->pdfService->warnings($pdfPath))));
 
         return response()->file($pdfPath, $headers);
@@ -556,6 +565,7 @@ class DocumentController extends Controller
                 $valid = ($review['user_id'] ?? null) === $request->user()->id
                     && ($review['document_id'] ?? null) === $locked->id
                     && ($review['version_id'] ?? null) === $version?->id
+                    && hash_equals($this->reviewContext($locked), $review['context'] ?? '')
                     && ($review['source_path'] ?? null) === $version?->file_path
                     && ($review['expires_at'] ?? 0) > now()->timestamp
                     && $source && is_file($source)
@@ -565,9 +575,13 @@ class DocumentController extends Controller
                 if (! $valid) {
                     throw ValidationException::withMessages(['review_token' => 'Versi dokumen berubah atau pratinjau kedaluwarsa. Muat dan periksa pratinjau terbaru.']);
                 }
-                $snapshot = "documents/{$locked->id}/reviewed/{$version->id}-".Str::uuid().'.pdf';
-                abort_unless(Storage::disk('local')->put($snapshot, file_get_contents($review['pdf_path'])), 503, 'PDF yang diperiksa belum dapat disimpan. Coba lagi.');
-                $version->update(['file_pdf_path' => $snapshot]);
+                if (! $version->file_pdf_path) {
+                    $snapshot = "documents/{$locked->id}/reviewed/{$version->id}-".Str::uuid().'.pdf';
+                    abort_unless(Storage::disk('local')->put($snapshot, file_get_contents($review['pdf_path'])), 503, 'PDF yang diperiksa belum dapat disimpan. Coba lagi.');
+                    $version->update(['file_pdf_path' => $snapshot]);
+                } else {
+                    abort_unless(Storage::disk('local')->path($version->file_pdf_path) === $review['pdf_path'], 422, 'PDF yang diperiksa berubah. Muat ulang pratinjau.');
+                }
                 $this->documentService->ajukanDokumen($locked, $verifikatorIds);
             });
         } catch (\Throwable $exception) {
@@ -585,6 +599,16 @@ class DocumentController extends Controller
         $request->session()->forget('document_submission.'.$document->id);
 
         return back()->with('success', 'Dokumen berhasil diajukan ke verifikator.');
+    }
+
+    private function reviewContext(Document $document): string
+    {
+        // Existing columns and ticket IDs bind a receipt to this workflow cycle;
+        // no schema change or production data backfill is needed.
+        return hash('sha256', json_encode([
+            $document->only(['status', 'judul', 'perihal', 'unit_id', 'workflow_template_id', 'current_step', 'updated_at']),
+            $document->verifications()->max('id'),
+        ], JSON_THROW_ON_ERROR));
     }
 
     private function requireProposerUnitId(): int
@@ -641,7 +665,7 @@ class DocumentController extends Controller
 
         if ($document->signature?->file_signed_path) {
             $pdfPath = Storage::disk('local')->path($document->signature->file_signed_path);
-        } elseif ($version->file_pdf_path && ! $document->isDraft() && ! $document->isRevisi()) {
+        } elseif ($version->file_pdf_path) {
             $pdfPath = Storage::disk('local')->path($version->file_pdf_path);
         } else {
             $path = $this->documentService->ensureDocxFileExists($document, $version);

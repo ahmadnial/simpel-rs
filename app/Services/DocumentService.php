@@ -198,20 +198,11 @@ class DocumentService
             $currentVersion = $document->currentVersion;
             abort_unless($currentVersion, 422, 'Tidak ada file dokumen yang diunggah.');
 
-            $template = $document->workflowTemplate ?? $this->resolveWorkflowTemplate($document->documentType, $document->unit_id);
-
+            $context = $this->getSubmissionContext($document);
+            $template = $context['template'];
+            $targetStep = $context['step'];
             abort_unless($template, 422, 'Template alur kerja (workflow) belum dikonfigurasi untuk jenis naskah ini.');
-            // steps() sudah orderBy('urutan') bawaan relasi — jangan tambah orderBy lagi di sini,
-            // SQL Server (sqlsrv) menolak ORDER BY dengan kolom yang sama dua kali (error 20018).
             $this->assertWorkflowIsValid($template);
-
-            $revisionTicket = $wasRevision
-                ? DocumentVerification::where('document_id', $document->id)
-                    ->where('status', DocumentVerification::STATUS_REVISI)
-                    ->latest('direspon_at')
-                    ->first()
-                : null;
-            $targetStep = $revisionTicket?->workflowStep ?? $template->steps()->where('tipe', 'verifikasi')->first();
             abort_unless($targetStep, 422, 'Langkah verifikasi belum dikonfigurasi pada workflow ini.');
 
             // Batalkan antrian verifikasi lama yang masih berstatus menunggu (jika pengajuan ulang dari revisi)
@@ -236,7 +227,7 @@ class DocumentService
                 $currentVersion,
                 $targetStep,
                 $targetStep->urutan,
-                $targetStep->urutan === $template->steps()->where('tipe', 'verifikasi')->first()?->urutan ? $verifikatorIds : [],
+                $context['needsManual'] ? $verifikatorIds : [],
                 $round,
                 $wasRevision ? DocumentVerification::REASON_RESUBMITTED : DocumentVerification::REASON_SUBMITTED,
             );
@@ -287,6 +278,25 @@ class DocumentService
             ->firstWhere('is_default', true);
     }
 
+    /** Resolve the same effective submission step for the form and the locked transition. */
+    public function getSubmissionContext(Document $document): array
+    {
+        $template = $document->workflowTemplate ?? $this->resolveWorkflowTemplate($document->documentType, $document->unit_id);
+        $revision = $document->isRevisi()
+            ? $document->verifications()->where('status', DocumentVerification::STATUS_REVISI)
+                ->orderByDesc('direspon_at')->orderByDesc('id')->first()
+            : null;
+        $step = $revision?->workflowStep ?? $template?->steps()->where('tipe', 'verifikasi')->first();
+
+        return [
+            'template' => $template,
+            'step' => $step,
+            'configured' => $template !== null && $step !== null,
+            'needsManual' => $step && $step->mode_verifikasi === 'serial' && empty($step->role_nama),
+            'stepName' => $step?->nama_tahap,
+        ];
+    }
+
     /**
      * Info tahap 1 workflow untuk sebuah jenis naskah + unit (dipakai form upload dokumen untuk
      * menentukan apakah picker "Ajukan ke Asesor Internal" perlu ditampilkan atau tidak).
@@ -321,9 +331,9 @@ class DocumentService
      * dipakai form pengajuan dokumen supaya pengusul tahu siapa saja yang akan memeriksa &
      * menandatangani SEBELUM mengklik ajukan, bukan baru tahu setelah diajukan.
      */
-    public function getWorkflowChainPreview(DocumentType $documentType, int $unitId): array
+    public function getWorkflowChainPreview(DocumentType $documentType, int $unitId, ?WorkflowTemplate $template = null): array
     {
-        $template = $this->resolveWorkflowTemplate($documentType, $unitId);
+        $template ??= $this->resolveWorkflowTemplate($documentType, $unitId);
 
         if (! $template) {
             return ['configured' => false, 'steps' => []];
