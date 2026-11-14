@@ -1,5 +1,11 @@
 # Rilis perbaikan dokumen melalui Git
 
+Pembaruan frontend 14 November 2026 memakai Node 24 dan lockfile baru. Jalankan
+`./deploy/build-frontend.sh` untuk build berikutnya; skrip memilih runtime SIMPEL
+di VM, membangun ke staging, dan mempertahankan aset lama. Lihat
+[hasil deployment dan rollback](../docs/incidents/2026-11-14-production-frontend-dependencies.md).
+Source perubahan tersebut harus masuk Git sebelum pull rilis berikutnya.
+
 VM telah disiapkan pada 12 November 2026. Runtime QR, MIME worker, dan pool upload
 tidak perlu dipasang ulang. Lihat
 [hasil persiapan dan QC](../docs/incidents/2026-11-12-production-vm-prepared.md).
