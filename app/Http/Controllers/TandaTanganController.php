@@ -165,26 +165,17 @@ class TandaTanganController extends Controller
 
         $ceremony = null;
         $finalizationPending = $this->documentService->pendingFinalizationFor($document, $user);
-        $signingUnavailable = null;
         $reauthenticationAge = $this->reauthenticationAge($request);
         if ($finalizationPending) {
             $ceremony = $finalizationPending;
         } elseif ($reauthenticationAge !== null && $reauthenticationAge <= config('tte.otp.reauthentication_max_age_seconds')) {
-            try {
-                $context = $this->documentService->prepareOtpContext($document, $user, $request->session()->getId(), $reauthenticationAge);
-                $ceremony = SigningCeremony::where('uuid', $context['signing_ceremony_id'])->firstOrFail();
-            } catch (HttpExceptionInterface $exception) {
-                if ($exception->getStatusCode() !== 503) {
-                    throw $exception;
-                }
-
-                $signingUnavailable = $exception->getMessage();
-            }
+            $context = $this->documentService->prepareSigningPreview($document, $user, $request->session()->getId(), $reauthenticationAge);
+            $ceremony = SigningCeremony::where('uuid', $context['signing_ceremony_id'])->firstOrFail();
         }
 
         return view('tanda-tangan.show', compact(
             'document', 'returnTarget', 'ceremony', 'reauthenticationAge',
-            'finalizationPending', 'signingUnavailable'
+            'finalizationPending'
         ));
     }
 

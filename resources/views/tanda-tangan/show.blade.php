@@ -42,11 +42,6 @@
                         Aksi pengesahan dan pengembalian dinonaktifkan untuk mencegah proses ganda.
                     </p>
                 </div>
-            @elseif($signingUnavailable)
-                <div role="alert" style="padding:var(--space-5); background:rgba(239,68,68,0.08); border:1px solid var(--border-danger); border-radius:var(--radius-lg)">
-                    <h4 style="font-size:1rem; margin-bottom:8px; color:var(--text-danger)">Layanan pengesahan belum siap</h4>
-                    <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.6; margin:0">{{ $signingUnavailable }}</p>
-                </div>
             @else
             <div style="padding: var(--space-4); background: rgba(99,102,241,0.08); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid rgba(99,102,241,0.2)">
                 <h4 style="font-size:0.95rem; margin-bottom: 4px; color:var(--brand-300)">Metode: Pengesahan Elektronik Internal SIMPEL-RS</h4>
@@ -169,7 +164,7 @@
 
 </div>
 
-@unless($finalizationPending || $signingUnavailable)
+@unless($finalizationPending)
 <script>
     document.getElementById('form-tte').addEventListener('submit', function () {
         this.querySelectorAll('button').forEach(button => button.disabled = true);

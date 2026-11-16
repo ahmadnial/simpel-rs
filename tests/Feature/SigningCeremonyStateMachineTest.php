@@ -20,6 +20,7 @@ use App\Services\DocumentService;
 use App\Services\UnavailableEvidenceSigner;
 use App\Services\UnavailableImmutableEvidenceStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -224,6 +225,67 @@ class SigningCeremonyStateMachineTest extends TestCase
         $this->assertDatabaseCount('signing_ceremonies', 0);
         $this->assertDatabaseCount('signature_otp_challenges', 0);
         $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
+    }
+
+    public function test_preview_remains_available_during_kms_outage_and_is_reused_when_kms_recovers(): void
+    {
+        $this->assertPreviewSurvivesInfrastructureOutage(EvidenceSigner::class, new UnavailableEvidenceSigner);
+    }
+
+    public function test_preview_remains_available_during_worm_outage_and_is_reused_when_worm_recovers(): void
+    {
+        $this->assertPreviewSurvivesInfrastructureOutage(ImmutableEvidenceStore::class, new UnavailableImmutableEvidenceStore);
+    }
+
+    private function assertPreviewSurvivesInfrastructureOutage(string $contract, object $unavailableProvider): void
+    {
+        Notification::fake();
+        $bytes = "%PDF-1.4\nreviewed candidate bytes\n%%EOF";
+        Storage::disk('local')->put('fixtures/reviewed.pdf', $bytes);
+        $pdf = \Mockery::mock(DocumentPdfService::class);
+        $pdf->shouldReceive('render')->once()->andReturn(Storage::disk('local')->path('fixtures/reviewed.pdf'));
+        app()->instance(DocumentPdfService::class, $pdf);
+        $fixture = $this->fixture();
+        $availableProvider = app($contract);
+        app()->instance($contract, $unavailableProvider);
+
+        $response = $this->actingAs($fixture['signer'])
+            ->withSession(['auth_password_confirmed_at' => now()->timestamp])
+            ->get(route('ttd.show', $fixture['document']))
+            ->assertOk()
+            ->assertDontSee('Layanan pengesahan belum siap');
+        // Pertahankan cookie sesi seperti browser agar lineage preview/OTP sama.
+        $this->withCookie(config('session.cookie'), session()->getId())->withCredentials();
+        $ceremony = SigningCeremony::firstOrFail();
+        $candidateUrl = route('ttd.candidate', [$fixture['document'], $ceremony]);
+        $response->assertSee($candidateUrl, false)->assertSee(hash('sha256', $bytes));
+        $preview = $this->get($candidateUrl)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('X-Document-SHA256', hash('sha256', $bytes));
+        $this->assertSame($bytes, file_get_contents($preview->baseResponse->getFile()->getPathname()));
+        $this->assertDatabaseCount('signature_otp_challenges', 0);
+
+        $this->postJson(route('ttd.kirim-otp', $fixture['document']))->assertStatus(503);
+        Notification::assertNothingSent();
+        $this->assertDatabaseCount('signature_otp_challenges', 0);
+        $this->assertSame(SigningCeremony::STATE_AWAITING_USER_SIGNATURE, $ceremony->fresh()->state);
+        $this->assertSame(Document::STATUS_MENUNGGU_TTD, $fixture['document']->fresh()->status);
+        $this->assertDatabaseCount('document_signatures', 0);
+        $this->assertDatabaseCount('signature_evidence', 0);
+        $this->assertDatabaseCount('signing_outbox_messages', 0);
+
+        $this->get(route('ttd.show', $fixture['document']))->assertOk()->assertSee($candidateUrl, false);
+        app()->instance($contract, $availableProvider);
+        // Resolusi dependency ulang untuk menyimulasikan request setelah layanan pulih.
+        app('router')->getRoutes()->getByName('ttd.kirim-otp')->flushController();
+        $this->postJson(route('ttd.kirim-otp', $fixture['document']))->assertOk()->assertJsonPath('success', true);
+        $this->assertDatabaseCount('signing_ceremonies', 1);
+        $this->assertDatabaseHas('signature_otp_challenges', [
+            'signing_ceremony_id' => $ceremony->uuid,
+            'pdf_hash' => hash('sha256', $bytes),
+        ]);
+        $this->assertSame($bytes, Storage::disk('local')->get($ceremony->fresh()->candidate_pdf_path));
     }
 
     public function test_missing_production_signer_fails_before_otp_is_consumed(): void

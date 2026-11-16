@@ -854,13 +854,28 @@ class DocumentService
         abort_if($sessionId === '', 422, 'Sesi signing tidak tersedia.');
         $document = $document->fresh(['currentVersion', 'workflowTemplate', 'unit']);
         $this->assertCanSign($document, $user);
+        abort_unless($document->currentVersion, 422, 'Versi aktif dokumen tidak ditemukan.');
+
+        // KMS/WORM wajib siap sebelum OTP dikirim atau dikonsumsi, tetapi
+        // tidak diperlukan untuk merender dan mereviu PDF kandidat.
+        $this->assertSigningInfrastructureReady();
+
+        return $this->prepareSigningPreview($document, $user, $sessionId, $reauthenticationAgeSeconds);
+    }
+
+    /**
+     * Siapkan PDF kandidat yang sama untuk preview dan challenge OTP berikutnya.
+     * Tidak mengirim OTP, mengonsumsi persetujuan, atau mengakses KMS/WORM.
+     *
+     * @return array{document_version_id:int,pdf_hash:string,manifest_draft_hash:string,session_id:string,action:string,reauthentication_age_seconds:int,signing_ceremony_id:string}
+     */
+    public function prepareSigningPreview(Document $document, User $user, string $sessionId, int $reauthenticationAgeSeconds = 0): array
+    {
+        abort_if($sessionId === '', 422, 'Sesi signing tidak tersedia.');
+        $document = $document->fresh(['currentVersion', 'workflowTemplate', 'unit']);
+        $this->assertCanSign($document, $user);
         $version = $document->currentVersion;
         abort_unless($version, 422, 'Versi aktif dokumen tidak ditemukan.');
-
-        // Jangan menerbitkan OTP bila dependency finalisasi yang sudah diketahui
-        // wajib tidak siap. Tanpa preflight ini OTP dapat habis dikonsumsi lalu
-        // ceremony tertahan pada state user_signed.
-        $this->assertSigningInfrastructureReady();
 
         $sessionHash = hash('sha256', $sessionId);
         $activeKey = hash('sha256', implode('|', [$document->id, $version->id, $user->id, config('tte.otp.action')]));
