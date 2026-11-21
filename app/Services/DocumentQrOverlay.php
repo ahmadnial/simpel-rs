@@ -93,6 +93,6 @@ class DocumentQrOverlay
 
         // HTTP subprocesses may inherit no PATH. Pass the absolute executable
         // through to Python instead of relying on its environment's search path.
-        return str_starts_with($binary, DIRECTORY_SEPARATOR) ? $binary : getcwd().DIRECTORY_SEPARATOR.$binary;
+        return realpath($binary) ?: $binary;
     }
 }

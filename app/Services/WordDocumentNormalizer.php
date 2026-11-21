@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Exceptions\DocumentConversionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\Process\Process;
 use ZipArchive;
 
 class WordDocumentNormalizer
@@ -196,11 +195,7 @@ class WordDocumentNormalizer
 
     protected function convertDocToDocx(string $sourcePath, string $outputDir, string $profileDir): bool
     {
-        $binary = app(DocumentPdfService::class)->libreOfficeBinary();
-
-        $process = new Process([
-            $binary,
-            '-env:UserInstallation=file://'.$profileDir,
+        $process = app(DocumentPdfService::class)->officeProcess($profileDir, [
             '--headless',
             '--convert-to',
             'docx',
@@ -208,7 +203,6 @@ class WordDocumentNormalizer
             $outputDir,
             $sourcePath,
         ]);
-        $process->setTimeout((int) config('documents.conversion_timeout'));
         $process->run();
 
         return $process->isSuccessful();

@@ -46,7 +46,7 @@ class DocxTemplateProcessor
             $values['waktu_ttd'] = null;
         }
         $qrValue = $signature ? route('public.verify', $signature->qr_token) : 'DOKUMEN DRAFT - BELUM DISAHKAN. Bukan bukti pengesahan.';
-        $key = hash('sha256', 'template-v10-table-styles|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers, $pdfOverlay], JSON_THROW_ON_ERROR));
+        $key = hash('sha256', 'template-v11-preserve-runs|'.hash_file('sha256', $source).'|'.json_encode([$values, $qrValue, $markers, $pdfOverlay], JSON_THROW_ON_ERROR));
         $directory = Storage::disk('local')->path('temp_processed');
         if (! is_dir($directory) && ! File::makeDirectory($directory, 0755, true, true) && ! is_dir($directory)) {
             throw new \RuntimeException('Direktori salinan dokumen tidak dapat dibuat.');
@@ -81,6 +81,7 @@ class DocxTemplateProcessor
                 $xpath->registerNamespace('w', $namespace);
                 $relationshipsPath = dirname($part).'/_rels/'.basename($part).'.rels';
                 $relationships = null;
+                $partChanged = false;
                 foreach ($xpath->query('//w:p') as $paragraph) {
                     // Do not merge text across tabs, breaks, fields or nested text boxes.
                     $groups = $this->textGroups($xpath, $paragraph);
@@ -90,6 +91,12 @@ class DocxTemplateProcessor
                         foreach (array_reverse($matches[0], true) as $index => [$token, $offset]) {
                             $name = $matches[1][$index][0];
                             $isQr = in_array($name, ['qr_code', 'barcode_tte'], true);
+                            $isDate = str_starts_with($name, 'tanggal_') || $name === 'waktu_ttd';
+                            $value = $values[$name] ?? $token;
+                            if ($value === $token && ! $markers && ! $isQr && ! ($isDate && ! $signature)) {
+                                continue;
+                            }
+                            $partChanged = true;
                             $annotation = null;
                             $imageRelationship = null;
                             if ($isQr) {
@@ -103,14 +110,13 @@ class DocxTemplateProcessor
                                     $imageRelationship = $this->addImageRelationship($relationships, $imageName);
                                 }
                             }
-                            $isDate = str_starts_with($name, 'tanggal_') || $name === 'waktu_ttd';
                             if (! $signature && $isDate) {
                                 $relationships ??= $this->xml($zip->getFromName($relationshipsPath) ?: '<Relationships xmlns="'.self::REL_NS.'"/>');
                                 $annotation = $this->addLinkRelationship($relationships, 'https://simpel-preview.invalid/variable/'.rawurlencode($name), 'Date');
                             }
                             // Keep the QR text's original metrics. A PDF overlay replaces its
                             // visible area after Office pagination, without inserting a Word shape.
-                            $this->replaceToken($nodes, $offset, strlen($token), $values[$name] ?? $token, $markers && ! $isQr, $annotation, $isQr && $pdfOverlay, $imageRelationship);
+                            $this->replaceToken($nodes, $offset, strlen($token), $value, $markers && ! $isQr, $annotation, $isQr && $pdfOverlay, $imageRelationship);
                         }
                     }
                 }
@@ -119,7 +125,9 @@ class DocxTemplateProcessor
                 if ($relationships !== null) {
                     $zip->addFromString($relationshipsPath, $relationships->saveXML());
                 }
-                $zip->addFromString($part, $dom->saveXML());
+                if ($partChanged) {
+                    $zip->addFromString($part, $dom->saveXML());
+                }
             }
             if ($qrPng !== null) {
                 $zip->addFromString('word/media/'.$imageName, $qrPng);
@@ -193,8 +201,12 @@ class DocxTemplateProcessor
 
     private function textGroups(DOMXPath $xpath, DOMElement $paragraph): array
     {
+        // A token may span several runs, but every candidate contains a literal dollar sign.
+        if (! str_contains($paragraph->textContent, '$')) {
+            return [];
+        }
         $groups = [[]];
-        foreach ($xpath->query('.//w:t | .//w:tab | .//w:br | .//w:fldChar | .//w:instrText', $paragraph) as $node) {
+        foreach ($xpath->query('.//w:t | .//w:tab | .//w:br | .//w:cr | .//w:fldChar | .//w:instrText', $paragraph) as $node) {
             if ($xpath->query('ancestor::w:p[1]', $node)->item(0) !== $paragraph || $xpath->query('ancestor::w:del', $node)->length) {
                 continue;
             }

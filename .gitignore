@@ -21,7 +21,15 @@ keyOpenBao.md
 /storage/pail
 /vendor
 /.venv-pdf
+/storage/pdf-runtime-windows/
 /contoh_dokumen/
+# Local document fidelity audit reports and private comparison evidence.
+/docs/incidents/2026-11-17-document-fidelity-audit.md
+/docs/incidents/document-fidelity-2026-11-17/
+# Local Word documents used for upload analysis and their Office lock files.
+/docs/*.[dD][oO][cC]
+/docs/*.[dD][oO][cC][xX]
+~$*
 __pycache__/
 Homestead.json
 Homestead.yaml

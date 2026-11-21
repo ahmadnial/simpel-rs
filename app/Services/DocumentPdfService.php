@@ -109,15 +109,12 @@ class DocumentPdfService
             throw new DocumentConversionException('Konfigurasi layanan konversi belum benar. Hubungi administrator.');
         }
 
-        $binary = $this->libreOfficeBinary();
         $directory = dirname($destination).'/work_'.bin2hex(random_bytes(8));
         File::ensureDirectoryExists($directory);
         try {
-            $process = new Process([
-                $binary, '-env:UserInstallation=file://'.$directory.'/profile',
+            $process = $this->officeProcess($directory.'/profile', [
                 '--headless', '--convert-to', 'pdf:writer_pdf_Export', '--outdir', $directory, $source,
             ]);
-            $process->setTimeout((int) config('documents.conversion_timeout'));
             $process->run();
             $output = $directory.'/'.pathinfo($source, PATHINFO_FILENAME).'.pdf';
             if (! $process->isSuccessful() || ! is_file($output)) {
@@ -130,10 +127,37 @@ class DocumentPdfService
         }
     }
 
+    public function officeProcess(string $profile, array $arguments): Process
+    {
+        $process = new Process([$this->libreOfficeBinary(), self::profileArgument($profile), ...$arguments]);
+        if (PHP_OS_FAMILY === 'Windows') {
+            $process->setEnv(['SAL_DISABLESKIA' => '1', 'MAX_CONCURRENCY' => '1']);
+        }
+        $process->setTimeout((int) config('documents.conversion_timeout'));
+
+        return $process;
+    }
+
+    public static function profileArgument(string $path): string
+    {
+        $path = str_replace('\\', '/', $path);
+        $segments = array_map('rawurlencode', explode('/', $path));
+        if (preg_match('/^[A-Za-z]:\//', $path)) {
+            $segments[0] = '/'.substr($path, 0, 2);
+        } elseif (str_starts_with($path, '//')) {
+            $segments = array_slice($segments, 2);
+        }
+
+        return '-env:UserInstallation=file://'.implode('/', $segments);
+    }
+
     public function libreOfficeBinary(): string
     {
         $configured = config('documents.libreoffice_path');
         $candidates = $configured ? [$configured] : ['/Applications/LibreOffice.app/Contents/MacOS/soffice', '/usr/bin/soffice', '/usr/bin/libreoffice'];
+        if (! $configured && PHP_OS_FAMILY === 'Windows') {
+            $candidates = [getenv('ProgramFiles').'/LibreOffice/program/soffice.com'];
+        }
         foreach ($candidates as $candidate) {
             if (is_file($candidate) && is_executable($candidate)) {
                 return $candidate;

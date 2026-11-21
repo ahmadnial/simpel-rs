@@ -51,6 +51,15 @@ class DocxTemplateProcessorTest extends TestCase
         $this->assertSame($originalHash, hash_file('sha256', $file->getRealPath()));
     }
 
+    public function test_clean_preview_preserves_original_runs_and_never_joins_text_across_a_carriage_return(): void
+    {
+        $file = $this->wordUpload('<w:p><w:r><w:t>${un</w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>known}</w:t></w:r><w:r><w:t>${ju</w:t><w:cr/><w:t>dul}</w:t></w:r></w:p>');
+        $source = $file->getRealPath();
+        $path = app(DocxTemplateProcessor::class)->process($source, $this->document(), false);
+        $this->assertSame($this->part($source, 'word/document.xml'), $this->part($path, 'word/document.xml'));
+        $this->assertNotContains('judul', app(DocxTemplateProcessor::class)->inspect($source)['unknown']);
+    }
+
     public function test_manual_date_is_not_marked_and_markers_never_enter_signed_document(): void
     {
         $file = $this->wordUpload('<w:p><w:r><w:t>15 Oktober 2026 </w:t></w:r><w:r><w:t>${tanggal_ttd}</w:t></w:r></w:p>');

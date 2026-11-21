@@ -48,3 +48,34 @@ Minimal triwulanan: pulihkan backup database ke jaringan terisolasi, restore sal
 ## Credential exposure
 
 Password literal yang sebelumnya berada pada production-style seeder harus dianggap terpapar. Operator wajib merotasi seluruh akun yang pernah menggunakan password tersebut, mencabut sesi, dan meninjau log akses. Kode sekarang membuat bootstrap password acak yang tidak ditampilkan; aktivasi memakai reset password. Agen tidak dapat melakukan rotasi akun/mailbox eksternal.
+
+## Token signer ditolak HTTP 403
+
+Pemeriksaan 19 November 2026 menemukan token aplikasi tidak valid (`bad token`),
+meskipun OpenBao sudah unsealed. Jangan menganggap semua pesan preflight 503
+berarti OpenBao masih sealed. Cocokkan status dependency dan hasil akses key
+menggunakan credential aplikasi. Jangan mencetak token atau body respons renewal.
+
+Produksi sekarang menggunakan token orphan periodik 168 jam dengan policy
+`simpel-rs-signer` dan `simpel-rs-signer-renewal`, tanpa policy `root` atau
+`default`. Policy tambahan hanya mengizinkan lookup dan renewal token sendiri;
+lihat `deploy/tte-stack/openbao-signer-renewal-policy.hcl`.
+
+Cron akun deployment menjalankan renewal pada menit 17 setiap jam memakai
+`/opt/simpel-tte/renew-openbao-token.php`, dikunci dengan `flock`. Skrip membaca
+credential aplikasi dari config cache; tidak membaca token administratif atau
+unseal shares. Hasil tanpa secret dikirim ke syslog dengan tag
+`simpel-openbao-renewal`. Pantau kegagalan renewal; token akan tidak valid bila
+renewal tidak berhasil selama 168 jam. Renewal tidak melakukan unseal.
+
+Pemeriksaan manual sebagai akun deployment:
+
+```sh
+php /opt/simpel-tte/renew-openbao-token.php /var/www/apps/simpel-rs/bootstrap/cache/config.php --check
+journalctl -t simpel-openbao-renewal --since '24 hours ago'
+```
+
+Perintah tanpa `--check` memperpanjang token. Setelah deploy, pastikan config
+cache tetap membawa credential terbaru dan cron tetap terpasang satu kali.
+Penggantian token yang sudah tidak valid memerlukan operator administratif;
+jangan memberi hak root kepada aplikasi atau menyimpan admin token di cron.

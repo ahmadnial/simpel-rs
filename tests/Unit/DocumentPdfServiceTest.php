@@ -47,6 +47,13 @@ class DocumentPdfServiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_office_profile_uri_preserves_drive_letters_and_escapes_path_segments(): void
+    {
+        $this->assertSame('-env:UserInstallation=file:///D:/My%20Files/test%23/profile', DocumentPdfService::profileArgument('D:\\My Files\\test#\\profile'));
+        $this->assertSame('-env:UserInstallation=file:///tmp/My%20Files/profile', DocumentPdfService::profileArgument('/tmp/My Files/profile'));
+        $this->assertSame('-env:UserInstallation=file://server/share/test%20profile', DocumentPdfService::profileArgument('//server/share/test profile'));
+    }
+
     public function test_same_input_is_converted_once_and_renderer_revision_invalidates_cache(): void
     {
         Http::fake(['*' => Http::response('%PDF-1.4 test PDF', 200)]);
